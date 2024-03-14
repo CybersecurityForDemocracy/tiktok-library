@@ -1,0 +1,45 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+
+[project]
+name = "tiktok_api_helper"
+version = "0.0.1"
+authors = [
+  { name="Bruno Coelho", email="bruno.coelho@nyu.edu" },
+]
+
+dependencies = [
+  # https://urllib3.readthedocs.io/en/1.26.x/user-guide.html#ssl
+  "certifi",  
+  "pandas",
+  "numpy",
+  "attrs",
+  "sqlalchemy>=2.0.0",
+  "rich",
+  "tqdm",
+  "typer[all]",
+]
+
+
+description = "A small package to interface with the TikTok API"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent"
+]
+
+[project.urls]
+Homepage = "https://github.com/CybersecurityForDemocracy/tiktok-library"
+Issues = "https://github.com/CybersecurityForDemocracy/tiktok-library/issues"
+
+[project.scripts]
+tiktok-lib = "tiktok_api_helper.cli_data_acquisition:APP"
+
+#TODO: Add Sphinx documentation auto-generation
+# Libs: sphinx, sphinx-autoapi
+
+

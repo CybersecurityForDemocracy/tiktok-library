@@ -1,0 +1,21 @@
+# This file contains the query to be executed by the cli_data_acquisition
+# The code is written in YAML format but parsed as pure Python
+# DO NOT include untrusted code in this file
+# The query variable should be "query" and a valid Query object
+
+# The following names are available:
+# Query, Condition (or "Cond"), Fields (or "F"), Operations (or "Op"), VideoLength
+
+query: |
+    def return_query():
+        # edit here, returning a Query object
+
+        return Query(
+            and_=[
+                Cond(Fields.keyword, ["cat"], Op.IN),
+                Cond(Fields.region_code, "US", Op.EQ),
+            ],
+            not_=[
+                Cond(Fields.hashtag_name, ["garfield"], Op.IN),
+            ]
+        )
