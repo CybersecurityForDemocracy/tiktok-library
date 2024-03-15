@@ -11,6 +11,8 @@ authors = [
 ]
 
 dependencies = [
+  "pyyaml",
+  "requests",
   # https://urllib3.readthedocs.io/en/1.26.x/user-guide.html#ssl
   "certifi",  
   "pandas",
