@@ -45,6 +45,7 @@ pip install .
     - Data is backed up to DB after every TikTokRequest, by default containing up to 100 instances.
 
 ## Roadmpap
+- Fix warning when retrying - Only show if the retry is unsuccessful
 - Add code docs
 - Add query parsing directly from CLI?
 - Allow for continuing a query directly from the last run.
