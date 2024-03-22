@@ -230,7 +230,7 @@ class TiktokRequest:
     def post(self, session: rq.Session) -> rq.Response:
         while True:
             try:
-                return self.post(session)
+                return self._post(session)
             except ApiRateLimitError as e:
                 sleep_until_next_utc_midnight()
 
