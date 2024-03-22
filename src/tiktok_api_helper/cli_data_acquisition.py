@@ -11,11 +11,13 @@ import yaml
 from sqlalchemy import Engine
 from tqdm.auto import tqdm
 from typing_extensions import Annotated
+import pause
+import pendulum
 
 from . import access, utils
 from .custom_types import DBFileType, TikTokDateFormat
 from .sql import Crawl, Video, get_engine_and_create_tables
-from .Video import AcquitionConfig, Cond, Fields, Op, Query, TiktokRequest
+from .Video import AcquitionConfig, Cond, Fields, Op, Query, TiktokRequest, ApiRateLimitError
 
 APP = typer.Typer(rich_markup_mode="markdown")
 
@@ -33,6 +35,13 @@ def insert_videos_from_response(
     except Exception as e:
         logging.log(logging.ERROR, f"Error with upsert! Videos: {videos}\n Error: {e}")
         logging.log(logging.ERROR, f"Skipping Upsert")
+
+
+def sleep_until_next_utc_midnight() -> None:
+    next_utc_midnight = pendulum.tomorrow('UTC')
+    logging.warning('Response indicates rate limit exceeded. Sleeping until %s',
+                    next_utc_midnight)
+    pause.until(next_utc_midnight)
 
 
 def run_long_query(session: rq.Session, config: AcquitionConfig):
@@ -61,12 +70,17 @@ def run_long_query(session: rq.Session, config: AcquitionConfig):
     pbar = tqdm(total=_COUNT_PREVIOUS_ITERATION_REPS, disable=disable_tqdm)
 
     while crawl.has_more:
-        res = TiktokRequest.from_config(
-            config=config,
-            max_count=100,
-            cursor=crawl.cursor,
-            search_id=crawl.search_id,
-        ).post(session)
+        while True:
+            try:
+                res = TiktokRequest.from_config(
+                    config=config,
+                    max_count=100,
+                    cursor=crawl.cursor,
+                    search_id=crawl.search_id,
+                ).post(session)
+                break
+            except ApiRateLimitError as e:
+                sleep_until_next_utc_midnight()
 
         req_data, videos = TiktokRequest.parse_response(res)
         crawl.update_crawl(next_res_data=req_data, videos=videos, engine=config.engine)

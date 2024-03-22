@@ -22,6 +22,9 @@ dependencies = [
   "rich",
   "tqdm",
   "typer[all]",
+  "tenacity",
+  "pendulum",
+  "pause",
 ]
 
 

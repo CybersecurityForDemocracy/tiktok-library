@@ -38,9 +38,13 @@ def get_client_access_token(
         "https://open.tiktokapis.com/v2/oauth/token/", headers=headers, data=data
     )
     if not response.ok:
-        logging.error("Problem with access token response", response)
+        logging.error("Problem with access token response: %s", response)
 
-    access_data = response.json()
+    try:
+        access_data = response.json()
+    except rq.exceptions.JSONDecodeError as e:
+        logging.info('Access token raw response: %s\n%s\n%s', response.status_code, response.headers, response.text)
+        raise e
     logging.info(f"Access token response: {access_data}")
 
     token = access_data["access_token"]

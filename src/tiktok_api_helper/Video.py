@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Callable, Optional, Sequence, Union
 
 import attrs
 import requests as rq
 from sqlalchemy import Engine
+import tenacity
 
 # fmt: off
 SUPPORTED_OPERATIONS = ["EQ", "IN", "GT", "GTE", "LT", "LTE"]
@@ -17,6 +18,9 @@ SUPPORTED_VIDEO_LENGTHS = ["SHORT", "MID", "LONG", "EXTRA_LONG"]
 
 ALL_VIDEO_DATA_URL = "https://open.tiktokapis.com/v2/research/video/query/?fields=id,video_description,create_time,region_code,share_count,view_count,like_count,comment_count,music_id,hashtag_names,username,effect_ids,voice_to_text,playlist_id"
 
+
+class ApiRateLimitError(Exception):
+    pass
 
 @attrs.define
 class Operations:
@@ -214,31 +218,27 @@ class TiktokRequest:
     cursor: Optional[int] = None
     search_id: Optional[str] = None
 
-    def post(self, session: rq.Session, max_retries: int = 3) -> rq.Response:
+    @tenacity.retry(
+            stop=tenacity.stop_after_attempt(10),
+            wait=tenacity.wait_exponential(multiplier=1, min=3, max=timedelta(minutes=5).seconds),
+            retry=tenacity.retry_if_exception_type(rq.RequestException),
+            reraise=True)
+    def post(self, session: rq.Session) -> rq.Response:
         data = str(self)
         logging.log(logging.INFO, f"Sending request with data: {data}")
 
-        retries = 0
         req = session.post(url=ALL_VIDEO_DATA_URL, data=data, verify=True)
+        if req.status_code == 200:
+            return req
 
-        while req.status_code != 200 and retries < max_retries:
-            logging.log(
-                logging.WARNING,
-                f"Request failed with status code {req.status_code} and text {req.text}",
-            )
-            logging.log(
-                logging.INFO, f"Retrying request {retries} out of {max_retries}"
-            )
-            req = session.post(url=ALL_VIDEO_DATA_URL, data=data, verify=True)
-            retries += 1
+        if req.status_code == 429:
+            raise ApiRateLimitError(req.text)
 
-            if retries >= max_retries:
-                logging.log(
-                    logging.ERROR,
-                    f"Request failed after all retries -  status code {req.status_code} - text {req.text} - data {data}",
-                )
-
-        return req
+        logging.log(
+            logging.ERROR,
+            f"Request failed, status code {req.status_code} - text {req.text} - data {data}",
+        )
+        req.raise_for_status()
 
     @staticmethod
     def from_config(config: AcquitionConfig, **kwargs) -> TiktokRequest:
@@ -251,7 +251,12 @@ class TiktokRequest:
 
     @staticmethod
     def parse_response(response: rq.Response) -> tuple[dict, list]:
-        req_data = response.json().get("data", {})
+        try:
+            req_data = response.json().get("data", {})
+        except rq.exceptions.JSONDecodeError as e:
+            logging.info('Error parsing JSON response:\n%s\n%s', response.headers, response.text)
+            raise e
+
         videos = req_data.get("videos", [])
 
         return req_data, videos
