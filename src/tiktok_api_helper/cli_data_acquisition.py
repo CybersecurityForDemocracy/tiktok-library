@@ -15,7 +15,7 @@ from typing_extensions import Annotated
 from . import access, utils
 from .custom_types import DBFileType, TikTokDateFormat
 from .sql import Crawl, Video, get_engine_and_create_tables
-from .Video import AcquitionConfig, Cond, Fields, Op, Query, TiktokRequest, ApiRateLimitError
+from .Video import AcquitionConfig, Cond, Fields, Op, Query, TiktokRequest
 
 APP = typer.Typer(rich_markup_mode="markdown")
 

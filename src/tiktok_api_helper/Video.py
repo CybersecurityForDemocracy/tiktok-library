@@ -204,8 +204,8 @@ class Query:
 
 def sleep_until_next_utc_midnight() -> None:
     next_utc_midnight = pendulum.tomorrow('UTC')
-    logging.warning('Response indicates rate limit exceeded. Sleeping until %s',
-                    next_utc_midnight)
+    logging.warning('Response indicates rate limit exceeded. Sleeping until %s. approx %s seconds',
+                    next_utc_midnight, pendulum.now() - next_utc_midnight)
     pause.until(next_utc_midnight)
 
 
@@ -236,7 +236,7 @@ class TiktokRequest:
 
     @tenacity.retry(
             stop=tenacity.stop_after_attempt(10),
-            wait=tenacity.wait_exponential(multiplier=1, min=3, max=timedelta(minutes=5).seconds),
+            wait=tenacity.wait_exponential(multiplier=1, min=3, max=timedelta(minutes=5).total_seconds()),
             retry=tenacity.retry_if_exception_type(rq.RequestException),
             reraise=True)
     def _post(self, session: rq.Session) -> rq.Response:
