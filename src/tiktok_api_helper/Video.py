@@ -8,6 +8,8 @@ import attrs
 import requests as rq
 from sqlalchemy import Engine
 import tenacity
+import pause
+import pendulum
 
 # fmt: off
 SUPPORTED_OPERATIONS = ["EQ", "IN", "GT", "GTE", "LT", "LTE"]
@@ -200,6 +202,12 @@ class Query:
     def __str__(self) -> str:
         return self.format_data()
 
+def sleep_until_next_utc_midnight() -> None:
+    next_utc_midnight = pendulum.tomorrow('UTC')
+    logging.warning('Response indicates rate limit exceeded. Sleeping until %s',
+                    next_utc_midnight)
+    pause.until(next_utc_midnight)
+
 
 @attrs.define
 class TiktokRequest:
@@ -218,12 +226,20 @@ class TiktokRequest:
     cursor: Optional[int] = None
     search_id: Optional[str] = None
 
+
+    def post(self, session: rq.Session) -> rq.Response:
+        while True:
+            try:
+                return self.post(session)
+            except ApiRateLimitError as e:
+                sleep_until_next_utc_midnight()
+
     @tenacity.retry(
             stop=tenacity.stop_after_attempt(10),
             wait=tenacity.wait_exponential(multiplier=1, min=3, max=timedelta(minutes=5).seconds),
             retry=tenacity.retry_if_exception_type(rq.RequestException),
             reraise=True)
-    def post(self, session: rq.Session) -> rq.Response:
+    def _post(self, session: rq.Session) -> rq.Response:
         data = str(self)
         logging.log(logging.INFO, f"Sending request with data: {data}")
 
@@ -232,7 +248,7 @@ class TiktokRequest:
             return req
 
         if req.status_code == 429:
-            raise ApiRateLimitError(req.text)
+            raise ApiRateLimitError(repr(req))
 
         logging.log(
             logging.ERROR,
