@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Optional
 
 import numpy as np
-#  import requests as rq
 import typer
 import yaml
 from sqlalchemy import Engine
