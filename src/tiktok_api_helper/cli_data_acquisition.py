@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Optional
 
 import numpy as np
-import requests as rq
+#  import requests as rq
 import typer
 import yaml
 from sqlalchemy import Engine
@@ -18,6 +18,8 @@ from .custom_types import (
     TikTokStartDateFormat,
     TikTokEndDateFormat,
     RawResponsesOutputDir,
+    QueryFileType,
+    ApiCredentialsFileType,
 )
 from .sql import Crawl, Video, get_engine_and_create_tables
 from .Video import AcquitionConfig, Cond, Fields, Op, Query, TiktokRequest
@@ -26,7 +28,8 @@ APP = typer.Typer(rich_markup_mode="markdown")
 
 _DAYS_PER_ITER = 28
 _COUNT_PREVIOUS_ITERATION_REPS = -1
-
+_DEFAULT_QUERY_FILE_PATH = Path('./query.yaml')
+_DEFAULT_CREDENTIALS_FILE_PATH = Path('./secrets.yaml')
 
 def insert_videos_from_response(
     videos: list,
@@ -40,11 +43,13 @@ def insert_videos_from_response(
         logging.log(logging.ERROR, f"Skipping Upsert")
 
 
-def run_long_query(session: rq.Session, config: AcquitionConfig):
+def run_long_query(config: AcquitionConfig):
     """Runs a "long" query, defined as one that may need multiple requests to get all the data.
 
     Unless you have a good reason to believe otherwise, queries should default to be considered "long".
     """
+    request_client = access.TikTokApiRequestClient(credentials_file=config.api_credentials_file)
+    session = request_client.get_session()
     res = TiktokRequest.from_config(config, max_count=100).post(session)
     req_data, videos = TiktokRequest.parse_response(res)
 
@@ -102,12 +107,10 @@ def driver_single_day(config: AcquitionConfig):
         config.start_date == config.final_date
     ), "Start and final date must be the same for single day driver"
 
-    session = access.get_session()
-    run_long_query(session, config)
+    run_long_query(config)
 
 
 def main_driver(config: AcquitionConfig):
-    session = access.get_session()
     days_per_iter = utils.int_to_days(_DAYS_PER_ITER)
 
     total = np.ceil((config.final_date - config.start_date).days / _DAYS_PER_ITER)
@@ -129,8 +132,9 @@ def main_driver(config: AcquitionConfig):
                 stop_after_one_request=config.stop_after_one_request,
                 source=config.source,
                 raw_responses_output_dir=config.raw_responses_output_dir,
+                api_credentials_file=config.api_credentials_file
             )
-            run_long_query(session, new_config)
+            run_long_query(new_config)
 
             start_date += days_per_iter
 
@@ -144,6 +148,7 @@ def main_driver(config: AcquitionConfig):
 @APP.command()
 def test(
     db_file: DBFileType = Path("./test.db"),
+    api_credentials_file: ApiCredentialsFileType = _DEFAULT_CREDENTIALS_FILE_PATH,
 ) -> None:
     """
     Test's the CLI's ability to connect to the database, create tables, acquire data and store it.
@@ -176,11 +181,20 @@ def test(
         stop_after_one_request=True,
         source=["Testing"],
         raw_responses_output_dir=None,
+        api_credentials_file=api_credentials_file,
     )
     logging.log(logging.INFO, f"Config: {config}")
 
     _COUNT_PREVIOUS_ITERATION_REPS = -1
     driver_single_day(config)
+
+def get_query(query_file: Path):
+    with query_file.open("r") as f:
+        yaml_file = yaml.load(f, Loader=yaml.FullLoader)
+    _temp = {}
+    exec(yaml_file["query"], globals(), _temp)
+    query = _temp["return_query"]()
+    return query
 
 
 @APP.command()
@@ -206,6 +220,8 @@ def run(
         ),
     ] = -1,
     raw_responses_output_dir: RawResponsesOutputDir = None,
+    query_file: QueryFileType = Path("query.yaml"),
+    api_credentials_file: ApiCredentialsFileType = _DEFAULT_CREDENTIALS_FILE_PATH,
 ) -> None:
     """
 
@@ -224,10 +240,12 @@ def run(
     start_date_datetime = datetime.strptime(start_date_str, "%Y%m%d")
     end_date_datetime = datetime.strptime(end_date_str, "%Y%m%d")
 
-    yaml_file = yaml.load(open("query.yaml", "r"), Loader=yaml.FullLoader)
-    _temp = {}
-    exec(yaml_file["query"], globals(), _temp)
-    query = _temp["return_query"]()
+    #  with open("query.yaml", "r") as query_file:
+        #  yaml_file = yaml.load(query_file, Loader=yaml.FullLoader)
+    #  _temp = {}
+    #  exec(yaml_file["query"], globals(), _temp)
+    #  query = _temp["return_query"]()
+    query = get_query(query_file)
 
     logging.log(logging.INFO, f"Query: {query}")
 
@@ -241,6 +259,7 @@ def run(
         stop_after_one_request=stop_after_one_request,
         source=[source],
         raw_responses_output_dir=raw_responses_output_dir,
+        api_credentials_file=api_credentials_file
     )
     logging.log(logging.INFO, f"Config: {config}")
 

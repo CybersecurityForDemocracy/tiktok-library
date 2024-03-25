@@ -1,16 +1,12 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 import requests as rq
 import yaml
 import certifi
-from attr import dataclass
-
-# Global so we can use it in the hook
-session: rq.Session = rq.Session()
-creds = None
-
+from attr import dataclass, define
 
 @dataclass
 class TiktokCredentials:
@@ -19,87 +15,87 @@ class TiktokCredentials:
     client_key: str
 
 
-def get_client_access_token(
-    creds: TiktokCredentials,
-    grant_type: str = "client_credentials",
-) -> str:
+@define
+class TikTokApiRequestClient:
+    session: rq.Session = rq.Session()
+    creds = None
+    credentials_file: Path = Path('./secrets.yaml')
 
-    headers = {
-        "Content-Type": "application/x-www-form-urlencoded",
-        "Cache-Control": "no-cache",
-    }
+    def _get_client_access_token(
+        self,
+        grant_type: str = "client_credentials",
+    ) -> str:
 
-    data = {
-        "client_key": creds.client_key,
-        "client_secret": creds.client_secret,
-        "grant_type": grant_type,
-    }
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Cache-Control": "no-cache",
+        }
 
-    response = rq.post(
-        "https://open.tiktokapis.com/v2/oauth/token/", headers=headers, data=data
-    )
-    if not response.ok:
-        logging.error("Problem with access token response: %s", response)
+        data = {
+            "client_key": self.creds.client_key,
+            "client_secret": self.creds.client_secret,
+            "grant_type": grant_type,
+        }
 
-    try:
-        access_data = response.json()
-    except rq.exceptions.JSONDecodeError as e:
-        logging.info(
-            "Access token raw response: %s\n%s\n%s",
-            response.status_code,
-            response.headers,
-            response.text,
+        response = rq.post(
+            "https://open.tiktokapis.com/v2/oauth/token/", headers=headers, data=data
         )
-        raise e
-    logging.info(f"Access token response: {access_data}")
+        if not response.ok:
+            logging.error("Problem with access token response: %s", response)
 
-    token = access_data["access_token"]
+        try:
+            access_data = response.json()
+        except rq.exceptions.JSONDecodeError as e:
+            logging.info(
+                "Access token raw response: %s\n%s\n%s",
+                response.status_code,
+                response.headers,
+                response.text,
+            )
+            raise e
+        logging.info(f"Access token response: {access_data}")
 
-    return token
+        token = access_data["access_token"]
 
-
-def get_credentials(filename: str = "./secrets.yaml") -> TiktokCredentials:
-    with open(filename, "r") as f:
-        dict_creds = yaml.load(f, Loader=yaml.FullLoader)
-
-    creds = TiktokCredentials(
-        dict_creds["client_id"], dict_creds["client_secret"], dict_creds["client_key"]
-    )
-
-    return creds
-
-
-def refresh_token(r, *args, **kwargs) -> rq.Response | None:
-    # Adapted from https://stackoverflow.com/questions/37094419/python-requests-retry-request-after-re-authentication
-
-    global session, creds
-    assert creds is not None, "Credentials have not yet been set"
-
-    if r.status_code == 401:
-        logging.info("Fetching new token as the previous token expired")
-
-        token = get_client_access_token(creds)
-        session.headers.update({"Authorization": f"Bearer {token}"})
-
-        r.request.headers["Authorization"] = session.headers["Authorization"]
-
-        return session.send(r.request)
+        return token
 
 
-def get_session():
-    global session, creds
+    def _set_credentials(self) -> TiktokCredentials:
+        with self.credentials_file.open("r") as f:
+            dict_creds = yaml.load(f, Loader=yaml.FullLoader)
 
-    creds = get_credentials()
+        self.creds = TiktokCredentials(
+            dict_creds["client_id"], dict_creds["client_secret"], dict_creds["client_key"]
+        )
 
-    headers = {
-        # We add the header here so the first run won't give us a InsecureRequestWarning
-        # The token may time out which is why we manually add a hook to it
-        "Authorization": f"Bearer {get_client_access_token(creds)}",
-        "Content-Type": "text/plain",
-    }
+    def _refresh_token(self, r, *args, **kwargs) -> rq.Response | None:
+        # Adapted from https://stackoverflow.com/questions/37094419/python-requests-retry-request-after-re-authentication
 
-    session.headers.update(headers)
-    session.hooks["response"].append(refresh_token)
-    session.verify = certifi.where()
+        assert self.creds is not None, "Credentials have not yet been set"
 
-    return session
+        if r.status_code == 401:
+            logging.info("Fetching new token as the previous token expired")
+
+            token = self._get_client_access_token()
+            self.session.headers.update({"Authorization": f"Bearer {token}"})
+
+            r.request.headers["Authorization"] = self.session.headers["Authorization"]
+
+            return self.session.send(r.request)
+
+
+    def get_session(self):
+        self._set_credentials()
+
+        headers = {
+            # We add the header here so the first run won't give us a InsecureRequestWarning
+            # The token may time out which is why we manually add a hook to it
+            "Authorization": f"Bearer {self._get_client_access_token()}",
+            "Content-Type": "text/plain",
+        }
+
+        self.session.headers.update(headers)
+        self.session.hooks["response"].append(self._refresh_token)
+        self.session.verify = certifi.where()
+
+        return self.session
