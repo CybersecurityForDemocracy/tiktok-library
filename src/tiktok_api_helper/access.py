@@ -6,7 +6,7 @@ from pathlib import Path
 import requests as rq
 import yaml
 import certifi
-from attr import dataclass, define
+from attr import dataclass
 
 @dataclass
 class TiktokCredentials:
@@ -15,11 +15,11 @@ class TiktokCredentials:
     client_key: str
 
 
-@define
 class TikTokApiRequestClient:
-    session: rq.Session = rq.Session()
-    creds = None
-    credentials_file: Path = Path('./secrets.yaml')
+
+    def __init__(self, credentials_file: Path):
+        self._session: rq.Session = rq.Session()
+        self._set_credentials(credentials_file)
 
     def _get_client_access_token(
         self,
@@ -32,8 +32,8 @@ class TikTokApiRequestClient:
         }
 
         data = {
-            "client_key": self.creds.client_key,
-            "client_secret": self.creds.client_secret,
+            "client_key": self._creds.client_key,
+            "client_secret": self._creds.client_secret,
             "grant_type": grant_type,
         }
 
@@ -60,33 +60,31 @@ class TikTokApiRequestClient:
         return token
 
 
-    def _set_credentials(self) -> TiktokCredentials:
-        with self.credentials_file.open("r") as f:
+    def _set_credentials(self, credentials_file: Path) -> TiktokCredentials:
+        with credentials_file.open("r") as f:
             dict_creds = yaml.load(f, Loader=yaml.FullLoader)
 
-        self.creds = TiktokCredentials(
+        self._creds = TiktokCredentials(
             dict_creds["client_id"], dict_creds["client_secret"], dict_creds["client_key"]
         )
 
     def _refresh_token(self, r, *args, **kwargs) -> rq.Response | None:
         # Adapted from https://stackoverflow.com/questions/37094419/python-requests-retry-request-after-re-authentication
 
-        assert self.creds is not None, "Credentials have not yet been set"
+        assert self._creds is not None, "Credentials have not yet been set"
 
         if r.status_code == 401:
             logging.info("Fetching new token as the previous token expired")
 
             token = self._get_client_access_token()
-            self.session.headers.update({"Authorization": f"Bearer {token}"})
+            self._session.headers.update({"Authorization": f"Bearer {token}"})
 
-            r.request.headers["Authorization"] = self.session.headers["Authorization"]
+            r.request.headers["Authorization"] = self._session.headers["Authorization"]
 
-            return self.session.send(r.request)
+            return self._session.send(r.request)
 
 
     def get_session(self):
-        self._set_credentials()
-
         headers = {
             # We add the header here so the first run won't give us a InsecureRequestWarning
             # The token may time out which is why we manually add a hook to it
@@ -94,8 +92,8 @@ class TikTokApiRequestClient:
             "Content-Type": "text/plain",
         }
 
-        self.session.headers.update(headers)
-        self.session.hooks["response"].append(self._refresh_token)
-        self.session.verify = certifi.where()
+        self._session.headers.update(headers)
+        self._session.hooks["response"].append(self._refresh_token)
+        self._session.verify = certifi.where()
 
-        return self.session
+        return self._session
