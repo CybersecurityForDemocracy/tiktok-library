@@ -13,7 +13,7 @@ from tqdm.auto import tqdm
 from typing_extensions import Annotated
 
 from . import access, utils
-from .custom_types import DBFileType, TikTokDateFormat
+from .custom_types import DBFileType, TikTokStartDateFormat, TikTokEndDateFormat, RawResponsesOutputDir
 from .sql import Crawl, Video, get_engine_and_create_tables
 from .Video import AcquitionConfig, Cond, Fields, Op, Query, TiktokRequest
 
@@ -68,6 +68,8 @@ def run_long_query(session: rq.Session, config: AcquitionConfig):
             search_id=crawl.search_id,
         ).post(session)
 
+
+
         req_data, videos = TiktokRequest.parse_response(res)
         crawl.update_crawl(next_res_data=req_data, videos=videos, engine=config.engine)
         insert_videos_from_response(videos, source=config.source, engine=config.engine)
@@ -84,6 +86,8 @@ def run_long_query(session: rq.Session, config: AcquitionConfig):
         if config.stop_after_one_request:
             logging.log(logging.WARN, "Stopping after one request")
             break
+
+    logging.info('Crawl completed.')
 
     pbar.close()
     _COUNT_PREVIOUS_ITERATION_REPS = count
@@ -121,6 +125,7 @@ def main_driver(config: AcquitionConfig):
                 engine=config.engine,
                 stop_after_one_request=config.stop_after_one_request,
                 source=config.source,
+                raw_responses_output_dir=config.raw_responses_output_dir,
             )
             run_long_query(session, new_config)
 
@@ -167,6 +172,7 @@ def test(
         engine=engine,
         stop_after_one_request=True,
         source=["Testing"],
+        raw_responses_output_dir=None,
     )
     logging.log(logging.INFO, f"Config: {config}")
 
@@ -178,8 +184,8 @@ def test(
 def run(
     # Note to self: Importing "from __future__ import annotations"
     # breaks the documentation of CLI Arguments for some reason
-    start_date_str: TikTokDateFormat,
-    end_date_str: TikTokDateFormat,
+    start_date_str: TikTokStartDateFormat,
+    end_date_str: TikTokEndDateFormat,
     db_file: DBFileType,
     stop_after_one_request: Annotated[
         bool, typer.Option(help="Stop after the first request - Useful for testing")
@@ -196,6 +202,8 @@ def run(
             help="Used for estimating # acquisitions on long running queries for progress bar"
         ),
     ] = -1,
+    raw_responses_output_dir: RawResponsesOutputDir = None,
+
 ) -> None:
     """
 
@@ -230,6 +238,7 @@ def run(
         engine=engine,
         stop_after_one_request=stop_after_one_request,
         source=[source],
+        raw_responses_output_dir=raw_responses_output_dir,
     )
     logging.log(logging.INFO, f"Config: {config}")
 

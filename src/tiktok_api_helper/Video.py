@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timedelta
 from typing import Callable, Optional, Sequence, Union
+from pathlib import Path
 
 import attrs
 import requests as rq
@@ -45,6 +46,7 @@ class AcquitionConfig:
     engine: Engine
     stop_after_one_request: bool = False
     source: Optional[list[str]] = None
+    raw_responses_output_dir: Optional[Path] = None
 
 
 def build_check_type(type) -> Callable[..., None]:
@@ -204,8 +206,10 @@ class Query:
 
 def sleep_until_next_utc_midnight() -> None:
     next_utc_midnight = pendulum.tomorrow('UTC')
-    logging.warning('Response indicates rate limit exceeded. Sleeping until %s. approx %s seconds',
-                    next_utc_midnight, pendulum.now() - next_utc_midnight)
+    logging.warning(
+        'Sleeping until next UTC midnight: %s (local time %s). Will resume in approx %s',
+        next_utc_midnight, next_utc_midnight.in_tz('local'),
+        next_utc_midnight.diff_for_humans(pendulum.now('local'), absolute=True))
     pause.until(next_utc_midnight)
 
 
@@ -225,6 +229,7 @@ class TiktokRequest:
 
     cursor: Optional[int] = None
     search_id: Optional[str] = None
+    raw_responses_output_dir: Optional[Path] = None
 
 
     def post(self, session: rq.Session) -> rq.Response:
@@ -232,6 +237,7 @@ class TiktokRequest:
             try:
                 return self._post(session)
             except ApiRateLimitError as e:
+                logging.warning('Response indicates rate limit exceeded: %r', e)
                 sleep_until_next_utc_midnight()
 
     @tenacity.retry(
@@ -244,6 +250,10 @@ class TiktokRequest:
         logging.log(logging.INFO, f"Sending request with data: {data}")
 
         req = session.post(url=ALL_VIDEO_DATA_URL, data=data, verify=True)
+
+        if self.raw_responses_output_dir is not None:
+            self._store_response(req)
+
         if req.status_code == 200:
             return req
 
@@ -256,21 +266,33 @@ class TiktokRequest:
         )
         req.raise_for_status()
 
+    def _store_response(self, response: rq.Request) -> None:
+        output_filename = self.raw_responses_output_dir / Path(str(pendulum.now('local').timestamp())).with_suffix('.json')
+        output_filename = output_filename.absolute()
+        logging.info('Writing raw reponse to %s', output_filename)
+        with output_filename.open('x') as f:
+            f.write(response.text)
+
+
     @staticmethod
     def from_config(config: AcquitionConfig, **kwargs) -> TiktokRequest:
         return TiktokRequest(
-            config.query,
-            config.start_date.strftime("%Y%m%d"),
-            config.final_date.strftime("%Y%m%d"),
+            query=config.query,
+            start_date=config.start_date.strftime("%Y%m%d"),
+            end_date=config.final_date.strftime("%Y%m%d"),
+            raw_responses_output_dir=config.raw_responses_output_dir,
             **kwargs,
         )
 
     @staticmethod
     def parse_response(response: rq.Response) -> tuple[dict, list]:
+        # TODO(macpd): re-request data if JSON decoding fails.
         try:
             req_data = response.json().get("data", {})
         except rq.exceptions.JSONDecodeError as e:
-            logging.info('Error parsing JSON response:\n%s\n%s', response.headers, response.text)
+            logging.info('Error parsing JSON response:\n%s\n%s\n%s', response.status_code,
+                         '\n'.join([f'{k}: {v}' for k, v in response.headers.items()]),
+                         response.text)
             raise e
 
         videos = req_data.get("videos", [])
