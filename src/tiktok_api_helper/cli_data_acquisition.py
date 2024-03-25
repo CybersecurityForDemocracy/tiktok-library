@@ -21,7 +21,7 @@ from .custom_types import (
     ApiCredentialsFileType,
 )
 from .sql import Crawl, Video, get_engine_and_create_tables
-from .Video import AcquitionConfig, Cond, Fields, Op, Query, TiktokRequest
+from .Video import AcquitionConfig, Cond, Fields, Op, Query, TiktokRequest, TikTokApiRequestClient
 
 APP = typer.Typer(rich_markup_mode="markdown")
 
@@ -48,23 +48,24 @@ def run_long_query(config: AcquitionConfig):
 
     Unless you have a good reason to believe otherwise, queries should default to be considered "long".
     """
-    request_client = access.TikTokApiRequestClient(
-        credentials_file=config.api_credentials_file
-    )
-    session = request_client.get_session()
-    res = TiktokRequest.from_config(config, max_count=100).post(session)
-    req_data, videos = TiktokRequest.parse_response(res)
+    request = TiktokRequest.from_config(config, max_count=100)
+    logging.warning('request.request_dict: %s', request.request_dict())
+    logging.warning('request.request_json: %s', request.request_json())
+    logging.warning('str(request): %s', str(request))
+    request_client = TikTokApiRequestClient(credentials_file=config.api_credentials_file,
+                                            raw_responses_output_dir=config.raw_responses_output_dir)
+    res = request_client.fetch(request)
 
-    if not videos:
+    if not res.videos:
         logging.log(
             logging.INFO, f"No videos in response - {res}. Query: {config.query}"
         )
         return
 
-    crawl = Crawl.from_request(req_data, config.query, source=config.source)
+    crawl = Crawl.from_request(res.request_data, config.query, source=config.source)
     crawl.upload_self_to_db(config.engine)
 
-    insert_videos_from_response(videos, engine=config.engine, source=config.source)
+    insert_videos_from_response(res.videos, engine=config.engine, source=config.source)
 
     # manual tqdm maintance
     count = 1
@@ -73,26 +74,26 @@ def run_long_query(config: AcquitionConfig):
     pbar = tqdm(total=_COUNT_PREVIOUS_ITERATION_REPS, disable=disable_tqdm)
 
     while crawl.has_more:
-        res = TiktokRequest.from_config(
+        request = TiktokRequest.from_config(
             config=config,
             max_count=100,
             cursor=crawl.cursor,
             search_id=crawl.search_id,
-        ).post(session)
+        )
+        res = request_client.fetch(request)
 
-        req_data, videos = TiktokRequest.parse_response(res)
-        crawl.update_crawl(next_res_data=req_data, videos=videos, engine=config.engine)
-        insert_videos_from_response(videos, source=config.source, engine=config.engine)
+
+        crawl.update_crawl(next_res_data=res.request_data, videos=res.videos, engine=config.engine)
+        insert_videos_from_response(res.videos, source=config.source, engine=config.engine)
 
         pbar.update(1)
         count += 1
 
-        if not videos and crawl.has_more:
+        if not res.videos and crawl.has_more:
             logging.log(
                 logging.ERROR,
-                f"No videos in response but there's still data to Crawl - Query: {config.query} \n req_data: {req_data}",
+                f"No videos in response but there's still data to Crawl - Query: {config.query} \n res.request_data: {res.request_data}",
             )
-
         if config.stop_after_one_request:
             logging.log(logging.WARN, "Stopping after one request")
             break
