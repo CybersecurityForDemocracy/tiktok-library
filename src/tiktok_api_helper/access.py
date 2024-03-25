@@ -8,6 +8,7 @@ import yaml
 import certifi
 from attr import dataclass
 
+
 @dataclass
 class TiktokCredentials:
     client_id: str
@@ -59,13 +60,14 @@ class TikTokApiRequestClient:
 
         return token
 
-
     def _set_credentials(self, credentials_file: Path) -> TiktokCredentials:
         with credentials_file.open("r") as f:
             dict_creds = yaml.load(f, Loader=yaml.FullLoader)
 
         self._creds = TiktokCredentials(
-            dict_creds["client_id"], dict_creds["client_secret"], dict_creds["client_key"]
+            dict_creds["client_id"],
+            dict_creds["client_secret"],
+            dict_creds["client_key"],
         )
 
     def _refresh_token(self, r, *args, **kwargs) -> rq.Response | None:
@@ -82,7 +84,6 @@ class TikTokApiRequestClient:
             r.request.headers["Authorization"] = self._session.headers["Authorization"]
 
             return self._session.send(r.request)
-
 
     def get_session(self):
         headers = {

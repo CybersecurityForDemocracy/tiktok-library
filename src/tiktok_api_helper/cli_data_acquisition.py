@@ -27,8 +27,9 @@ APP = typer.Typer(rich_markup_mode="markdown")
 
 _DAYS_PER_ITER = 28
 _COUNT_PREVIOUS_ITERATION_REPS = -1
-_DEFAULT_QUERY_FILE_PATH = Path('./query.yaml')
-_DEFAULT_CREDENTIALS_FILE_PATH = Path('./secrets.yaml')
+_DEFAULT_QUERY_FILE_PATH = Path("./query.yaml")
+_DEFAULT_CREDENTIALS_FILE_PATH = Path("./secrets.yaml")
+
 
 def insert_videos_from_response(
     videos: list,
@@ -47,7 +48,9 @@ def run_long_query(config: AcquitionConfig):
 
     Unless you have a good reason to believe otherwise, queries should default to be considered "long".
     """
-    request_client = access.TikTokApiRequestClient(credentials_file=config.api_credentials_file)
+    request_client = access.TikTokApiRequestClient(
+        credentials_file=config.api_credentials_file
+    )
     session = request_client.get_session()
     res = TiktokRequest.from_config(config, max_count=100).post(session)
     req_data, videos = TiktokRequest.parse_response(res)
@@ -131,7 +134,7 @@ def main_driver(config: AcquitionConfig):
                 stop_after_one_request=config.stop_after_one_request,
                 source=config.source,
                 raw_responses_output_dir=config.raw_responses_output_dir,
-                api_credentials_file=config.api_credentials_file
+                api_credentials_file=config.api_credentials_file,
             )
             run_long_query(new_config)
 
@@ -186,6 +189,7 @@ def test(
 
     _COUNT_PREVIOUS_ITERATION_REPS = -1
     driver_single_day(config)
+
 
 def get_query(query_file: Path):
     with query_file.open("r") as f:
@@ -253,7 +257,7 @@ def run(
         stop_after_one_request=stop_after_one_request,
         source=[source],
         raw_responses_output_dir=raw_responses_output_dir,
-        api_credentials_file=api_credentials_file
+        api_credentials_file=api_credentials_file,
     )
     logging.log(logging.INFO, f"Config: {config}")
 
