@@ -45,10 +45,10 @@ class AcquitionConfig:
     start_date: datetime
     final_date: datetime
     engine: Engine
+    api_credentials_file: Path
     stop_after_one_request: bool = False
     source: Optional[list[str]] = None
     raw_responses_output_dir: Optional[Path] = None
-    api_credentials_file: Path
 
 
 def build_check_type(type) -> Callable[..., None]:
