@@ -239,11 +239,6 @@ def run(
     start_date_datetime = datetime.strptime(start_date_str, "%Y%m%d")
     end_date_datetime = datetime.strptime(end_date_str, "%Y%m%d")
 
-    #  with open("query.yaml", "r") as query_file:
-        #  yaml_file = yaml.load(query_file, Loader=yaml.FullLoader)
-    #  _temp = {}
-    #  exec(yaml_file["query"], globals(), _temp)
-    #  query = _temp["return_query"]()
     query = get_query(query_file)
 
     logging.log(logging.INFO, f"Query: {query}")
