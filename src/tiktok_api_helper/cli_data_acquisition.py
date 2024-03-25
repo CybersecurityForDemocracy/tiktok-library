@@ -11,7 +11,7 @@ from sqlalchemy import Engine
 from tqdm.auto import tqdm
 from typing_extensions import Annotated
 
-from . import access, utils
+from . import utils
 from .custom_types import (
     DBFileType,
     TikTokStartDateFormat,
