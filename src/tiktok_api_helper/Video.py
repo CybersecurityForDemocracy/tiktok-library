@@ -25,6 +25,7 @@ ALL_VIDEO_DATA_URL = "https://open.tiktokapis.com/v2/research/video/query/?field
 class ApiRateLimitError(Exception):
     pass
 
+
 @attrs.define
 class Operations:
     EQ = "EQ"
@@ -204,12 +205,15 @@ class Query:
     def __str__(self) -> str:
         return self.format_data()
 
+
 def sleep_until_next_utc_midnight() -> None:
-    next_utc_midnight = pendulum.tomorrow('UTC')
+    next_utc_midnight = pendulum.tomorrow("UTC")
     logging.warning(
-        'Sleeping until next UTC midnight: %s (local time %s). Will resume in approx %s',
-        next_utc_midnight, next_utc_midnight.in_tz('local'),
-        next_utc_midnight.diff_for_humans(pendulum.now('local'), absolute=True))
+        "Sleeping until next UTC midnight: %s (local time %s). Will resume in approx %s",
+        next_utc_midnight,
+        next_utc_midnight.in_tz("local"),
+        next_utc_midnight.diff_for_humans(pendulum.now("local"), absolute=True),
+    )
     pause.until(next_utc_midnight)
 
 
@@ -231,20 +235,22 @@ class TiktokRequest:
     search_id: Optional[str] = None
     raw_responses_output_dir: Optional[Path] = None
 
-
     def post(self, session: rq.Session) -> rq.Response:
         while True:
             try:
                 return self._post(session)
             except ApiRateLimitError as e:
-                logging.warning('Response indicates rate limit exceeded: %r', e)
+                logging.warning("Response indicates rate limit exceeded: %r", e)
                 sleep_until_next_utc_midnight()
 
     @tenacity.retry(
-            stop=tenacity.stop_after_attempt(10),
-            wait=tenacity.wait_exponential(multiplier=1, min=3, max=timedelta(minutes=5).total_seconds()),
-            retry=tenacity.retry_if_exception_type(rq.RequestException),
-            reraise=True)
+        stop=tenacity.stop_after_attempt(10),
+        wait=tenacity.wait_exponential(
+            multiplier=1, min=3, max=timedelta(minutes=5).total_seconds()
+        ),
+        retry=tenacity.retry_if_exception_type(rq.RequestException),
+        reraise=True,
+    )
     def _post(self, session: rq.Session) -> rq.Response:
         data = str(self)
         logging.log(logging.INFO, f"Sending request with data: {data}")
@@ -267,12 +273,13 @@ class TiktokRequest:
         req.raise_for_status()
 
     def _store_response(self, response: rq.Request) -> None:
-        output_filename = self.raw_responses_output_dir / Path(str(pendulum.now('local').timestamp())).with_suffix('.json')
+        output_filename = self.raw_responses_output_dir / Path(
+            str(pendulum.now("local").timestamp())
+        ).with_suffix(".json")
         output_filename = output_filename.absolute()
-        logging.info('Writing raw reponse to %s', output_filename)
-        with output_filename.open('x') as f:
+        logging.info("Writing raw reponse to %s", output_filename)
+        with output_filename.open("x") as f:
             f.write(response.text)
-
 
     @staticmethod
     def from_config(config: AcquitionConfig, **kwargs) -> TiktokRequest:
@@ -290,9 +297,12 @@ class TiktokRequest:
         try:
             req_data = response.json().get("data", {})
         except rq.exceptions.JSONDecodeError as e:
-            logging.info('Error parsing JSON response:\n%s\n%s\n%s', response.status_code,
-                         '\n'.join([f'{k}: {v}' for k, v in response.headers.items()]),
-                         response.text)
+            logging.info(
+                "Error parsing JSON response:\n%s\n%s\n%s",
+                response.status_code,
+                "\n".join([f"{k}: {v}" for k, v in response.headers.items()]),
+                response.text,
+            )
             raise e
 
         videos = req_data.get("videos", [])

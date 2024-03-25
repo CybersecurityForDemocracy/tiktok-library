@@ -13,7 +13,12 @@ from tqdm.auto import tqdm
 from typing_extensions import Annotated
 
 from . import access, utils
-from .custom_types import DBFileType, TikTokStartDateFormat, TikTokEndDateFormat, RawResponsesOutputDir
+from .custom_types import (
+    DBFileType,
+    TikTokStartDateFormat,
+    TikTokEndDateFormat,
+    RawResponsesOutputDir,
+)
 from .sql import Crawl, Video, get_engine_and_create_tables
 from .Video import AcquitionConfig, Cond, Fields, Op, Query, TiktokRequest
 
@@ -68,8 +73,6 @@ def run_long_query(session: rq.Session, config: AcquitionConfig):
             search_id=crawl.search_id,
         ).post(session)
 
-
-
         req_data, videos = TiktokRequest.parse_response(res)
         crawl.update_crawl(next_res_data=req_data, videos=videos, engine=config.engine)
         insert_videos_from_response(videos, source=config.source, engine=config.engine)
@@ -87,7 +90,7 @@ def run_long_query(session: rq.Session, config: AcquitionConfig):
             logging.log(logging.WARN, "Stopping after one request")
             break
 
-    logging.info('Crawl completed.')
+    logging.info("Crawl completed.")
 
     pbar.close()
     _COUNT_PREVIOUS_ITERATION_REPS = count
@@ -203,7 +206,6 @@ def run(
         ),
     ] = -1,
     raw_responses_output_dir: RawResponsesOutputDir = None,
-
 ) -> None:
     """
 

@@ -9,7 +9,10 @@ TikTokStartDateFormat = Annotated[
 ]
 
 TikTokEndDateFormat = Annotated[
-    str, typer.Argument(help="End date in the format %Y%m%d (e.g. 20210101) NOT INCLUSIVE (ie start date 20210101 and end date 20210102 will only include API results from 20210101.")
+    str,
+    typer.Argument(
+        help="End date in the format %Y%m%d (e.g. 20210101) NOT INCLUSIVE (ie start date 20210101 and end date 20210102 will only include API results from 20210101."
+    ),
 ]
 
 DBFileType = Annotated[

@@ -44,7 +44,12 @@ def get_client_access_token(
     try:
         access_data = response.json()
     except rq.exceptions.JSONDecodeError as e:
-        logging.info('Access token raw response: %s\n%s\n%s', response.status_code, response.headers, response.text)
+        logging.info(
+            "Access token raw response: %s\n%s\n%s",
+            response.status_code,
+            response.headers,
+            response.text,
+        )
         raise e
     logging.info(f"Access token response: {access_data}")
 
