@@ -4,6 +4,7 @@ import logging
 
 import requests as rq
 import yaml
+import certifi
 from attr import dataclass
 
 # Global so we can use it in the hook
@@ -77,7 +78,7 @@ def refresh_token(r, *args, **kwargs) -> rq.Response | None:
 
         r.request.headers["Authorization"] = session.headers["Authorization"]
 
-        return session.send(r.request, verify=False)
+        return session.send(r.request)
 
 
 def get_session():
@@ -94,5 +95,6 @@ def get_session():
 
     session.headers.update(headers)
     session.hooks["response"].append(refresh_token)
+    session.verify = certifi.where()
 
     return session
