@@ -29,6 +29,7 @@ ALL_VIDEO_DATA_URL = "https://open.tiktokapis.com/v2/research/video/query/?field
 class ApiRateLimitError(Exception):
     pass
 
+
 def sleep_until_next_utc_midnight() -> None:
     next_utc_midnight = pendulum.tomorrow("UTC")
     logging.warning(
@@ -39,11 +40,13 @@ def sleep_until_next_utc_midnight() -> None:
     )
     pause.until(next_utc_midnight)
 
+
 @dataclass
 class TiktokCredentials:
     client_id: str
     client_secret: str
     client_key: str
+
 
 @dataclass
 class TikTokResponse:
@@ -154,8 +157,11 @@ class Condition:
         return f"""{{"operation": "{self.operation}", "field_name": "{str(self.field.name)}", "field_values": [{str_field_values}]}}"""
 
     def as_dict(self) -> Mapping[str, Any]:
-        return {'operation': self.operation, 'field_name': self.field.name, 'field_values':
-                self.field_values}
+        return {
+            "operation": self.operation,
+            "field_name": self.field.name,
+            "field_values": self.field_values,
+        }
 
 
 def format_conditions(
@@ -180,9 +186,10 @@ def format_conditions(
 def format_operand(name: str, operand: str, indent=INDENT) -> str:
     return f"""{indent}"{name}": {operand} """
 
+
 def make_conditions_dict(
     conditions: Optional[Union[Sequence[Condition], Condition]],
-    ) -> Mapping[str, Any]:
+) -> Mapping[str, Any]:
     if conditions is None:
         return None
 
@@ -257,6 +264,7 @@ class Query:
     def __str__(self) -> str:
         return self.format_data()
 
+
 @attrs.define
 class TiktokRequest:
     """
@@ -285,16 +293,18 @@ class TiktokRequest:
 
     def request_dict(self):
         ret = {
-                'query': self.query.request_dict(),
-                'max_count': self.max_count, 'start_date': self.start_date, 'end_date': self.end_date, 'is_random': self.is_random,
-                }
+            "query": self.query.request_dict(),
+            "max_count": self.max_count,
+            "start_date": self.start_date,
+            "end_date": self.end_date,
+            "is_random": self.is_random,
+        }
         if self.search_id is not None:
-            ret['search_id'] = self.search_id
+            ret["search_id"] = self.search_id
 
         if self.cursor is not None:
-            ret['cursor'] = self.cursor
+            ret["cursor"] = self.cursor
         return ret
-
 
     # TODO(macpd): make custom JSONDecoder
     def request_json(self):
@@ -319,6 +329,7 @@ class TiktokRequest:
 
         return str_data
 
+
 @attrs.define
 class TikTokApiRequestClient:
     _credentials: TiktokCredentials = attrs.field()
@@ -326,12 +337,21 @@ class TikTokApiRequestClient:
     _raw_responses_output_dir: Optional[Path] = None
 
     @classmethod
-    def from_credentials_file(cls, credentials_file: Path, *args, **kwargs) -> TikTokApiRequestClient:
+    def from_credentials_file(
+        cls, credentials_file: Path, *args, **kwargs
+    ) -> TikTokApiRequestClient:
         with credentials_file.open("r") as f:
             dict_credentials = yaml.load(f, Loader=yaml.FullLoader)
 
-        return cls(credentials=TiktokCredentials(dict_credentials["client_id"], dict_credentials["client_secret"], dict_credentials["client_key"]), *args, **kwargs)
-
+        return cls(
+            credentials=TiktokCredentials(
+                dict_credentials["client_id"],
+                dict_credentials["client_secret"],
+                dict_credentials["client_key"],
+            ),
+            *args,
+            **kwargs,
+        )
 
     def _get_client_access_token(
         self,
@@ -387,7 +407,6 @@ class TikTokApiRequestClient:
 
         return session
 
-
     def _refresh_token(self, r, *args, **kwargs) -> rq.Response | None:
         # Adapted from https://stackoverflow.com/questions/37094419/python-requests-retry-request-after-re-authentication
 
@@ -403,10 +422,9 @@ class TikTokApiRequestClient:
 
             return self._session.send(r.request)
 
-
     def _store_response(self, response: rq.Request) -> None:
         output_filename = self._raw_responses_output_dir / Path(
-            str(pendulum.now("local").timestamp()) + '.json'
+            str(pendulum.now("local").timestamp()) + ".json"
         )
         output_filename = output_filename.absolute()
         logging.info("Writing raw reponse to %s", output_filename)

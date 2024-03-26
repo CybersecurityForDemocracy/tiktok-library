@@ -22,7 +22,15 @@ from .custom_types import (
     ApiCredentialsFileType,
 )
 from .sql import Crawl, Video, get_engine_and_create_tables
-from .query import AcquitionConfig, Cond, Fields, Op, Query, TiktokRequest, TikTokApiRequestClient
+from .query import (
+    AcquitionConfig,
+    Cond,
+    Fields,
+    Op,
+    Query,
+    TiktokRequest,
+    TikTokApiRequestClient,
+)
 
 APP = typer.Typer(rich_markup_mode="markdown")
 
@@ -50,11 +58,16 @@ def run_long_query(config: AcquitionConfig):
     Unless you have a good reason to believe otherwise, queries should default to be considered "long".
     """
     request = TiktokRequest.from_config(config, max_count=100)
-    logging.warning('request.request_dict: %s', request.request_dict())
-    logging.warning('request.request_json: %s', request.request_json())
-    logging.warning('str(request): %s', str(request))
-    request_client = TikTokApiRequestClient.from_credentials_file(credentials_file=config.api_credentials_file,
-                                            raw_responses_output_dir=config.raw_responses_output_dir)
+    logging.warning("request.request_dict: %s", request.request_dict())
+    logging.warning("request.request_json: %s", request.request_json())
+    logging.warning("str(request): %s", str(request))
+    assert json.dumps(json.loads(str(request))) == json.dumps(
+        json.loads(request.request_json())
+    )
+    request_client = TikTokApiRequestClient.from_credentials_file(
+        credentials_file=config.api_credentials_file,
+        raw_responses_output_dir=config.raw_responses_output_dir,
+    )
     res = request_client.fetch(request)
 
     if not res.videos:
@@ -83,9 +96,12 @@ def run_long_query(config: AcquitionConfig):
         )
         res = request_client.fetch(request)
 
-
-        crawl.update_crawl(next_res_data=res.request_data, videos=res.videos, engine=config.engine)
-        insert_videos_from_response(res.videos, source=config.source, engine=config.engine)
+        crawl.update_crawl(
+            next_res_data=res.request_data, videos=res.videos, engine=config.engine
+        )
+        insert_videos_from_response(
+            res.videos, source=config.source, engine=config.engine
+        )
 
         pbar.update(1)
         count += 1
