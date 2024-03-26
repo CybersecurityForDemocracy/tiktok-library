@@ -407,8 +407,8 @@ class TikTokApiRequestClient:
 
     def _store_response(self, response: rq.Request) -> None:
         output_filename = self._raw_responses_output_dir / Path(
-            str(pendulum.now("local").timestamp())
-        ).with_suffix(".json")
+            str(pendulum.now("local").timestamp()) + '.json'
+        )
         output_filename = output_filename.absolute()
         logging.info("Writing raw reponse to %s", output_filename)
         with output_filename.open("x") as f:
