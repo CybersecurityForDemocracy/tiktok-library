@@ -274,9 +274,9 @@ class TiktokRequest:
     cursor: Optional[int] = None
     search_id: Optional[str] = None
 
-    @staticmethod
-    def from_config(config: AcquitionConfig, **kwargs) -> TiktokRequest:
-        return TiktokRequest(
+    @classmethod
+    def from_config(cls, config: AcquitionConfig, **kwargs) -> TiktokRequest:
+        return cls(
             query=config.query,
             start_date=config.start_date.strftime("%Y%m%d"),
             end_date=config.final_date.strftime("%Y%m%d"),
@@ -296,6 +296,7 @@ class TiktokRequest:
         return ret
 
 
+    # TODO(macpd): make custom JSONDecoder
     def request_json(self):
         return json.dumps(self.request_dict(), indent=2)
 
@@ -320,19 +321,17 @@ class TiktokRequest:
 
 @attrs.define
 class TikTokApiRequestClient:
-    _credentials_file: Path
     _credentials: TiktokCredentials = attrs.field()
     _session: rq.Session = attrs.field()
     _raw_responses_output_dir: Optional[Path] = None
 
-    @_credentials.default
-    def _get_credentials(self) -> TiktokCredentials:
-        with self._credentials_file.open("r") as f:
+    @classmethod
+    def from_credentials_file(cls, credentials_file: Path, *args, **kwargs) -> TikTokApiRequestClient:
+        with credentials_file.open("r") as f:
             dict_credentials = yaml.load(f, Loader=yaml.FullLoader)
 
-        return TiktokCredentials(
-            dict_credentials["client_id"], dict_credentials["client_secret"], dict_credentials["client_key"]
-        )
+        return cls(credentials=TiktokCredentials(dict_credentials["client_id"], dict_credentials["client_secret"], dict_credentials["client_key"]), *args, **kwargs)
+
 
     def _get_client_access_token(
         self,

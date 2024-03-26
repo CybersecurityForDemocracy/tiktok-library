@@ -3,6 +3,7 @@ from copy import copy
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+import json
 
 import numpy as np
 import typer
@@ -52,7 +53,7 @@ def run_long_query(config: AcquitionConfig):
     logging.warning('request.request_dict: %s', request.request_dict())
     logging.warning('request.request_json: %s', request.request_json())
     logging.warning('str(request): %s', str(request))
-    request_client = TikTokApiRequestClient(credentials_file=config.api_credentials_file,
+    request_client = TikTokApiRequestClient.from_credentials_file(credentials_file=config.api_credentials_file,
                                             raw_responses_output_dir=config.raw_responses_output_dir)
     res = request_client.fetch(request)
 
