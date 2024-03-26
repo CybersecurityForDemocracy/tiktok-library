@@ -22,7 +22,7 @@ from .custom_types import (
     ApiCredentialsFileType,
 )
 from .sql import Crawl, Video, get_engine_and_create_tables
-from .query import (
+from .api_client import (
     AcquitionConfig,
     Cond,
     Fields,
