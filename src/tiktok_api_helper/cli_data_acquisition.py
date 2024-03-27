@@ -49,7 +49,7 @@ def insert_videos_from_response(
         Video.custom_sqlite_upsert(videos, source=source, engine=engine)
     except Exception as e:
         logging.log(logging.ERROR, f"Error with upsert! Videos: {videos}\n Error: {e}")
-        logging.log(logging.ERROR, f"Skipping Upsert")
+        logging.log(logging.ERROR, "Skipping Upsert")
 
 
 def run_long_query(config: AcquitionConfig):

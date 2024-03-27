@@ -17,7 +17,7 @@ def str_to_datetime(string: str) -> datetime.datetime:
 def setup_logging(file_level=logging.INFO, rich_level=logging.INFO) -> None:
     """"""
 
-    file_dir = Path(f"./logs/")
+    file_dir = Path("./logs/")
     if not file_dir.exists():
         logging.log(logging.INFO, f"Creating log directory: {file_dir}")
         file_dir.mkdir(parents=True)

@@ -7,13 +7,12 @@ from pathlib import Path
 import json
 
 import attrs
-from attr import dataclass
+from dataclasses import dataclass
 import requests as rq
 import yaml
 import certifi
 from sqlalchemy import Engine
 import tenacity
-import pause
 import pendulum
 
 # fmt: off
@@ -28,17 +27,6 @@ ALL_VIDEO_DATA_URL = "https://open.tiktokapis.com/v2/research/video/query/?field
 
 class ApiRateLimitError(Exception):
     pass
-
-
-def sleep_until_next_utc_midnight() -> None:
-    next_utc_midnight = pendulum.tomorrow("UTC")
-    logging.warning(
-        "Sleeping until next UTC midnight: %s (local time %s). Will resume in approx %s",
-        next_utc_midnight,
-        next_utc_midnight.in_tz("local"),
-        next_utc_midnight.diff_for_humans(pendulum.now("local"), absolute=True),
-    )
-    pause.until(next_utc_midnight)
 
 
 @dataclass
@@ -79,10 +67,10 @@ class AcquitionConfig:
     raw_responses_output_dir: Optional[Path] = None
 
 
-def build_check_type(type) -> Callable[..., None]:
+def build_check_type(expected_type) -> Callable[..., None]:
 
     def check_type(obj) -> None:
-        assert isinstance(obj, type)
+        assert isinstance(obj, expected_type)
 
     return check_type
 
@@ -211,7 +199,7 @@ def convert_optional_cond_or_condseq_to_condseq(
     if optional_cond_or_seq is None:
         return None
 
-    elif isinstance(optional_cond_or_seq, Condition):
+    if isinstance(optional_cond_or_seq, Condition):
         return [optional_cond_or_seq]
 
     assert isinstance(optional_cond_or_seq, Sequence)
@@ -266,10 +254,10 @@ class Query:
 
 
 class QueryJSONEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, Query):
-            return obj.as_request_dict()
-        super().default(obj)
+    def default(self, o):
+        if isinstance(o, Query):
+            return o.as_request_dict()
+        return super().default(o)
 
 
 def retry_once_if_json_decoding_error_or_retry_indefintely_if_api_rate_limit_error(
@@ -292,7 +280,7 @@ def retry_once_if_json_decoding_error_or_retry_indefintely_if_api_rate_limit_err
     if isinstance(exception, ApiRateLimitError):
         return True
 
-    logging.waring("Retry call back received unexpected retry state: %r", retry_state)
+    logging.warning("Retry call back received unexpected retry state: %r", retry_state)
     return False
 
 
@@ -316,6 +304,7 @@ def json_decoding_error_retry_immediately_or_api_rate_limi_wait_until_next_utc_m
         return (next_utc_midnight - pendulum.now()).seconds
 
     logging.warning("Unknown exception in wait callback: %r", exception)
+    return 0
 
 
 @attrs.define
@@ -456,7 +445,7 @@ class TikTokApiRequestClient:
 
         return session
 
-    def _refresh_token(self, r, *args, **kwargs) -> rq.Response | None:
+    def _refresh_token(self, r, *unused_args, **unused_kwargs) -> rq.Response | None:
         # Adapted from https://stackoverflow.com/questions/37094419/python-requests-retry-request-after-re-authentication
 
         assert self._credentials is not None, "Credentials have not yet been set"
@@ -470,6 +459,8 @@ class TikTokApiRequestClient:
             r.request.headers["Authorization"] = self._session.headers["Authorization"]
 
             return self._session.send(r.request)
+
+        return None
 
     def _store_response(self, response: rq.Request) -> None:
         output_filename = self._raw_responses_output_dir / Path(
@@ -517,6 +508,8 @@ class TikTokApiRequestClient:
             f"Request failed, status code {req.status_code} - text {req.text} - data {data}",
         )
         req.raise_for_status()
+        # In case raise_for_status does not raise an exception we return None
+        return None
 
     @staticmethod
     def _parse_response(response: rq.Response) -> TikTokResponse:
