@@ -1,25 +1,24 @@
 import copy
 import datetime
 import logging
-from pathlib import Path
 from typing import Any, Optional
+import json
 
 from sqlalchemy import (
     JSON,
     Column,
     DateTime,
     Engine,
-    ForeignKey,
     String,
     TypeDecorator,
     create_engine,
     func,
-    select,
 )
 from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, synonym
 
 from .custom_types import DBFileType
+from .query import Query, QueryJSONEncoder
 
 
 # See https://amercader.net/blog/beware-of-json-fields-in-sqlalchemy/
@@ -178,13 +177,13 @@ class Crawl(Base):
 
     @classmethod
     def from_request(
-        cls, res_data: dict, query, source: Optional[list[str]] = None
+        cls, res_data: dict, query: Query, source: Optional[list[str]] = None
     ) -> "Crawl":
         return cls(
             cursor=res_data["cursor"],
             has_more=res_data["has_more"],
             search_id=res_data["search_id"],
-            query=str(query),
+            query=json.dumps(query, cls=QueryJSONEncoder),
             source=source,
         )
 

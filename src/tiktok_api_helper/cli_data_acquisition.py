@@ -24,13 +24,15 @@ from .custom_types import (
 from .sql import Crawl, Video, get_engine_and_create_tables
 from .api_client import (
     AcquitionConfig,
+    TiktokRequest,
+    TikTokApiRequestClient,
+)
+from .query import (
     Cond,
     Fields,
     Op,
     Query,
-    TiktokRequest,
-    TikTokApiRequestClient,
-)
+    )
 
 APP = typer.Typer(rich_markup_mode="markdown")
 
