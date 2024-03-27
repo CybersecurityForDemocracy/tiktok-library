@@ -150,16 +150,27 @@ def test_upsert(in_memory_database, mock_videos, mock_crawl):
             mock_videos[0].source,
             mock_videos[1].source,
         ]
+        assert session.scalars(select(Video.share_count).order_by(Video.id)).all() == [
+            None,
+            None,
+        ]
 
         new_source = ["0.0-testing"]
         Video.custom_sqlite_upsert(
-            [{"id": mock_videos[0].id}, {"id": mock_videos[1].id}],
+            [
+                {"id": mock_videos[0].id, "share_count": 300},
+                {"id": mock_videos[1].id, "share_count": 3},
+            ],
             source=new_source,
             engine=in_memory_database,
         )
         assert session.scalars(select(Video.source).order_by(Video.id)).all() == [
             mock_videos[0].source + new_source,
             mock_videos[1].source + new_source,
+        ]
+        assert session.scalars(select(Video.share_count).order_by(Video.id)).all() == [
+            300,
+            3,
         ]
 
 
