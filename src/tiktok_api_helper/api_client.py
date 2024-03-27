@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from typing import Callable, Optional, Sequence, Union, Mapping, Any
 from pathlib import Path
 import json
-from dataclasses import dataclass
+import enum
 
 import attrs
 import requests as rq
@@ -29,21 +29,20 @@ class ApiRateLimitError(Exception):
     pass
 
 
-@dataclass
+@attrs.define
 class TiktokCredentials:
     client_id: str
     client_secret: str
     client_key: str
 
 
-@dataclass
+@attrs.define
 class TikTokResponse:
     request_data: Mapping[str, Any]
     videos: Sequence[Any]
 
 
-@attrs.define
-class Operations:
+class Operations(enum.StrEnum):
     EQ = "EQ"
     IN = "IN"
     GT = "GT"
@@ -84,8 +83,7 @@ def check_can_convert_date(string: str) -> None:
     datetime.strptime(string, "%Y%m%d")
 
 
-@attrs.define
-class VideoLength:
+class VideoLength(enum.StrEnum):
     SHORT = "SHORT"
     MID = "MID"
     LONG = "LONG"
