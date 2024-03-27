@@ -264,13 +264,17 @@ class Query:
     def __str__(self) -> str:
         return self.format_data()
 
+
 class QueryJSONEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, Query):
             return obj.as_request_dict()
         super().default(obj)
 
-def retry_once_if_json_decoding_error_or_retry_indefintely_if_api_rate_limit_error(retry_state):
+
+def retry_once_if_json_decoding_error_or_retry_indefintely_if_api_rate_limit_error(
+    retry_state,
+):
     exception = retry_state.outcome.exception()
 
     # No exception, call succeeded
@@ -278,18 +282,23 @@ def retry_once_if_json_decoding_error_or_retry_indefintely_if_api_rate_limit_err
         return False
 
     # Retry once if JSON decoding response fails
-    if (isinstance(exception, (rq.exceptions.JSONDecodeError, json.JSONDecodeError)) and
-        retry_state.attempt_number <= 1):
+    if (
+        isinstance(exception, (rq.exceptions.JSONDecodeError, json.JSONDecodeError))
+        and retry_state.attempt_number <= 1
+    ):
         return True
 
     # Retry API rate lmiit errors indefinitely.
     if isinstance(exception, ApiRateLimitError):
         return True
 
-    logging.waring('Retry call back received unexpected retry state: %r', retry_state)
+    logging.waring("Retry call back received unexpected retry state: %r", retry_state)
     return False
 
-def json_decoding_error_retry_immediately_or_api_rate_limi_wait_until_next_utc_midnight(retry_state):
+
+def json_decoding_error_retry_immediately_or_api_rate_limi_wait_until_next_utc_midnight(
+    retry_state,
+):
     exception = retry_state.outcome.exception()
     # If JSON decoding fails retry immediately
     if isinstance(exception, (rq.exceptions.JSONDecodeError, json.JSONDecodeError)):
@@ -306,7 +315,7 @@ def json_decoding_error_retry_immediately_or_api_rate_limi_wait_until_next_utc_m
         )
         return (next_utc_midnight - pendulum.now()).seconds
 
-    logging.warning('Unknown exception in wait callback: %r', exception)
+    logging.warning("Unknown exception in wait callback: %r", exception)
 
 
 @attrs.define
@@ -472,9 +481,10 @@ class TikTokApiRequestClient:
             f.write(response.text)
 
     @tenacity.retry(
-            retry=retry_once_if_json_decoding_error_or_retry_indefintely_if_api_rate_limit_error,
-            wait=json_decoding_error_retry_immediately_or_api_rate_limi_wait_until_next_utc_midnight,
-            reraise=True)
+        retry=retry_once_if_json_decoding_error_or_retry_indefintely_if_api_rate_limit_error,
+        wait=json_decoding_error_retry_immediately_or_api_rate_limi_wait_until_next_utc_midnight,
+        reraise=True,
+    )
     def fetch(self, request: TiktokRequest) -> TikTokResponse:
         api_response = self._post(request)
         return self._parse_response(api_response)
