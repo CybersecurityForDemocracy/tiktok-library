@@ -270,6 +270,44 @@ class QueryJSONEncoder(json.JSONEncoder):
             return obj.as_request_dict()
         super().default(obj)
 
+def retry_once_if_json_decoding_error_or_retry_indefintely_if_api_rate_limit_error(retry_state):
+    exception = retry_state.outcome.exception()
+
+    # No exception, call succeeded
+    if exception is None:
+        return False
+
+    # Retry once if JSON decoding response fails
+    if (isinstance(exception, (rq.exceptions.JSONDecodeError, json.JSONDecodeError)) and
+        retry_state.attempt_number <= 1):
+        return True
+
+    # Retry API rate lmiit errors indefinitely.
+    if isinstance(exception, ApiRateLimitError):
+        return True
+
+    logging.waring('Retry call back received unexpected retry state: %r', retry_state)
+    return False
+
+def json_decoding_error_retry_immediately_or_api_rate_limi_wait_until_next_utc_midnight(retry_state):
+    exception = retry_state.outcome.exception()
+    # If JSON decoding fails retry immediately
+    if isinstance(exception, (rq.exceptions.JSONDecodeError, json.JSONDecodeError)):
+        return 0
+
+    if isinstance(exception, ApiRateLimitError):
+        next_utc_midnight = pendulum.tomorrow("UTC")
+        logging.warning(
+            "Response indicates rate limit exceeded: %r\nSleeping until next UTC midnight: %s (local time %s). Will resume in approx %s",
+            exception,
+            next_utc_midnight,
+            next_utc_midnight.in_tz("local"),
+            next_utc_midnight.diff_for_humans(pendulum.now("local"), absolute=True),
+        )
+        return (next_utc_midnight - pendulum.now()).seconds
+
+    logging.warning('Unknown exception in wait callback: %r', exception)
+
 
 @attrs.define
 class TiktokRequest:
@@ -297,7 +335,6 @@ class TiktokRequest:
             **kwargs,
         )
 
-    # TODO(macpd): make custom JSONDecoder
     def as_json(self):
         request_obj = {
             "query": self.query,
@@ -311,7 +348,7 @@ class TiktokRequest:
 
         if self.cursor is not None:
             request_obj["cursor"] = self.cursor
-        return json.dumps(request_obj, cls=QueryJSONEncoder, indent=2)
+        return json.dumps(request_obj, cls=QueryJSONEncoder, indent=1)
 
     def __str__(self) -> str:
         str_data = (
@@ -434,14 +471,13 @@ class TikTokApiRequestClient:
         with output_filename.open("x") as f:
             f.write(response.text)
 
-    def fetch(self, request: TiktokRequest) -> rq.Response:
-        while True:
-            try:
-                api_response = self._post(request)
-                return self.parse_response(api_response)
-            except ApiRateLimitError as e:
-                logging.warning("Response indicates rate limit exceeded: %r", e)
-                sleep_until_next_utc_midnight()
+    @tenacity.retry(
+            retry=retry_once_if_json_decoding_error_or_retry_indefintely_if_api_rate_limit_error,
+            wait=json_decoding_error_retry_immediately_or_api_rate_limi_wait_until_next_utc_midnight,
+            reraise=True)
+    def fetch(self, request: TiktokRequest) -> TikTokResponse:
+        api_response = self._post(request)
+        return self._parse_response(api_response)
 
     @tenacity.retry(
         stop=tenacity.stop_after_attempt(10),
@@ -473,8 +509,7 @@ class TikTokApiRequestClient:
         req.raise_for_status()
 
     @staticmethod
-    def parse_response(response: rq.Response) -> TikTokResponse:
-        # TODO(macpd): re-request data if JSON decoding fails.
+    def _parse_response(response: rq.Response) -> TikTokResponse:
         try:
             req_data = response.json().get("data", {})
         except rq.exceptions.JSONDecodeError as e:
