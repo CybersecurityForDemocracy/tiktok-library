@@ -245,5 +245,3 @@ def convert_to_json(lst_: list) -> dict:
         raise ValueError("lst_ must be a list!")
 
     return {"list": lst_}
-
-

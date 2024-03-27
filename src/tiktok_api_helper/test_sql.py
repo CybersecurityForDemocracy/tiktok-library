@@ -85,6 +85,7 @@ MOCK_VIDEO_DATA = [
     },
 ]
 
+
 @pytest.fixture
 def in_memory_database() -> Engine:
     engine = create_engine("sqlite:///", echo=True)
@@ -92,10 +93,13 @@ def in_memory_database() -> Engine:
 
     return engine
 
+
 @pytest.fixture
 def mock_videos():
     now = datetime.datetime.now()
-    return [Video(id=1, username="Testing1", region_code="US", create_time=now), Video(
+    return [
+        Video(id=1, username="Testing1", region_code="US", create_time=now),
+        Video(
             id=2,
             username="Testing2",
             region_code="US",
@@ -106,19 +110,23 @@ def mock_videos():
             voice_to_text="a string",
             extra_data={"some-future-field-i-havent-thought-of": ["value"]},
             source=["testing"],
-        )]
+        ),
+    ]
+
 
 @pytest.fixture
 def mock_crawl():
     return Crawl(
-            cursor=1, has_more=False, search_id="test", query="test", source=["testing"]
-        )
+        cursor=1, has_more=False, search_id="test", query="test", source=["testing"]
+    )
+
 
 def test_video_basic_insert(in_memory_database, mock_videos):
     with Session(in_memory_database) as session:
         session.add_all(mock_videos)
         session.commit()
         assert session.scalars(select(Video).order_by(Video.id)).all() == mock_videos
+
 
 def test_crawl_basic_insert(in_memory_database, mock_crawl):
     with Session(in_memory_database) as session:
@@ -130,6 +138,7 @@ def test_crawl_basic_insert(in_memory_database, mock_crawl):
 
         assert session.scalars(select(Crawl).order_by(Crawl.id)).all() == [mock_crawl]
 
+
 def test_upsert(in_memory_database, mock_videos, mock_crawl):
     with Session(in_memory_database) as session:
         session.add_all(mock_videos)
@@ -137,19 +146,22 @@ def test_upsert(in_memory_database, mock_videos, mock_crawl):
 
         session.add_all([mock_crawl])
         session.commit()
-        assert session.scalars(select(Video.source).order_by(Video.id)).all() == [mock_videos[0].source,
-                                                               mock_videos[1].source]
+        assert session.scalars(select(Video.source).order_by(Video.id)).all() == [
+            mock_videos[0].source,
+            mock_videos[1].source,
+        ]
 
         new_source = ["0.0-testing"]
         Video.custom_sqlite_upsert(
             #  MOCK_VIDEO_DATA,
-            [{'id': mock_videos[0].id}, {'id': mock_videos[1].id}],
+            [{"id": mock_videos[0].id}, {"id": mock_videos[1].id}],
             source=new_source,
             engine=in_memory_database,
         )
-        assert session.scalars(select(Video.source).order_by(Video.id)).all() == [mock_videos[0].source + new_source,
-                                                               mock_videos[1].source + new_source]
-
+        assert session.scalars(select(Video.source).order_by(Video.id)).all() == [
+            mock_videos[0].source + new_source,
+            mock_videos[1].source + new_source,
+        ]
 
 
 def test_remove_all(in_memory_database, mock_videos, mock_crawl):
