@@ -61,10 +61,10 @@ def run_long_query(config: AcquitionConfig):
     """
     request = TiktokRequest.from_config(config, max_count=100)
     logging.warning("request.as_json: %s", request.as_json())
-    logging.warning("str(request): %s", str(request))
-    assert json.dumps(json.loads(str(request))) == json.dumps(
-        json.loads(request.as_json())
-    )
+    #  logging.warning("str(request): %s", str(request))
+    #  assert json.dumps(json.loads(str(request))) == json.dumps(
+        #  json.loads(request.as_json())
+    #  )
     request_client = TikTokApiRequestClient.from_credentials_file(
         credentials_file=config.api_credentials_file,
         raw_responses_output_dir=config.raw_responses_output_dir,

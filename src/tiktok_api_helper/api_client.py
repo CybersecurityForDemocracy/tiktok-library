@@ -141,25 +141,24 @@ class TiktokRequest:
             request_obj["cursor"] = self.cursor
         return json.dumps(request_obj, cls=QueryJSONEncoder, indent=1)
 
-    def __str__(self) -> str:
-        str_data = (
-            f"""{{\n{INDENT}{self.query.format_data()},\n"""
-            f"""{INDENT}"max_count": {self.max_count},\n"""
-            f"""{INDENT}"start_date": "{self.start_date}",\n"""
-            f"""{INDENT}"end_date": "{self.end_date}",\n"""
-            f"""{INDENT}"is_random": {str(self.is_random).lower()}"""
-        )
+    #  def __str__(self) -> str:
+        #  str_data = (
+            #  f"""{{\n{INDENT}{self.query.format_data()},\n"""
+            #  f"""{INDENT}"max_count": {self.max_count},\n"""
+            #  f"""{INDENT}"start_date": "{self.start_date}",\n"""
+            #  f"""{INDENT}"end_date": "{self.end_date}",\n"""
+            #  f"""{INDENT}"is_random": {str(self.is_random).lower()}"""
+        #  )
 
-        if self.search_id is not None:
-            str_data += f',\n    "search_id": "{self.search_id}"'
+        #  if self.search_id is not None:
+            #  str_data += f',\n    "search_id": "{self.search_id}"'
 
-        if self.cursor is not None:
-            str_data += f',\n    "cursor": {self.cursor}'
+        #  if self.cursor is not None:
+            #  str_data += f',\n    "cursor": {self.cursor}'
 
-        str_data += "\n}"
+        #  str_data += "\n}"
 
-        return str_data
-
+        #  return str_data
 
 @attrs.define
 class TikTokApiRequestClient:
