@@ -251,7 +251,7 @@ class Query:
 
         return f""""query": {{\n{INDENT}{formatted_operands}\n{INDENT}}}"""
 
-    def request_dict(self):
+    def as_request_dict(self):
         operands = {"and": self.and_, "or": self.or_, "not": self.not_}
         formatted_operands = {}
 
@@ -263,6 +263,12 @@ class Query:
 
     def __str__(self) -> str:
         return self.format_data()
+
+class QueryJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, Query):
+            return obj.as_request_dict()
+        super().default(obj)
 
 
 @attrs.define
@@ -291,24 +297,21 @@ class TiktokRequest:
             **kwargs,
         )
 
-    def request_dict(self):
-        ret = {
-            "query": self.query.request_dict(),
+    # TODO(macpd): make custom JSONDecoder
+    def as_json(self):
+        request_obj = {
+            "query": self.query,
             "max_count": self.max_count,
             "start_date": self.start_date,
             "end_date": self.end_date,
             "is_random": self.is_random,
         }
         if self.search_id is not None:
-            ret["search_id"] = self.search_id
+            request_obj["search_id"] = self.search_id
 
         if self.cursor is not None:
-            ret["cursor"] = self.cursor
-        return ret
-
-    # TODO(macpd): make custom JSONDecoder
-    def request_json(self):
-        return json.dumps(self.request_dict(), indent=2)
+            request_obj["cursor"] = self.cursor
+        return json.dumps(request_obj, cls=QueryJSONEncoder, indent=2)
 
     def __str__(self) -> str:
         str_data = (
@@ -449,8 +452,7 @@ class TikTokApiRequestClient:
         reraise=True,
     )
     def _post(self, request: TiktokRequest) -> rq.Response:
-        #  data = str(request)
-        data = request.request_json()
+        data = request.as_json()
         logging.log(logging.INFO, f"Sending request with data: {data}")
 
         req = self._session.post(url=ALL_VIDEO_DATA_URL, data=data, verify=True)
