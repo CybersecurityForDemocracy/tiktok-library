@@ -5,9 +5,9 @@ from datetime import datetime, timedelta
 from typing import Callable, Optional, Sequence, Union, Mapping, Any
 from pathlib import Path
 import json
+from dataclasses import dataclass
 
 import attrs
-from dataclasses import dataclass
 import requests as rq
 import yaml
 import certifi
