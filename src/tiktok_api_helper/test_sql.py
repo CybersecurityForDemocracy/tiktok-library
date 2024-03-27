@@ -153,7 +153,6 @@ def test_upsert(in_memory_database, mock_videos, mock_crawl):
 
         new_source = ["0.0-testing"]
         Video.custom_sqlite_upsert(
-            #  MOCK_VIDEO_DATA,
             [{"id": mock_videos[0].id}, {"id": mock_videos[1].id}],
             source=new_source,
             engine=in_memory_database,
