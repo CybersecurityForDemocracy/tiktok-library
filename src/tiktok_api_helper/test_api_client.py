@@ -1,7 +1,9 @@
 from pathlib import Path
 from unittest.mock import Mock
+import json
 
 import pytest
+import requests
 
 from . import api_client
 
@@ -84,34 +86,79 @@ FAKE_SECRETS_YAML_FILE = Path('src/tiktok_api_helper/testdata/fake_secrets.yaml'
 
 @pytest.fixture
 def mock_request_session():
-    return Mock()
+    mock_session = Mock(autospec=requests.Session)
+    mock_session.headers = {}
+    mock_session.hooks = {'response': []}
+    return mock_session
+
+@pytest.fixture
+def mock_access_token_fetcher_session():
+    mock_response = Mock()
+    mock_response.ok = True
+    mock_response.json = Mock(side_effect=[
+            {'access_token': 'mock_access_token_1', 'expires_in': 7200, 'token_type': 'Bearer'},
+            {'access_token': 'mock_access_token_2', 'expires_in': 7200, 'token_type': 'Bearer'}])
+    mock_session = Mock(autospec=requests.Session)
+    mock_session.post = Mock(return_value=mock_response)
+    return mock_session
+
+@pytest.fixture
+def mock_request_session_json_decoder_error(mock_request_session):
+    mock_response = Mock()
+    mock_response.status_code = 200
+    mock_response.json = Mock(side_effect=json.JSONDecodeError(msg='', doc='', pos=0))
+    mock_request_session.post = Mock(return_value=mock_response)
+    return mock_request_session
 
 def test_tiktok_credentials_any_value_missing_raises_value_error():
     with pytest.raises(ValueError):
-            api_client.TiktokCredentials(None, None, None)
+            api_client.TiktokCredentials('', '', '')
 
     with pytest.raises(ValueError):
-            api_client.TiktokCredentials('client_id_1', 'client_secret_1', None)
+            api_client.TiktokCredentials('client_id_1', 'client_secret_1', '')
 
     with pytest.raises(ValueError):
-            api_client.TiktokCredentials('client_id_1', None, 'client_key_1')
+            api_client.TiktokCredentials('client_id_1', '', 'client_key_1')
 
     with pytest.raises(ValueError):
-            api_client.TiktokCredentials(None, 'client_secret_1', 'client_key_1')
+            api_client.TiktokCredentials('', 'client_secret_1', 'client_key_1')
 
     with pytest.raises(ValueError):
             api_client.TiktokCredentials('', '', '')
 
 
-def test_tiktok_api_request_client_empty_credentials_raises_value_error(mock_request_session):
-    with pytest.raises(ValueError):
-        api_client.TikTokApiRequestClient(
-            credentials=None)
+def test_tiktok_api_request_client_empty_credentials_raises_value_error():
+    with pytest.raises(TypeError):
+        api_client.TikTokApiRequestClient(credentials=None)
+
+    with pytest.raises(TypeError):
+        api_client.TikTokApiRequestClient(credentials={})
 
 
-def test_tiktok_api_request_client_from_credentials_file_factory(mock_request_session):
+def test_tiktok_api_request_client_from_credentials_file_factory(mock_request_session, mock_access_token_fetcher_session):
     request = api_client.TikTokApiRequestClient.from_credentials_file(FAKE_SECRETS_YAML_FILE,
-                                                                      session=mock_request_session)
+                                                                      api_request_session=mock_request_session,
+                                                                      access_token_fetcher_session=mock_access_token_fetcher_session)
     assert request._credentials == api_client.TiktokCredentials(client_id='client_id_1',
                                                                 client_secret='client_secret_1',
                                                                 client_key='client_key_1')
+
+def test_tiktok_api_request_client_attempts_token_refresh(mock_request_session, mock_access_token_fetcher_session):
+    assert "Authorization" not in mock_request_session.headers
+    request = api_client.TikTokApiRequestClient.from_credentials_file(FAKE_SECRETS_YAML_FILE,
+                                                                      api_request_session=mock_request_session,
+                                                                      access_token_fetcher_session=mock_access_token_fetcher_session)
+
+    mock_access_token_fetcher_session.post.assert_called_once()
+    assert mock_request_session.headers["Authorization"] == 'Bearer mock_access_token_1'
+
+def test_tiktok_api_request_client_retry_once_on_json_decoder_error(mock_request_session_json_decoder_error, mock_access_token_fetcher_session):
+    request = api_client.TikTokApiRequestClient.from_credentials_file(FAKE_SECRETS_YAML_FILE,
+                                                                      api_request_session=mock_request_session_json_decoder_error,
+                                                                      access_token_fetcher_session=mock_access_token_fetcher_session)
+    with pytest.raises(json.JSONDecodeError):
+        request.fetch(api_client.TiktokRequest(query={}, start_date=None, end_date=None))
+    # Confirm that code retried the post request and json extraction twice (ie retried once after
+    # the decode error before the exception is re-raised)
+    assert mock_request_session_json_decoder_error.post.call_count == 2
+    assert mock_request_session_json_decoder_error.post.return_value.json.call_count == 2

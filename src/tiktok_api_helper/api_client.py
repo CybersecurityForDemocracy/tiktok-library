@@ -24,16 +24,19 @@ ALL_VIDEO_DATA_URL = "https://open.tiktokapis.com/v2/research/video/query/?field
 class ApiRateLimitError(Exception):
     pass
 
+def field_is_not_empty(instance, attribute, value):
+    if not value:
+        raise ValueError(f'{instance.__class__.__name__}: {attribute.name} cannot be empty')
+
+
+
 
 @attrs.define
 class TiktokCredentials:
-    client_id: str
-    client_secret: str
-    client_key: str
-
-    def __attrs_post_init__(self):
-        if not all([self.client_id, self.client_secret, self.client_key]):
-            raise ValueError(f'All TiktokCredentials fields required: {self}')
+    client_id: str = attrs.field(validator=[attrs.validators.instance_of(str), field_is_not_empty])
+    client_secret: str = attrs.field(validator=[attrs.validators.instance_of(str),
+                                                field_is_not_empty])
+    client_key: str = attrs.field(validator=[attrs.validators.instance_of(str), field_is_not_empty])
 
 
 @attrs.define
@@ -69,9 +72,8 @@ def retry_once_if_json_decoding_error_or_retry_indefintely_if_api_rate_limit_err
     # Retry once if JSON decoding response fails
     if (
         isinstance(exception, (rq.exceptions.JSONDecodeError, json.JSONDecodeError))
-        and retry_state.attempt_number <= 1
     ):
-        return True
+        return retry_state.attempt_number <= 1
 
     # Retry API rate lmiit errors indefinitely.
     if isinstance(exception, ApiRateLimitError):
@@ -166,13 +168,10 @@ class TiktokRequest:
 
 @attrs.define
 class TikTokApiRequestClient:
-    _credentials: TiktokCredentials = attrs.field()
-    _session: rq.Session = attrs.field()
+    _credentials: TiktokCredentials = attrs.field(validator=[attrs.validators.instance_of(TiktokCredentials), field_is_not_empty])
+    _access_token_fetcher_session: rq.Session = attrs.field()
+    _api_request_session: rq.Session = attrs.field()
     _raw_responses_output_dir: Optional[Path] = None
-
-    def __attrs_post_init__(self):
-        if self._credentials is None:
-            raise ValueError(f'Credentials incomplete: {self._credentials}')
 
     @classmethod
     def from_credentials_file(
@@ -186,6 +185,9 @@ class TikTokApiRequestClient:
             *args,
             **kwargs,
         )
+
+    def __attrs_post_init__(self):
+        self._configure_session()
 
     def _get_client_access_token(
         self,
@@ -203,7 +205,7 @@ class TikTokApiRequestClient:
             "grant_type": grant_type,
         }
 
-        response = rq.post(
+        response = self._access_token_fetcher_session.post(
             "https://open.tiktokapis.com/v2/oauth/token/", headers=headers, data=data
         )
         if not response.ok:
@@ -225,37 +227,38 @@ class TikTokApiRequestClient:
 
         return token
 
-    @_session.default
+    @_access_token_fetcher_session.default
+    def _default_access_token_fetcher_session(self):
+        return rq.Session()
+
+    @_api_request_session.default
     def _make_session(self):
-        # An "Authorization" header will be added later when the first request fails with a 401 and
-        # triggers token refresh. We intention leave it out here so as not to call instance methods
-        # duing instantiation (ie we are in @_session.default and getting a token would require
-        # calling self._get_client_access_token
+        return rq.Session()
+
+    def _configure_session(self):
+        """Gets access token for authorization, sets token in headers for all request, and registers
+        a hook to refresh token when response indicates it has expired."""
+        token = self._get_client_access_token()
         headers = {
+            "Authorization": f"Bearer {token}",
             "Content-Type": "text/plain",
         }
-        session = rq.Session()
 
-        session.headers.update(headers)
-        session.hooks["response"].append(self._refresh_token)
-        session.verify = certifi.where()
-
-        return session
+        self._api_request_session.headers.update(headers)
+        self._api_request_session.hooks["response"].append(self._refresh_token)
+        self._api_request_session.verify = certifi.where()
 
     def _refresh_token(self, r, *unused_args, **unused_kwargs) -> rq.Response | None:
         # Adapted from https://stackoverflow.com/questions/37094419/python-requests-retry-request-after-re-authentication
-
-        assert self._credentials is not None, "Credentials have not yet been set"
-
         if r.status_code == 401:
             logging.info("Fetching new token as the previous token expired")
 
             token = self._get_client_access_token()
-            self._session.headers.update({"Authorization": f"Bearer {token}"})
+            self._api_request_session.headers.update({"Authorization": f"Bearer {token}"})
 
-            r.request.headers["Authorization"] = self._session.headers["Authorization"]
+            r.request.headers["Authorization"] = self._api_request_session.headers["Authorization"]
 
-            return self._session.send(r.request)
+            return self._api_request_session.send(r.request)
 
         return None
 
@@ -289,7 +292,7 @@ class TikTokApiRequestClient:
         data = request.as_json()
         logging.log(logging.INFO, f"Sending request with data: {data}")
 
-        req = self._session.post(url=ALL_VIDEO_DATA_URL, data=data, verify=True)
+        req = self._api_request_session.post(url=ALL_VIDEO_DATA_URL, data=data)
 
         if self._raw_responses_output_dir is not None:
             self._store_response(req)
