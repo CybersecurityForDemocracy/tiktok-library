@@ -197,7 +197,7 @@ class Query:
 
         return f""""query": {{\n{INDENT}{formatted_operands}\n{INDENT}}}"""
 
-    def as_request_dict(self):
+    def as_dict(self):
         operands = {"and": self.and_, "or": self.or_, "not": self.not_}
         formatted_operands = {}
 
@@ -214,7 +214,7 @@ class Query:
 class QueryJSONEncoder(json.JSONEncoder):
     def default(self, o):
         if isinstance(o, Query):
-            return o.as_request_dict()
+            return o.as_dict()
         return super().default(o)
 
 Cond = Condition
