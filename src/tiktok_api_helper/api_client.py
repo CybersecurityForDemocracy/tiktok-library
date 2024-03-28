@@ -31,6 +31,10 @@ class TiktokCredentials:
     client_secret: str
     client_key: str
 
+    def __attrs_post_init__(self):
+        if not all([self.client_id, self.client_secret, self.client_key]):
+            raise ValueError(f'All TiktokCredentials fields required: {self}')
+
 
 @attrs.define
 class TikTokResponse:
@@ -166,6 +170,10 @@ class TikTokApiRequestClient:
     _session: rq.Session = attrs.field()
     _raw_responses_output_dir: Optional[Path] = None
 
+    def __attrs_post_init__(self):
+        if self._credentials is None:
+            raise ValueError(f'Credentials incomplete: {self._credentials}')
+
     @classmethod
     def from_credentials_file(
         cls, credentials_file: Path, *args, **kwargs
@@ -174,11 +182,7 @@ class TikTokApiRequestClient:
             dict_credentials = yaml.load(f, Loader=yaml.FullLoader)
 
         return cls(
-            credentials=TiktokCredentials(
-                dict_credentials["client_id"],
-                dict_credentials["client_secret"],
-                dict_credentials["client_key"],
-            ),
+        credentials = TiktokCredentials(**dict_credentials),
             *args,
             **kwargs,
         )
@@ -223,10 +227,11 @@ class TikTokApiRequestClient:
 
     @_session.default
     def _make_session(self):
+        # An "Authorization" header will be added later when the first request fails with a 401 and
+        # triggers token refresh. We intention leave it out here so as not to call instance methods
+        # duing instantiation (ie we are in @_session.default and getting a token would require
+        # calling self._get_client_access_token
         headers = {
-            # We add the header here so the first run won't give us a InsecureRequestWarning
-            # The token may time out which is why we manually add a hook to it
-            "Authorization": f"Bearer {self._get_client_access_token()}",
             "Content-Type": "text/plain",
         }
         session = rq.Session()
