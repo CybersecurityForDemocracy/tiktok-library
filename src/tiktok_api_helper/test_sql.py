@@ -88,7 +88,7 @@ MOCK_VIDEO_DATA = [
 
 @pytest.fixture
 def in_memory_database() -> Engine:
-    engine = create_engine("sqlite:///", echo=True)
+    engine = create_engine("sqlite://", echo=True)
     create_tables(engine)
 
     return engine
