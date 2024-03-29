@@ -336,9 +336,12 @@ class TikTokApiRequestClient:
             reraise=True,
         )
 
-
-    def fetch(self, request: TiktokRequest, max_api_rate_limit_retries=None) -> TikTokResponse:
-        return self._fetch_retryer(max_api_rate_limit_retries=max_api_rate_limit_retries)(self._fetch, request)
+    def fetch(
+        self, request: TiktokRequest, max_api_rate_limit_retries=None
+    ) -> TikTokResponse:
+        return self._fetch_retryer(
+            max_api_rate_limit_retries=max_api_rate_limit_retries
+        )(self._fetch, request)
 
     def _fetch(self, request: TiktokRequest) -> TikTokResponse:
         api_response = self._post(request)

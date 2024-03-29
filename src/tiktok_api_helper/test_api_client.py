@@ -127,6 +127,7 @@ def mock_request_session_json_decoder_error(mock_request_session):
     mock_request_session.post = Mock(return_value=mock_response)
     return mock_request_session
 
+
 @pytest.fixture
 def mock_request_session_rate_limit_error(mock_request_session):
     mock_response = Mock()
@@ -195,9 +196,11 @@ def test_tiktok_api_request_client_attempts_token_refresh(
     assert mock_request_session.headers["Authorization"] == "Bearer mock_access_token_1"
 
 
-@unittest.mock.patch('tenacity.nap.time.sleep')
+@unittest.mock.patch("tenacity.nap.time.sleep")
 def test_tiktok_api_request_client_retry_once_on_json_decoder_error(
-    mock_sleep, mock_request_session_json_decoder_error, mock_access_token_fetcher_session
+    mock_sleep,
+    mock_request_session_json_decoder_error,
+    mock_access_token_fetcher_session,
 ):
     request = api_client.TikTokApiRequestClient.from_credentials_file(
         FAKE_SECRETS_YAML_FILE,
@@ -216,7 +219,8 @@ def test_tiktok_api_request_client_retry_once_on_json_decoder_error(
     )
     mock_sleep.assert_called_once_with(0)
 
-@unittest.mock.patch('tenacity.nap.time.sleep')
+
+@unittest.mock.patch("tenacity.nap.time.sleep")
 def test_tiktok_api_request_client_wait_one_hour_on_rate_limit_wait_strategy(
     mock_sleep, mock_request_session_rate_limit_error, mock_access_token_fetcher_session
 ):
@@ -230,24 +234,26 @@ def test_tiktok_api_request_client_wait_one_hour_on_rate_limit_wait_strategy(
     with pytest.raises(api_client.ApiRateLimitError):
         request.fetch(
             api_client.TiktokRequest(query={}, start_date=None, end_date=None),
-            max_api_rate_limit_retries=num_retries
+            max_api_rate_limit_retries=num_retries,
         )
     # Confirm that code retried the post request and json extraction twice (ie retried once after
     # the decode error before the exception is re-raised)
     assert mock_request_session_rate_limit_error.post.call_count == num_retries
     assert (
-        mock_request_session_rate_limit_error.post.return_value.json.call_count == num_retries
+        mock_request_session_rate_limit_error.post.return_value.json.call_count
+        == num_retries
     )
     # Sleep will be called once less than num_retries because it is not called after last retry
-    assert mock_sleep.call_count == num_retries - 1 
+    assert mock_sleep.call_count == num_retries - 1
     assert mock_sleep.mock_calls == [
-            call(3600.0),
-            call(3600.0),
-            call(3600.0),
-            call(3600.0),
-            ]
+        call(3600.0),
+        call(3600.0),
+        call(3600.0),
+        call(3600.0),
+    ]
 
-@unittest.mock.patch('tenacity.nap.time.sleep')
+
+@unittest.mock.patch("tenacity.nap.time.sleep")
 def test_tiktok_api_request_client_wait_til_next_utc_midnight_on_rate_limit_wait_strategy(
     mock_sleep, mock_request_session_rate_limit_error, mock_access_token_fetcher_session
 ):
@@ -264,19 +270,20 @@ def test_tiktok_api_request_client_wait_til_next_utc_midnight_on_rate_limit_wait
         with pytest.raises(api_client.ApiRateLimitError):
             request.fetch(
                 api_client.TiktokRequest(query={}, start_date=None, end_date=None),
-                max_api_rate_limit_retries=num_retries
+                max_api_rate_limit_retries=num_retries,
             )
         # Confirm that code retried the post request and json extraction twice (ie retried once after
         # the decode error before the exception is re-raised)
         assert mock_request_session_rate_limit_error.post.call_count == num_retries
         assert (
-            mock_request_session_rate_limit_error.post.return_value.json.call_count == num_retries
+            mock_request_session_rate_limit_error.post.return_value.json.call_count
+            == num_retries
         )
         # Sleep will be called once less than num_retries because it is not called after last retry
         assert mock_sleep.call_count == num_retries - 1
         assert mock_sleep.mock_calls == [
-                call(expected_sleep_duration),
-                call(expected_sleep_duration),
-                call(expected_sleep_duration),
-                call(expected_sleep_duration),
-                ]
+            call(expected_sleep_duration),
+            call(expected_sleep_duration),
+            call(expected_sleep_duration),
+            call(expected_sleep_duration),
+        ]
