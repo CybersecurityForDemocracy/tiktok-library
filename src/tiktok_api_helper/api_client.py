@@ -314,23 +314,32 @@ class TikTokApiRequestClient:
         with output_filename.open("x") as f:
             f.write(response.text)
 
-    def fetch(self, request: TiktokRequest) -> TikTokResponse:
+    def _fetch_retryer(self, max_api_rate_limit_retries=None):
+        if max_api_rate_limit_retries is not None:
+            stop_strategy = tenacity.stop_after_attempt(max_api_rate_limit_retries)
+        else:
+            stop_strategy = tenacity.stop_never
+
         if self._api_rate_limit_wait_strategy == ApiRateLimitWaitStrategy.WAIT_ONE_HOUR:
-            wait_callback = (
+            wait_strategy = (
                 json_decoding_error_retry_immediately_or_api_rate_limi_wait_one_hour
             )
         elif (
             self._api_rate_limit_wait_strategy
             == ApiRateLimitWaitStrategy.WAIT_NEXT_UTC_MIDNIGHT
         ):
-            wait_callback = json_decoding_error_retry_immediately_or_api_rate_limi_wait_until_next_utc_midnight
-        return self._fetch(request).retry_with(wait=wait_callback)
+            wait_strategy = json_decoding_error_retry_immediately_or_api_rate_limi_wait_until_next_utc_midnight
+        return tenacity.Retrying(
+            retry=retry_once_if_json_decoding_error_or_retry_indefintely_if_api_rate_limit_error,
+            wait=wait_strategy,
+            stop=stop_strategy,
+            reraise=True,
+        )
 
-    @tenacity.retry(
-        retry=retry_once_if_json_decoding_error_or_retry_indefintely_if_api_rate_limit_error,
-        wait=json_decoding_error_retry_immediately_or_api_rate_limi_wait_one_hour,
-        reraise=True,
-    )
+
+    def fetch(self, request: TiktokRequest, max_api_rate_limit_retries=None) -> TikTokResponse:
+        return self._fetch_retryer(max_api_rate_limit_retries=max_api_rate_limit_retries)(self._fetch, request)
+
     def _fetch(self, request: TiktokRequest) -> TikTokResponse:
         api_response = self._post(request)
         return self._parse_response(api_response)
