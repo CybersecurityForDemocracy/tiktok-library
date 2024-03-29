@@ -46,6 +46,33 @@ def mock_query_exclude_some_hashtags():
         ],
     )
 
+@pytest.fixture
+def mock_query_create_date():
+    return Query(
+        and_=[
+            Cond(Fields.create_date, "20230101", Op.EQ),
+        ],
+    )
+
+def test_query_create_date(mock_query_create_date):
+    assert mock_query_create_date.as_dict() == {
+            'and': [{'field_name': "create_date", 'field_values': [ "20230101"], "operation": "EQ"}]}
+
+
+def test_query_invalid_create_date():
+    with pytest.raises(ValueError):
+        Query(
+            and_=[
+                Cond(Fields.create_date, "2023-01-01", Op.EQ),
+            ],
+        )
+
+    with pytest.raises(ValueError):
+        Query(
+            and_=[
+                Cond(Fields.create_date, "It's not a date", Op.EQ),
+            ],
+        )
 
 def test_query_us(mock_query_us):
     assert mock_query_us.as_dict() == {
@@ -120,6 +147,14 @@ def test_query_exclude_some_hashtags(mock_query_exclude_some_hashtags):
             },
         ],
     }
+
+def test_invalid_query():
+    with pytest.raises(ValueError):
+        Query(
+            and_=[
+                Cond(Fields.region_code, "invalid", Op.EQ),
+            ],
+        )
 
 
 def test_query_json_decoder_us(mock_query_us):

@@ -35,7 +35,7 @@ def field_is_not_empty(instance, attribute, value):
 @attrs.define
 class TiktokCredentials:
     client_id: str = attrs.field(
-        validator=[attrs.validators.instance_of(str), field_is_not_empty]
+        validator=[attrs.validators.instance_of((str, int)), field_is_not_empty]
     )
     client_secret: str = attrs.field(
         validator=[attrs.validators.instance_of(str), field_is_not_empty]

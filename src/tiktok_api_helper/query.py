@@ -29,7 +29,8 @@ INDENT = "\t"
 def build_check_type(expected_type) -> Callable[..., None]:
 
     def check_type(obj) -> None:
-        assert isinstance(obj, expected_type)
+        if not isinstance(obj, expected_type):
+            raise TypeError(f"{obj} is not expected type {expected_type}")
 
     return check_type
 
@@ -38,9 +39,9 @@ str_type_check = build_check_type(str)
 int_type_check = build_check_type(int)
 
 
-def check_can_convert_date(string: str) -> None:
+def check_can_convert_date(inst, attr, value: str) -> None:
     # We check by directly trying to convert; will raise an error otherwise
-    datetime.strptime(string, "%Y%m%d")
+    datetime.strptime(value, "%Y%m%d")
 
 
 class VideoLength(enum.StrEnum):
@@ -63,16 +64,16 @@ class _Field:
 class Fields:
     # the downsize of doing this dynamically (i.e. make_dataclass) is no type hinting
     # so instead we keep it simple/verbose and just define the fields manually
-    username = _Field("username", str_type_check)
-    hashtag_name = _Field("hashtag_name", str_type_check)
-    keyword = _Field("keyword", str_type_check)
+    username = _Field("username", validator=attrs.validators.instance_of(str))
+    hashtag_name = _Field("hashtag_name", validator=attrs.validators.instance_of(str))
+    keyword = _Field("keyword", validator=attrs.validators.instance_of(str))
 
-    video_id = _Field("video_id", int_type_check)
-    music_id = _Field("music_id", int_type_check)
-    effect_id = _Field("effect_id", int_type_check)
+    video_id = _Field("video_id", validator=attrs.validators.instance_of(int))
+    music_id = _Field("music_id", validator=attrs.validators.instance_of(int))
+    effect_id = _Field("effect_id", validator=attrs.validators.instance_of(int))
 
-    region_code = _Field("region_code", lambda x: x in SUPPORTED_REGION_CODES)
-    video_length = _Field("video_length", lambda x: x in SUPPORTED_VIDEO_LENGTHS)
+    region_code = _Field("region_code", validator=attrs.validators.in_(SUPPORTED_REGION_CODES))
+    video_length = _Field("video_length", validator=attrs.validators.in_(SUPPORTED_VIDEO_LENGTHS))
 
     create_date = _Field("create_date", validator=check_can_convert_date)
 
@@ -93,9 +94,15 @@ def convert_str_or_strseq_to_strseq(
 class Condition:
     field: _Field
     field_values: Union[str, Sequence[str]] = attrs.field(
-        converter=convert_str_or_strseq_to_strseq
+        converter=convert_str_or_strseq_to_strseq, validator=attrs.validators.instance_of((str,
+                                                                                           Sequence))
     )
     operation: str = attrs.field(validator=attrs.validators.in_(Operations))
+
+    @field_values.validator
+    def validate_field_values(self, attribute, value):
+        for elem in value:
+            self.field.validator(inst=self, attr=attribute, value=elem)
 
     def __str__(self) -> str:
         str_field_values = ",".join([f'"{s}"' for s in self.field_values])
