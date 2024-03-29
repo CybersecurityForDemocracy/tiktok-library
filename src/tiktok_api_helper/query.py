@@ -217,6 +217,7 @@ class QueryJSONEncoder(json.JSONEncoder):
             return o.as_dict()
         return super().default(o)
 
+
 Cond = Condition
 Op = Operations
 F = Fields

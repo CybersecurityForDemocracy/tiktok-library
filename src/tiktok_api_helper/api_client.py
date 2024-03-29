@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta
-from typing import  Optional, Sequence, Union, Mapping, Any
+from typing import Optional, Sequence, Union, Mapping, Any
 from pathlib import Path
 import json
 
@@ -24,19 +24,25 @@ ALL_VIDEO_DATA_URL = "https://open.tiktokapis.com/v2/research/video/query/?field
 class ApiRateLimitError(Exception):
     pass
 
+
 def field_is_not_empty(instance, attribute, value):
     if not value:
-        raise ValueError(f'{instance.__class__.__name__}: {attribute.name} cannot be empty')
-
-
+        raise ValueError(
+            f"{instance.__class__.__name__}: {attribute.name} cannot be empty"
+        )
 
 
 @attrs.define
 class TiktokCredentials:
-    client_id: str = attrs.field(validator=[attrs.validators.instance_of(str), field_is_not_empty])
-    client_secret: str = attrs.field(validator=[attrs.validators.instance_of(str),
-                                                field_is_not_empty])
-    client_key: str = attrs.field(validator=[attrs.validators.instance_of(str), field_is_not_empty])
+    client_id: str = attrs.field(
+        validator=[attrs.validators.instance_of(str), field_is_not_empty]
+    )
+    client_secret: str = attrs.field(
+        validator=[attrs.validators.instance_of(str), field_is_not_empty]
+    )
+    client_key: str = attrs.field(
+        validator=[attrs.validators.instance_of(str), field_is_not_empty]
+    )
 
 
 @attrs.define
@@ -70,9 +76,7 @@ def retry_once_if_json_decoding_error_or_retry_indefintely_if_api_rate_limit_err
         return False
 
     # Retry once if JSON decoding response fails
-    if (
-        isinstance(exception, (rq.exceptions.JSONDecodeError, json.JSONDecodeError))
-    ):
+    if isinstance(exception, (rq.exceptions.JSONDecodeError, json.JSONDecodeError)):
         return retry_state.attempt_number <= 1
 
     # Retry API rate lmiit errors indefinitely.
@@ -148,27 +152,30 @@ class TiktokRequest:
         return json.dumps(request_obj, cls=QueryJSONEncoder, indent=1)
 
     #  def __str__(self) -> str:
-        #  str_data = (
-            #  f"""{{\n{INDENT}{self.query.format_data()},\n"""
-            #  f"""{INDENT}"max_count": {self.max_count},\n"""
-            #  f"""{INDENT}"start_date": "{self.start_date}",\n"""
-            #  f"""{INDENT}"end_date": "{self.end_date}",\n"""
-            #  f"""{INDENT}"is_random": {str(self.is_random).lower()}"""
-        #  )
+    #  str_data = (
+    #  f"""{{\n{INDENT}{self.query.format_data()},\n"""
+    #  f"""{INDENT}"max_count": {self.max_count},\n"""
+    #  f"""{INDENT}"start_date": "{self.start_date}",\n"""
+    #  f"""{INDENT}"end_date": "{self.end_date}",\n"""
+    #  f"""{INDENT}"is_random": {str(self.is_random).lower()}"""
+    #  )
 
-        #  if self.search_id is not None:
-            #  str_data += f',\n    "search_id": "{self.search_id}"'
+    #  if self.search_id is not None:
+    #  str_data += f',\n    "search_id": "{self.search_id}"'
 
-        #  if self.cursor is not None:
-            #  str_data += f',\n    "cursor": {self.cursor}'
+    #  if self.cursor is not None:
+    #  str_data += f',\n    "cursor": {self.cursor}'
 
-        #  str_data += "\n}"
+    #  str_data += "\n}"
 
-        #  return str_data
+    #  return str_data
+
 
 @attrs.define
 class TikTokApiRequestClient:
-    _credentials: TiktokCredentials = attrs.field(validator=[attrs.validators.instance_of(TiktokCredentials), field_is_not_empty])
+    _credentials: TiktokCredentials = attrs.field(
+        validator=[attrs.validators.instance_of(TiktokCredentials), field_is_not_empty]
+    )
     _access_token_fetcher_session: rq.Session = attrs.field()
     _api_request_session: rq.Session = attrs.field()
     _raw_responses_output_dir: Optional[Path] = None
@@ -181,7 +188,7 @@ class TikTokApiRequestClient:
             dict_credentials = yaml.load(f, Loader=yaml.FullLoader)
 
         return cls(
-        credentials = TiktokCredentials(**dict_credentials),
+            credentials=TiktokCredentials(**dict_credentials),
             *args,
             **kwargs,
         )
@@ -254,9 +261,13 @@ class TikTokApiRequestClient:
             logging.info("Fetching new token as the previous token expired")
 
             token = self._get_client_access_token()
-            self._api_request_session.headers.update({"Authorization": f"Bearer {token}"})
+            self._api_request_session.headers.update(
+                {"Authorization": f"Bearer {token}"}
+            )
 
-            r.request.headers["Authorization"] = self._api_request_session.headers["Authorization"]
+            r.request.headers["Authorization"] = self._api_request_session.headers[
+                "Authorization"
+            ]
 
             return self._api_request_session.send(r.request)
 
