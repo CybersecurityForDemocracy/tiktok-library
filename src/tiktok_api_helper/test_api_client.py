@@ -125,7 +125,7 @@ def mock_request_session_json_decoder_error(mock_request_session):
     return mock_request_session
 
 
-def test_tikto_credentials_accepts_str_or_int_client_id():
+def test_tiktok_credentials_accepts_str_or_int_client_id():
     api_client.TiktokCredentials("client_id_1", "client_secret_1", "client_key_1")
     api_client.TiktokCredentials(123, "client_secret_1", "client_key_1")
 
