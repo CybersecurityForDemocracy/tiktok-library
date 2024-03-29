@@ -5,7 +5,6 @@ import json
 
 import pytest
 import requests
-import tenacity
 import pendulum
 
 from . import api_client
@@ -186,7 +185,7 @@ def test_tiktok_api_request_client_attempts_token_refresh(
     mock_request_session, mock_access_token_fetcher_session
 ):
     assert "Authorization" not in mock_request_session.headers
-    request = api_client.TikTokApiRequestClient.from_credentials_file(
+    api_client.TikTokApiRequestClient.from_credentials_file(
         FAKE_SECRETS_YAML_FILE,
         api_request_session=mock_request_session,
         access_token_fetcher_session=mock_access_token_fetcher_session,

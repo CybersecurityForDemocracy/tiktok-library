@@ -3,7 +3,6 @@ from copy import copy
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
-import json
 
 import numpy as np
 import typer
