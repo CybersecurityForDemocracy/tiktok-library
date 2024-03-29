@@ -72,8 +72,12 @@ class Fields:
     music_id = _Field("music_id", validator=attrs.validators.instance_of(int))
     effect_id = _Field("effect_id", validator=attrs.validators.instance_of(int))
 
-    region_code = _Field("region_code", validator=attrs.validators.in_(SUPPORTED_REGION_CODES))
-    video_length = _Field("video_length", validator=attrs.validators.in_(SUPPORTED_VIDEO_LENGTHS))
+    region_code = _Field(
+        "region_code", validator=attrs.validators.in_(SUPPORTED_REGION_CODES)
+    )
+    video_length = _Field(
+        "video_length", validator=attrs.validators.in_(SUPPORTED_VIDEO_LENGTHS)
+    )
 
     create_date = _Field("create_date", validator=check_can_convert_date)
 
@@ -94,8 +98,8 @@ def convert_str_or_strseq_to_strseq(
 class Condition:
     field: _Field
     field_values: Union[str, Sequence[str]] = attrs.field(
-        converter=convert_str_or_strseq_to_strseq, validator=attrs.validators.instance_of((str,
-                                                                                           Sequence))
+        converter=convert_str_or_strseq_to_strseq,
+        validator=attrs.validators.instance_of((str, Sequence)),
     )
     operation: str = attrs.field(validator=attrs.validators.in_(Operations))
 
