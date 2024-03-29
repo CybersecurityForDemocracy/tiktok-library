@@ -20,21 +20,6 @@ class Operations(enum.StrEnum):
     LTE = "LTE"
 
 
-INDENT = "\t"
-
-
-def build_check_type(expected_type) -> Callable[..., None]:
-
-    def check_type(obj) -> None:
-        if not isinstance(obj, expected_type):
-            raise TypeError(f"{obj} is not expected type {expected_type}")
-
-    return check_type
-
-
-str_type_check = build_check_type(str)
-int_type_check = build_check_type(int)
-
 
 def check_can_convert_date(inst, attr, value: str) -> None:
     # We check by directly trying to convert; will raise an error otherwise
@@ -106,11 +91,6 @@ class Condition:
         for elem in value:
             self.field.validator(inst=self, attr=attribute, value=elem)
 
-    def __str__(self) -> str:
-        str_field_values = ",".join([f'"{s}"' for s in self.field_values])
-
-        return f"""{{"operation": "{self.operation}", "field_name": "{str(self.field.name)}", "field_values": [{str_field_values}]}}"""
-
     def as_dict(self) -> Mapping[str, Any]:
         return {
             "operation": str(self.operation),
@@ -118,28 +98,6 @@ class Condition:
             "field_values": self.field_values,
         }
 
-
-def format_conditions(
-    conditions: Optional[Union[Sequence[Condition], Condition]],
-    sep=",\n",
-) -> str:
-    """"""
-
-    if conditions is None:
-        return ""
-
-    if isinstance(conditions, str):
-        elements = str(conditions)
-
-    else:
-        assert isinstance(conditions, Sequence)
-        elements = sep.join([str(cond) for cond in conditions])
-
-    return f"""[\n{3*INDENT}{elements}\n{2*INDENT}]"""
-
-
-def format_operand(name: str, operand: str, indent=INDENT) -> str:
-    return f"""{indent}"{name}": {operand} """
 
 
 def make_conditions_dict(
@@ -189,23 +147,6 @@ class Query:
         if self.and_ is None and self.or_ is None and self.not_ is None:
             raise ValueError("At least one of and_, or_, not_ must be passed!")
 
-    def format_data(self) -> str:
-        operand_names = ["and", "or", "not"]
-        operand_values = [self.and_, self.or_, self.not_]
-
-        all_operands = {}
-
-        for name, val in zip(operand_names, operand_values):
-            formatted_cond = format_conditions(val)
-            if formatted_cond:
-                all_operands[name] = formatted_cond
-
-        formatted_operands = ",\n".join(
-            [format_operand(name, val) for name, val in all_operands.items()]
-        )
-
-        return f""""query": {{\n{INDENT}{formatted_operands}\n{INDENT}}}"""
-
     def as_dict(self):
         operands = {"and": self.and_, "or": self.or_, "not": self.not_}
         formatted_operands = {}
@@ -215,9 +156,6 @@ class Query:
                 formatted_operands[name] = make_conditions_dict(val)
 
         return formatted_operands
-
-    def __str__(self) -> str:
-        return self.format_data()
 
 
 class QueryJSONEncoder(json.JSONEncoder):
