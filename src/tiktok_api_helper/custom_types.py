@@ -3,6 +3,8 @@ from pathlib import Path
 import typer
 from typing_extensions import Annotated
 
+from .api_client import ApiRateLimitWaitStrategy
+
 TikTokStartDateFormat = Annotated[
     str, typer.Argument(help="Start date in the format %Y%m%d (e.g. 20210101)")
 ]
@@ -51,5 +53,12 @@ RawResponsesOutputDir = Annotated[
         file_okay=False,
         dir_okay=True,
         help="Path for dir in which to save raw API responses",
+    ),
+]
+
+ApiRateLimitWaitStrategyType = Annotated[
+    ApiRateLimitWaitStrategy,
+    typer.Option(
+        help=f"Retry wait strategy when API rate limit encountered. Wait for one hour or wait til next UTC midnight (when API rate limit quota resets). NOTE: if machine goes to sleep (ie close lid on laptop) the wait time is also paused. So if you use {ApiRateLimitWaitStrategy.WAIT_NEXT_UTC_MIDNIGHT.value} and the machine goes to sleep retry will likely wait past upcoming midnight by however long the machine was asleep"
     ),
 ]

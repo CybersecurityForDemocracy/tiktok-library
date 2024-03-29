@@ -20,10 +20,12 @@ from .custom_types import (
     RawResponsesOutputDir,
     QueryFileType,
     ApiCredentialsFileType,
+    ApiRateLimitWaitStrategyType,
 )
 from .sql import Crawl, Video, get_engine_and_create_tables
 from .api_client import (
     AcquitionConfig,
+    ApiRateLimitWaitStrategy,
     TiktokRequest,
     TikTokApiRequestClient,
 )
@@ -150,6 +152,7 @@ def main_driver(config: AcquitionConfig):
                 source=config.source,
                 raw_responses_output_dir=config.raw_responses_output_dir,
                 api_credentials_file=config.api_credentials_file,
+                api_rate_limit_wait_strategy=config.api_rate_limit_wait_strategy,
             )
             run_long_query(new_config)
 
@@ -240,6 +243,7 @@ def run(
     raw_responses_output_dir: RawResponsesOutputDir = None,
     query_file: QueryFileType = Path("query.yaml"),
     api_credentials_file: ApiCredentialsFileType = _DEFAULT_CREDENTIALS_FILE_PATH,
+    rate_limit_wait_strategy: ApiRateLimitWaitStrategyType = ApiRateLimitWaitStrategy.WAIT_ONE_HOUR,
 ) -> None:
     """
 
@@ -273,6 +277,7 @@ def run(
         source=[source],
         raw_responses_output_dir=raw_responses_output_dir,
         api_credentials_file=api_credentials_file,
+        api_rate_limit_wait_strategy=rate_limit_wait_strategy,
     )
     logging.log(logging.INFO, f"Config: {config}")
 
