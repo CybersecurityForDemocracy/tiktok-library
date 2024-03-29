@@ -10,80 +10,20 @@ import pytest
 
 from .sql import Crawl, Video, create_tables
 
-MOCK_VIDEO_DATA = [
-    {
-        "music_id": 6810180973628491777,
-        "playlist_id": 0,
-        "region_code": "US",
-        "share_count": 50,
-        "username": "american_ginger_redeemed",
-        "hashtag_names": [
-            "whatdidyouexpect",
-            "viral",
-            "foryou",
-            "fyp",
-            "prolife",
-            "greenscreensticker",
-            "unbornlivesmatter",
-        ],
-        "id": 7094381613995478318,
-        "like_count": 2135,
-        "view_count": 20777,
-        "video_description": "Pregnancy is a natural outcome to unprotected s*x… what did you think was gonna happen? #fyp #foryou #unbornlivesmatter #viral #prolife #whatdidyouexpect #greenscreensticker",
-        "comment_count": 501,
-        "create_time": 1651789438,
-        "effect_ids": ["0"],
-    },
-    {
-        "video_description": "Period. #abortionismurder #fyp #prolife #LaurelRoad4Nurses #BBPlayDate #roemustgo",
-        "create_time": 1651766906,
-        "effect_ids": ["0"],
-        "id": 7094284837128817962,
-        "region_code": "US",
-        "share_count": 5,
-        "view_count": 5400,
-        "comment_count": 72,
-        "hashtag_names": [
-            "fyp",
-            "prolife",
-            "abortionismurder",
-            "LaurelRoad4Nurses",
-            "BBPlayDate",
-            "roemustgo",
-        ],
-        "like_count": 499,
-        "music_id": 6865506085311088641,
-        "username": "realmorganfaith",
-    },
-    {
-        "like_count": 760,
-        "music_id": 6833934234948732941,
-        "username": "edenmccourt",
-        "video_description": "I don’t usually talk about myself on my public pages, but I think given the current climate it is necessary. I want to help you understand that people on both sides of this debate are just normal people with normal interests and who should be treated with respect, dignity and kindness. We can disagree and still be friends. Less polarisation and more conversation. ❤️ #foryourpage #humanlikeyou",
-        "view_count": 19365,
-        "comment_count": 373,
-        "effect_ids": ["0"],
-        "id": 7094037673978973446,
-        "region_code": "GB",
-        "share_count": 30,
-        "create_time": 1651709360,
-        "hashtag_names": ["humanlikeyou", "foryourpage"],
-    },
-    {
-        "comment_count": 402,
-        "create_time": 1651614306,
-        "id": 7093629419205561606,
-        "like_count": 923,
-        "region_code": "GB",
-        "username": "edenmccourt",
-        "video_description": "It do be like that tho. #fyp #roevwade #abortion",
-        "view_count": 13809,
-        "effect_ids": ["0"],
-        "hashtag_names": ["abortion", "fyp", "roevwade"],
-        "music_id": 7016913596630207238,
-        "share_count": 16,
-    },
-]
+MOCK_VIDEO_DATA = {
+    "like_count": 760,
+    "music_id": 6833934234948732941,
+    "username": "himom",
+    "video_description": "look at this silly dance #silly #dance",
+    "view_count": 19365,
+    "comment_count": 373,
+    "effect_ids": ["0"],
+    "id": 7094037673978973446,
+    "region_code": "US",
+    "share_count": 30,
+    "create_time": 1651709360,
+    "hashtag_names": ["silly", "dance"],
+}
 
 
 @pytest.fixture
@@ -103,6 +43,7 @@ def mock_videos():
             id=2,
             username="Testing2",
             region_code="US",
+            comment_count=1,
             create_time=now,
             effect_ids=[1, 2, 3],
             hashtag_names=["Hello", "World"],
@@ -172,6 +113,40 @@ def test_upsert(in_memory_database, mock_videos, mock_crawl):
             300,
             3,
         ]
+
+
+def test_upsert_updates_existing_and_inserts_new_video_data(
+    in_memory_database, mock_videos, mock_crawl
+):
+    with Session(in_memory_database) as session:
+        session.add_all(mock_videos)
+        session.commit()
+
+        new_source = ["0.0-testing"]
+        Video.custom_sqlite_upsert(
+            [
+                MOCK_VIDEO_DATA,
+                {
+                    "id": mock_videos[1].id,
+                    "comment_count": mock_videos[1].comment_count + 1,
+                },
+            ],
+            source=new_source,
+            engine=in_memory_database,
+        )
+        assert session.execute(
+            select(Video.id, Video.comment_count).order_by(Video.id)
+        ).all() == [
+            (mock_videos[0].id, None),
+            (mock_videos[1].id, mock_videos[1].comment_count + 1),
+            (MOCK_VIDEO_DATA["id"], MOCK_VIDEO_DATA["comment_count"]),
+        ]
+
+        video_in_db = session.scalars(
+            select(Video).where(Video.id == MOCK_VIDEO_DATA["id"])
+        ).first()
+        for k, v in MOCK_VIDEO_DATA.items():
+            assert getattr(video_in_db, k) == v
 
 
 def test_remove_all(in_memory_database, mock_videos, mock_crawl):
