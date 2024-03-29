@@ -52,7 +52,7 @@ class MyJsonList(TypeDecorator):
         if value is None:
             return []
 
-        elif not isinstance(value, dict):
+        if not isinstance(value, dict):
             raise ValueError("value must be a dict!")
 
         return value.get("list", [])

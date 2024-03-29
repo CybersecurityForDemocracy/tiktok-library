@@ -20,7 +20,6 @@ class Operations(enum.StrEnum):
     LTE = "LTE"
 
 
-
 def check_can_convert_date(inst, attr, value: str) -> None:
     # We check by directly trying to convert; will raise an error otherwise
     datetime.strptime(value, "%Y%m%d")
@@ -58,9 +57,7 @@ class Fields:
     region_code = _Field(
         "region_code", validator=attrs.validators.in_(SUPPORTED_REGION_CODES)
     )
-    video_length = _Field(
-        "video_length", validator=attrs.validators.in_(VideoLength)
-    )
+    video_length = _Field("video_length", validator=attrs.validators.in_(VideoLength))
 
     create_date = _Field("create_date", validator=check_can_convert_date)
 
@@ -97,7 +94,6 @@ class Condition:
             "field_name": self.field.name,
             "field_values": self.field_values,
         }
-
 
 
 def make_conditions_dict(

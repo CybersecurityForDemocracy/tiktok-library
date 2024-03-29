@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta
-from typing import Optional, Sequence, Union, Mapping, Any
+from typing import Optional, Sequence, Mapping, Any
 from pathlib import Path
 import json
 import enum
@@ -54,7 +54,6 @@ class TiktokCredentials:
 class TikTokResponse:
     request_data: Mapping[str, Any]
     videos: Sequence[Any]
-
 
 
 @attrs.define
