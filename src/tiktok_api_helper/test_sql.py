@@ -8,7 +8,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Session
 import pytest
 
-from .sql import Crawl, Video, create_tables
+from .sql import Crawl, Video, create_tables, Base
 
 MOCK_VIDEO_DATA = {
     "like_count": 760,
@@ -28,10 +28,15 @@ MOCK_VIDEO_DATA = {
 
 @pytest.fixture
 def in_memory_database() -> Engine:
-    engine = create_engine("sqlite://", echo=True)
+    # TODO(macpd): DO NOT COMMIT revert this 
+    #  engine = create_engine("sqlite://", echo=True)
+    engine = create_engine("postgresql://nyufbpolads:Y2o$6p3%cLNp@localhost:5432/tiktok_macpd_test", echo=True)
     create_tables(engine)
 
-    return engine
+    yield engine
+    Base.metadata.drop_all(engine)
+
+
 
 
 @pytest.fixture
@@ -118,6 +123,7 @@ def test_upsert(in_memory_database, mock_videos, mock_crawl):
 def test_upsert_updates_existing_and_inserts_new_video_data(
     in_memory_database, mock_videos, mock_crawl
 ):
+    utcnow = datetime.datetime.utcnow().timestamp()
     with Session(in_memory_database) as session:
         session.add_all(mock_videos)
         session.commit()
@@ -129,6 +135,7 @@ def test_upsert_updates_existing_and_inserts_new_video_data(
                 {
                     "id": mock_videos[1].id,
                     "comment_count": mock_videos[1].comment_count + 1,
+                    "create_time":utcnow,
                 },
             ],
             source=new_source,
@@ -146,7 +153,13 @@ def test_upsert_updates_existing_and_inserts_new_video_data(
             select(Video).where(Video.id == MOCK_VIDEO_DATA["id"])
         ).first()
         for k, v in MOCK_VIDEO_DATA.items():
-            assert getattr(video_in_db, k) == v
+            video_in_db_value = getattr(video_in_db, k)
+            if isinstance(video_in_db_value, datetime.datetime):
+                assert int(video_in_db_value.timestamp()) == v, f'{k} field does not match'
+            else:
+                assert video_in_db_value == v, f'{k} field does not match'
+
+        # TODO(macpd): fix and check other updated data
 
 
 def test_remove_all(in_memory_database, mock_videos, mock_crawl):

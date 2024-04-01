@@ -224,6 +224,7 @@ def run(
     start_date_str: TikTokStartDateFormat,
     end_date_str: TikTokEndDateFormat,
     db_file: DBFileType,
+    db_url: Annotated[str, typer.Option(help='database URL')] = None,
     stop_after_one_request: Annotated[
         bool, typer.Option(help="Stop after the first request - Useful for testing")
     ] = False,
@@ -265,7 +266,13 @@ def run(
 
     logging.log(logging.INFO, f"Query: {query}")
 
-    engine = get_engine_and_create_tables(db_file)
+    if db_url:
+        engine = get_engine_and_create_tables(db_url)
+    elif db_file:
+        engine = get_engine_and_create_tables(db_file)
+    else:
+        # TODO(macpd): handle this better
+        raise ValueError('Cannot specify db_url and db_file')
 
     config = AcquitionConfig(
         query=query,

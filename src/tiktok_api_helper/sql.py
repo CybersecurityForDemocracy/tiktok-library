@@ -1,8 +1,9 @@
 import copy
 import datetime
 import logging
-from typing import Any, Optional
+from typing import Any, Optional, Union
 import json
+from pathlib import Path
 
 from sqlalchemy import (
     JSON,
@@ -13,6 +14,7 @@ from sqlalchemy import (
     TypeDecorator,
     create_engine,
     func,
+    BigInteger,
 )
 from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, synonym
@@ -65,28 +67,30 @@ class Base(DeclarativeBase):
 class Video(Base):
     __tablename__ = "video"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
+    id: Mapped[int] = mapped_column(BigInteger, autoincrement=False, primary_key=True)
     video_id = synonym("id")
     item_id = synonym("id")
 
-    create_time: Mapped[int]
+    create_time: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=False),
+    )
 
     username: Mapped[str]
     region_code: Mapped[str] = mapped_column(String(2))
     video_description: Mapped[Optional[str]]
-    music_id: Mapped[Optional[int]]
+    music_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
 
-    like_count: Mapped[Optional[int]]
-    comment_count: Mapped[Optional[int]]
-    share_count: Mapped[Optional[int]]
-    view_count: Mapped[Optional[int]]
+    like_count: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    comment_count: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    share_count: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    view_count: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
 
     # We use Json here just to have list support in SQLite
     # While postgres has array support, sqlite doesn't and we want to keep it agnositc
     effect_ids = mapped_column(MyJsonList, nullable=True)
     hashtag_names = mapped_column(MyJsonList, nullable=True)
 
-    playlist_id: Mapped[Optional[int]]
+    playlist_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
     voice_to_text: Mapped[Optional[str]]
 
     # Columns here are not returned by the API, but are added by us
@@ -128,6 +132,7 @@ class Video(Base):
             # manually add the source, keeping the original dict intact
             new_vid = copy.deepcopy(vid)
             new_vid["source"] = source
+            new_vid['create_time'] = datetime.datetime.utcfromtimestamp(vid['create_time'])
 
             ids_to_video[vid["id"]] = new_vid
 
@@ -146,7 +151,7 @@ class Video(Base):
 
 
 class Crawl(Base):
-    __tablename__ = "Crawl"
+    __tablename__ = "crawl"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
@@ -223,8 +228,11 @@ class Crawl(Base):
         self.upload_self_to_db(engine)
 
 
-def get_engine_and_create_tables(db_path: DBFileType, **kwargs) -> Engine:
-    engine = create_engine(f"sqlite:///{db_path}", **kwargs)
+def get_engine_and_create_tables(db_path: Union[str, Path], **kwargs) -> Engine:
+    if isinstance(db_path, Path):
+        engine = create_engine("sqlite:///{db_path}", **kwargs)
+    else:
+        engine = create_engine(db_path, **kwargs)
     create_tables(engine)
 
     return engine
