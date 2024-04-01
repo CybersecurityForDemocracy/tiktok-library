@@ -2,7 +2,7 @@
 
 ## Requirements
 
-Python3.10+ is **required**. Some newer features are directly used and earlier versions won't work (e.g. Walrus, type hinting chaining "|", etc.). 
+Python3.11+ is **required**. Some newer features are directly used and earlier versions won't work (e.g. Walrus, type hinting chaining "|", etc.), `StrEnum` class
     
 ## Instalation and Usage
 
@@ -33,16 +33,16 @@ pip install .
 
 ## Limitations
 
-- **Large-scale acquisition is not automatically continued if the process is interrupted. We recommend manually splitting the query into smaller days and running them separately.**
 - Currently only video data ("Query Videos") is supported directly. 
 
 ## Internals
 
 - Long running queries are automatically split into smaller 28 days chunks. This is to avoid the 30 day limit on the TikTok API.
 - The library automatically manages the access token and refreshes it when needed.
+- TikTok research API quota is 1000 requests per day (https://developers.tiktok.com/doc/research-api-faq). When the API indicates that limit has been reached this library will retry (see `--rate-limit-wait-strategy` flag for available strategies) until quota limit resets and continue collection.
 - Database
     - All "Crawls" are stored in a seperate SQLite database "Crawls" and the data itself in "Videos".
-    - Data is backed up to DB after every TikTokRequest, by default containing up to 100 instances.
+    - Data is written to DB after every TikTokRequest, by default containing up to 100 instances.
 
 ## Roadmpap
 - Fix warning when retrying - Only show if the retry is unsuccessful
