@@ -116,7 +116,7 @@ def test_upsert(in_memory_database, mock_videos, mock_crawl):
 
 
 def test_upsert_updates_existing_and_inserts_new_video_data(
-    in_memory_database, mock_videos, mock_crawl
+    in_memory_database, mock_videos,
 ):
     with Session(in_memory_database) as session:
         session.add_all(mock_videos)
