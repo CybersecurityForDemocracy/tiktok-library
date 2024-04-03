@@ -50,9 +50,9 @@ class Fields:
     hashtag_name = _Field("hashtag_name", validator=attrs.validators.instance_of(str))
     keyword = _Field("keyword", validator=attrs.validators.instance_of(str))
 
-    video_id = _Field("video_id", validator=attrs.validators.instance_of(int))
-    music_id = _Field("music_id", validator=attrs.validators.instance_of(int))
-    effect_id = _Field("effect_id", validator=attrs.validators.instance_of(int))
+    video_id = _Field("video_id", validator=attrs.validators.instance_of(str))
+    music_id = _Field("music_id", validator=attrs.validators.instance_of(str))
+    effect_id = _Field("effect_id", validator=attrs.validators.instance_of(str))
 
     region_code = _Field(
         "region_code", validator=attrs.validators.in_(SUPPORTED_REGION_CODES)
