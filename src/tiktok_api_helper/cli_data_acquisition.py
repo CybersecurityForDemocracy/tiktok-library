@@ -5,22 +5,42 @@ from pathlib import Path
 from typing import Optional
 
 import numpy as np
-import requests as rq
 import typer
 import yaml
 from sqlalchemy import Engine
 from tqdm.auto import tqdm
 from typing_extensions import Annotated
 
-from . import access, utils
-from .custom_types import DBFileType, TikTokDateFormat
+from . import utils
+from .custom_types import (
+    DBFileType,
+    TikTokStartDateFormat,
+    TikTokEndDateFormat,
+    RawResponsesOutputDir,
+    QueryFileType,
+    ApiCredentialsFileType,
+    ApiRateLimitWaitStrategyType,
+)
 from .sql import Crawl, Video, get_engine_and_create_tables
-from .Video import AcquitionConfig, Cond, Fields, Op, Query, TiktokRequest
+from .api_client import (
+    AcquitionConfig,
+    ApiRateLimitWaitStrategy,
+    TiktokRequest,
+    TikTokApiRequestClient,
+)
+from .query import (
+    Cond,
+    Fields,
+    Op,
+    Query,
+)
 
 APP = typer.Typer(rich_markup_mode="markdown")
 
 _DAYS_PER_ITER = 28
 _COUNT_PREVIOUS_ITERATION_REPS = -1
+_DEFAULT_QUERY_FILE_PATH = Path("./query.yaml")
+_DEFAULT_CREDENTIALS_FILE_PATH = Path("./secrets.yaml")
 
 
 def insert_videos_from_response(
@@ -32,27 +52,32 @@ def insert_videos_from_response(
         Video.custom_sqlite_upsert(videos, source=source, engine=engine)
     except Exception as e:
         logging.log(logging.ERROR, f"Error with upsert! Videos: {videos}\n Error: {e}")
-        logging.log(logging.ERROR, f"Skipping Upsert")
+        logging.log(logging.ERROR, "Skipping Upsert")
 
 
-def run_long_query(session: rq.Session, config: AcquitionConfig):
+def run_long_query(config: AcquitionConfig):
     """Runs a "long" query, defined as one that may need multiple requests to get all the data.
 
     Unless you have a good reason to believe otherwise, queries should default to be considered "long".
     """
-    res = TiktokRequest.from_config(config, max_count=100).post(session)
-    req_data, videos = TiktokRequest.parse_response(res)
+    request = TiktokRequest.from_config(config, max_count=100)
+    logging.warning("request.as_json: %s", request.as_json())
+    request_client = TikTokApiRequestClient.from_credentials_file(
+        credentials_file=config.api_credentials_file,
+        raw_responses_output_dir=config.raw_responses_output_dir,
+    )
+    res = request_client.fetch(request)
 
-    if not videos:
+    if not res.videos:
         logging.log(
             logging.INFO, f"No videos in response - {res}. Query: {config.query}"
         )
         return
 
-    crawl = Crawl.from_request(req_data, config.query, source=config.source)
+    crawl = Crawl.from_request(res.request_data, config.query, source=config.source)
     crawl.upload_self_to_db(config.engine)
 
-    insert_videos_from_response(videos, engine=config.engine, source=config.source)
+    insert_videos_from_response(res.videos, engine=config.engine, source=config.source)
 
     # manual tqdm maintance
     count = 1
@@ -61,29 +86,34 @@ def run_long_query(session: rq.Session, config: AcquitionConfig):
     pbar = tqdm(total=_COUNT_PREVIOUS_ITERATION_REPS, disable=disable_tqdm)
 
     while crawl.has_more:
-        res = TiktokRequest.from_config(
+        request = TiktokRequest.from_config(
             config=config,
             max_count=100,
             cursor=crawl.cursor,
             search_id=crawl.search_id,
-        ).post(session)
+        )
+        res = request_client.fetch(request)
 
-        req_data, videos = TiktokRequest.parse_response(res)
-        crawl.update_crawl(next_res_data=req_data, videos=videos, engine=config.engine)
-        insert_videos_from_response(videos, source=config.source, engine=config.engine)
+        crawl.update_crawl(
+            next_res_data=res.request_data, videos=res.videos, engine=config.engine
+        )
+        insert_videos_from_response(
+            res.videos, source=config.source, engine=config.engine
+        )
 
         pbar.update(1)
         count += 1
 
-        if not videos and crawl.has_more:
+        if not res.videos and crawl.has_more:
             logging.log(
                 logging.ERROR,
-                f"No videos in response but there's still data to Crawl - Query: {config.query} \n req_data: {req_data}",
+                f"No videos in response but there's still data to Crawl - Query: {config.query} \n res.request_data: {res.request_data}",
             )
-
         if config.stop_after_one_request:
             logging.log(logging.WARN, "Stopping after one request")
             break
+
+    logging.info("Crawl completed.")
 
     pbar.close()
     _COUNT_PREVIOUS_ITERATION_REPS = count
@@ -95,12 +125,10 @@ def driver_single_day(config: AcquitionConfig):
         config.start_date == config.final_date
     ), "Start and final date must be the same for single day driver"
 
-    session = access.get_session()
-    run_long_query(session, config)
+    run_long_query(config)
 
 
 def main_driver(config: AcquitionConfig):
-    session = access.get_session()
     days_per_iter = utils.int_to_days(_DAYS_PER_ITER)
 
     total = np.ceil((config.final_date - config.start_date).days / _DAYS_PER_ITER)
@@ -121,8 +149,11 @@ def main_driver(config: AcquitionConfig):
                 engine=config.engine,
                 stop_after_one_request=config.stop_after_one_request,
                 source=config.source,
+                raw_responses_output_dir=config.raw_responses_output_dir,
+                api_credentials_file=config.api_credentials_file,
+                api_rate_limit_wait_strategy=config.api_rate_limit_wait_strategy,
             )
-            run_long_query(session, new_config)
+            run_long_query(new_config)
 
             start_date += days_per_iter
 
@@ -136,6 +167,7 @@ def main_driver(config: AcquitionConfig):
 @APP.command()
 def test(
     db_file: DBFileType = Path("./test.db"),
+    api_credentials_file: ApiCredentialsFileType = _DEFAULT_CREDENTIALS_FILE_PATH,
 ) -> None:
     """
     Test's the CLI's ability to connect to the database, create tables, acquire data and store it.
@@ -167,6 +199,8 @@ def test(
         engine=engine,
         stop_after_one_request=True,
         source=["Testing"],
+        raw_responses_output_dir=None,
+        api_credentials_file=api_credentials_file,
     )
     logging.log(logging.INFO, f"Config: {config}")
 
@@ -174,12 +208,21 @@ def test(
     driver_single_day(config)
 
 
+def get_query(query_file: Path):
+    with query_file.open("r") as f:
+        yaml_file = yaml.load(f, Loader=yaml.FullLoader)
+    _temp = {}
+    exec(yaml_file["query"], globals(), _temp)
+    query = _temp["return_query"]()
+    return query
+
+
 @APP.command()
 def run(
     # Note to self: Importing "from __future__ import annotations"
     # breaks the documentation of CLI Arguments for some reason
-    start_date_str: TikTokDateFormat,
-    end_date_str: TikTokDateFormat,
+    start_date_str: TikTokStartDateFormat,
+    end_date_str: TikTokEndDateFormat,
     db_file: DBFileType,
     stop_after_one_request: Annotated[
         bool, typer.Option(help="Stop after the first request - Useful for testing")
@@ -196,6 +239,10 @@ def run(
             help="Used for estimating # acquisitions on long running queries for progress bar"
         ),
     ] = -1,
+    raw_responses_output_dir: RawResponsesOutputDir = None,
+    query_file: QueryFileType = Path("query.yaml"),
+    api_credentials_file: ApiCredentialsFileType = _DEFAULT_CREDENTIALS_FILE_PATH,
+    rate_limit_wait_strategy: ApiRateLimitWaitStrategyType = ApiRateLimitWaitStrategy.WAIT_ONE_HOUR,
 ) -> None:
     """
 
@@ -214,10 +261,7 @@ def run(
     start_date_datetime = datetime.strptime(start_date_str, "%Y%m%d")
     end_date_datetime = datetime.strptime(end_date_str, "%Y%m%d")
 
-    yaml_file = yaml.load(open("query.yaml", "r"), Loader=yaml.FullLoader)
-    _temp = {}
-    exec(yaml_file["query"], globals(), _temp)
-    query = _temp["return_query"]()
+    query = get_query(query_file)
 
     logging.log(logging.INFO, f"Query: {query}")
 
@@ -230,6 +274,9 @@ def run(
         engine=engine,
         stop_after_one_request=stop_after_one_request,
         source=[source],
+        raw_responses_output_dir=raw_responses_output_dir,
+        api_credentials_file=api_credentials_file,
+        api_rate_limit_wait_strategy=rate_limit_wait_strategy,
     )
     logging.log(logging.INFO, f"Config: {config}")
 

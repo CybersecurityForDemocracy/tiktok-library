@@ -17,7 +17,7 @@ def str_to_datetime(string: str) -> datetime.datetime:
 def setup_logging(file_level=logging.INFO, rich_level=logging.INFO) -> None:
     """"""
 
-    file_dir = Path(f"./logs/")
+    file_dir = Path("./logs/")
     if not file_dir.exists():
         logging.log(logging.INFO, f"Creating log directory: {file_dir}")
         file_dir.mkdir(parents=True)
@@ -30,8 +30,11 @@ def setup_logging(file_level=logging.INFO, rich_level=logging.INFO) -> None:
 
     # Make sure to setup logging before importing modules that may overide the basicConfig
     logging.basicConfig(
-        format="%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s",
-        datefmt="%H:%M:%S",
+        format="%(asctime)s,%(msecs)d %(name)s %(filename)s:%(lineno)s %(levelname)s %(message)s",
+        # time.strftime (which logging uses to format asctime) does not have a directive for
+        # microseconds, so we use this date format and %(asctime)s,%(msecs)d to get the microseconds
+        # in the record
+        datefmt="%Y-%m-%d %H:%M:%S",
         level=min(file_level, rich_level),
         handlers=[
             RichHandler(

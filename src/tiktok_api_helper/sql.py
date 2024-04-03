@@ -1,27 +1,25 @@
 import copy
 import datetime
 import logging
-from pathlib import Path
 from typing import Any, Optional
+import json
 
 from sqlalchemy import (
     JSON,
     Column,
     DateTime,
     Engine,
-    ForeignKey,
     String,
     TypeDecorator,
     create_engine,
     func,
-    select,
 )
 from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, synonym
 
 from .custom_types import DBFileType
+from .query import Query, QueryJSONEncoder
 
-TEST_DB_PATH = Path("./test.db")
 
 # See https://amercader.net/blog/beware-of-json-fields-in-sqlalchemy/
 MUTABLE_JSON = MutableDict.as_mutable(JSON)  # type: ignore
@@ -54,7 +52,7 @@ class MyJsonList(TypeDecorator):
         if value is None:
             return []
 
-        elif not isinstance(value, dict):
+        if not isinstance(value, dict):
             raise ValueError("value must be a dict!")
 
         return value.get("list", [])
@@ -177,15 +175,15 @@ class Crawl(Base):
             f"query='{self.query!r}'"
         )
 
-    @staticmethod
+    @classmethod
     def from_request(
-        res_data: dict, query, source: Optional[list[str]] = None
+        cls, res_data: dict, query: Query, source: Optional[list[str]] = None
     ) -> "Crawl":
-        return Crawl(
+        return cls(
             cursor=res_data["cursor"],
             has_more=res_data["has_more"],
             search_id=res_data["search_id"],
-            query=str(query),
+            query=json.dumps(query, cls=QueryJSONEncoder),
             source=source,
         )
 
@@ -246,157 +244,3 @@ def convert_to_json(lst_: list) -> dict:
         raise ValueError("lst_ must be a list!")
 
     return {"list": lst_}
-
-
-# TODO: Move this to it's testing configuration
-
-
-def test_upsert():
-    videos = [
-        {
-            "music_id": 6810180973628491777,
-            "playlist_id": 0,
-            "region_code": "US",
-            "share_count": 50,
-            "username": "american_ginger_redeemed",
-            "hashtag_names": [
-                "whatdidyouexpect",
-                "viral",
-                "foryou",
-                "fyp",
-                "prolife",
-                "greenscreensticker",
-                "unbornlivesmatter",
-            ],
-            "id": 7094381613995478318,
-            "like_count": 2135,
-            "view_count": 20777,
-            "video_description": "Pregnancy is a natural outcome to unprotected s*x… what did you think was gonna happen? #fyp #foryou #unbornlivesmatter #viral #prolife #whatdidyouexpect #greenscreensticker",
-            "comment_count": 501,
-            "create_time": 1651789438,
-            "effect_ids": ["0"],
-        },
-        {
-            "video_description": "Period. #abortionismurder #fyp #prolife #LaurelRoad4Nurses #BBPlayDate #roemustgo",
-            "create_time": 1651766906,
-            "effect_ids": ["0"],
-            "id": 7094284837128817962,
-            "region_code": "US",
-            "share_count": 5,
-            "view_count": 5400,
-            "comment_count": 72,
-            "hashtag_names": [
-                "fyp",
-                "prolife",
-                "abortionismurder",
-                "LaurelRoad4Nurses",
-                "BBPlayDate",
-                "roemustgo",
-            ],
-            "like_count": 499,
-            "music_id": 6865506085311088641,
-            "username": "realmorganfaith",
-        },
-        {
-            "like_count": 760,
-            "music_id": 6833934234948732941,
-            "username": "edenmccourt",
-            "video_description": "I don’t usually talk about myself on my public pages, but I think given the current climate it is necessary. I want to help you understand that people on both sides of this debate are just normal people with normal interests and who should be treated with respect, dignity and kindness. We can disagree and still be friends. Less polarisation and more conversation. ❤️ #foryourpage #humanlikeyou",
-            "view_count": 19365,
-            "comment_count": 373,
-            "effect_ids": ["0"],
-            "id": 7094037673978973446,
-            "region_code": "GB",
-            "share_count": 30,
-            "create_time": 1651709360,
-            "hashtag_names": ["humanlikeyou", "foryourpage"],
-        },
-        {
-            "comment_count": 402,
-            "create_time": 1651614306,
-            "id": 7093629419205561606,
-            "like_count": 923,
-            "region_code": "GB",
-            "username": "edenmccourt",
-            "video_description": "It do be like that tho. #fyp #roevwade #abortion",
-            "view_count": 13809,
-            "effect_ids": ["0"],
-            "hashtag_names": ["abortion", "fyp", "roevwade"],
-            "music_id": 7016913596630207238,
-            "share_count": 16,
-        },
-    ]
-
-    Video.custom_sqlite_upsert(
-        videos,
-        source=[
-            "0.0-testing",
-        ],
-        engine=get_engine_and_create_tables(TEST_DB_PATH, echo=True),
-    )
-
-
-def test_print_all():
-    engine = get_engine_and_create_tables(TEST_DB_PATH, echo=True)
-
-    with Session(engine) as session:
-        for video in session.scalars(select(Video)):
-            print(video)
-
-        print("Videos done")
-
-        for crawl in session.scalars(select(Crawl)):
-            print(crawl)
-
-        print("Data inspection done\n\n")
-
-
-def test_remove_all():
-    engine = get_engine_and_create_tables(TEST_DB_PATH, echo=True)
-
-    with Session(engine) as session:
-        for video in session.scalars(select(Video)):
-            print("Deleting video", video)
-            session.delete(video)
-
-        for crawl in session.scalars(select(Crawl)):
-            print("Deleting crawl", crawl)
-            session.delete(crawl)
-
-        session.commit()
-
-
-def test_creation():
-    engine = get_engine_and_create_tables(TEST_DB_PATH)
-    now = datetime.datetime.now()
-
-    with Session(engine) as session:
-        testing1 = Video(id=1, username="Testing1", region_code="US", create_time=now)
-        testing2 = Video(
-            id=2,
-            username="Testing2",
-            region_code="US",
-            create_time=now,
-            effect_ids=[1, 2, 3],
-            hashtag_names=["Hello", "World"],
-            playlist_id=7044254287731739397,
-            voice_to_text="a string",
-            extra_data={"some-future-field-i-havent-thought-of": ["value"]},
-            source=["testing"],
-        )
-
-        session.add_all([testing1, testing2])
-        session.commit()
-
-        testing3 = Crawl(
-            cursor=1, has_more=False, search_id="test", query="test", source=["testing"]
-        )
-        session.add_all([testing3])
-        session.commit()
-
-    test_print_all()
-    test_remove_all()
-    test_upsert()
-    test_remove_all()
-
-    print("All tests done")
