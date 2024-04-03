@@ -4,11 +4,13 @@ from sqlalchemy import (
     Engine,
     create_engine,
     select,
+    text,
+    func,
 )
 from sqlalchemy.orm import Session
 import pytest
 
-from .sql import Crawl, Video, create_tables, Base
+from .sql import Crawl, Video, Hashtag, get_engine_and_create_tables, Base, custom_sqlite_upsert
 
 MOCK_VIDEO_DATA = {
     "like_count": 760,
@@ -28,11 +30,7 @@ MOCK_VIDEO_DATA = {
 
 @pytest.fixture
 def in_memory_database() -> Engine:
-    # TODO(macpd): DO NOT COMMIT revert this 
-    #  engine = create_engine("sqlite://", echo=True)
-    engine = create_engine("postgresql://nyufbpolads:Y2o$6p3%cLNp@localhost:5432/tiktok_macpd_test", echo=True)
-    create_tables(engine)
-
+    engine = get_engine_and_create_tables("sqlite://", echo=True)
     yield engine
     Base.metadata.drop_all(engine)
 
@@ -43,7 +41,8 @@ def in_memory_database() -> Engine:
 def mock_videos():
     now = datetime.datetime.now()
     return [
-        Video(id=1, username="Testing1", region_code="US", create_time=now),
+        Video(id=1, username="Testing1", region_code="US", create_time=now,
+              hashtags=[Hashtag(name='hashtag1'), Hashtag(name='hashtag2')]),
         Video(
             id=2,
             username="Testing2",
@@ -51,7 +50,8 @@ def mock_videos():
             comment_count=1,
             create_time=now,
             effect_ids=[1, 2, 3],
-            hashtag_names=["Hello", "World"],
+            #  hashtag_names=["Hello", "World"],
+            hashtags=[Hashtag(name="Hello"), Hashtag(name="World")],
             playlist_id=7044254287731739397,
             voice_to_text="a string",
             extra_data={"some-future-field-i-havent-thought-of": ["value"]},
@@ -102,10 +102,12 @@ def test_upsert(in_memory_database, mock_videos, mock_crawl):
         ]
 
         new_source = ["0.0-testing"]
-        Video.custom_sqlite_upsert(
+        custom_sqlite_upsert(
             [
-                {"id": mock_videos[0].id, "share_count": 300},
-                {"id": mock_videos[1].id, "share_count": 3},
+                {"id": mock_videos[0].id, "share_count": 300, 'create_time':
+                 datetime.datetime.utcnow().timestamp()},
+                {"id": mock_videos[1].id, "share_count": 3,
+                 'create_time': datetime.datetime.utcnow().timestamp()},
             ],
             source=new_source,
             engine=in_memory_database,
@@ -120,7 +122,48 @@ def test_upsert(in_memory_database, mock_videos, mock_crawl):
         ]
 
 
+def test_upsert_existing_hashtags_names_gets_same_id( in_memory_database, mock_videos,):
+    """Tests that adding a video with an existing hashtag name (from a previously added video)
+    succeeds, gets the same ID it had previously, and does not raise a Unique violation error."""
+    utcnow = datetime.datetime.utcnow().timestamp()
+    with Session(in_memory_database) as session:
+        session.commit()
+
+        new_source = ["0.0-testing"]
+        custom_sqlite_upsert(
+            [
+                {
+                    "id": 0,
+                    "hashtag_names": ['hashtag1', 'hashtag2'],
+                    "create_time": utcnow,
+                    "username": 'user0',
+                    "region_code": 'US',
+                },
+            ],
+            source=new_source,
+            engine=in_memory_database,
+        )
+        original_hashtags = session.scalars(select(Hashtag.id, Hashtag.name).order_by(Hashtag.name)).all()
+        custom_sqlite_upsert(
+            [
+                {
+                    "id": 1,
+                    "hashtag_names": ['hashtag1', 'hashtag2', 'hashtag3'],
+                    "create_time": utcnow,
+                    "username": 'user1',
+                    "region_code": 'US',
+                },
+            ],
+            source=new_source,
+            engine=in_memory_database,
+        )
+        assert session.scalars(select(Hashtag.id, Hashtag.name).where(Hashtag.name.in_(['hashtag1', 'hashtag2'])).order_by(Hashtag.name)).all() == original_hashtags
+
+        # Confirm mapping of hashtag IDs -> video IDs is correct
+        assert session.execute(select(Video.id, Hashtag.name).join(Video.hashtags).order_by(Video.id)).all() == [(0, 'hashtag1',), (0, 'hashtag2'), (1, 'hashtag1',), (1, 'hashtag2'), (1,'hashtag3')]
+
 def test_upsert_updates_existing_and_inserts_new_video_data(
+
     in_memory_database, mock_videos,
 ):
     utcnow = datetime.datetime.utcnow().timestamp()
@@ -129,37 +172,45 @@ def test_upsert_updates_existing_and_inserts_new_video_data(
         session.commit()
 
         new_source = ["0.0-testing"]
-        Video.custom_sqlite_upsert(
+        custom_sqlite_upsert(
             [
                 MOCK_VIDEO_DATA,
                 {
                     "id": mock_videos[1].id,
                     "comment_count": mock_videos[1].comment_count + 1,
-                    "create_time":utcnow,
+                    "create_time": utcnow,
+                    "hashtag_names": ['hashtag1', 'hashtag2']
                 },
             ],
             source=new_source,
             engine=in_memory_database,
         )
         assert session.execute(
-            select(Video.id, Video.comment_count).order_by(Video.id)
+            select(Video.id, Video.comment_count, Video.create_time).order_by(Video.id)
         ).all() == [
-            (mock_videos[0].id, None),
-            (mock_videos[1].id, mock_videos[1].comment_count + 1),
-            (MOCK_VIDEO_DATA["id"], MOCK_VIDEO_DATA["comment_count"]),
+            (mock_videos[0].id, None, mock_videos[0].create_time),
+            (mock_videos[1].id, mock_videos[1].comment_count + 1, datetime.datetime.fromtimestamp(utcnow)),
+            (MOCK_VIDEO_DATA["id"], MOCK_VIDEO_DATA["comment_count"],
+             datetime.datetime.fromtimestamp(MOCK_VIDEO_DATA["create_time"])),
         ]
 
         video_in_db = session.scalars(
             select(Video).where(Video.id == MOCK_VIDEO_DATA["id"])
         ).first()
         for k, v in MOCK_VIDEO_DATA.items():
-            video_in_db_value = getattr(video_in_db, k)
+            if k == 'hashtag_names':
+                video_in_db_value = [hashtag.name for hashtag in video_in_db.hashtags]
+            else:
+                video_in_db_value = getattr(video_in_db, k)
+
             if isinstance(video_in_db_value, datetime.datetime):
                 assert int(video_in_db_value.timestamp()) == v, f'{k} field does not match'
             else:
                 assert video_in_db_value == v, f'{k} field does not match'
 
-        # TODO(macpd): fix and check other updated data
+        assert sorted(session.scalars(select(Hashtag.name)).all()) == ['Hello', 'World', 'dance', 'hashtag1', 'hashtag2', 'silly']
+        assert session.execute(select(Video.id,
+                                      Hashtag.name).join(Video.hashtags).order_by(Video.id)).all() == [(mock_videos[0].id, 'hashtag1'), (mock_videos[0].id, 'hashtag2'), (mock_videos[1].id, 'hashtag1'), (mock_videos[1].id, 'hashtag2'), (MOCK_VIDEO_DATA['id'], MOCK_VIDEO_DATA['hashtag_names'][0]), (MOCK_VIDEO_DATA['id'], MOCK_VIDEO_DATA['hashtag_names'][1])]
 
 
 def test_remove_all(in_memory_database, mock_videos, mock_crawl):

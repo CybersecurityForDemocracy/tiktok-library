@@ -21,7 +21,7 @@ from .custom_types import (
     ApiCredentialsFileType,
     ApiRateLimitWaitStrategyType,
 )
-from .sql import Crawl, Video, get_engine_and_create_tables
+from .sql import Crawl, get_engine_and_create_tables, custom_sqlite_upsert
 from .api_client import (
     AcquitionConfig,
     ApiRateLimitWaitStrategy,
@@ -49,7 +49,7 @@ def insert_videos_from_response(
     source: Optional[list] = None,
 ) -> None:
     try:
-        Video.custom_sqlite_upsert(videos, source=source, engine=engine)
+        custom_sqlite_upsert(videos, source=source, engine=engine)
     except Exception as e:
         logging.log(logging.ERROR, f"Error with upsert! Videos: {videos}\n Error: {e}")
         logging.log(logging.ERROR, "Skipping Upsert")
