@@ -1,7 +1,7 @@
 import copy
 import datetime
 import logging
-from typing import Any, Optional, Union, Set, List, Mapping
+from typing import Any, Optional, Union, List, Mapping
 import json
 from pathlib import Path
 import itertools
@@ -18,14 +18,19 @@ from sqlalchemy import (
     BigInteger,
     Table,
     ForeignKey,
-    Column,
     UniqueConstraint,
     select,
 )
 from sqlalchemy.ext.mutable import MutableDict
-from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, synonym, relationship, column_property
+from sqlalchemy.orm import (
+    DeclarativeBase,
+    Mapped,
+    Session,
+    mapped_column,
+    synonym,
+    relationship,
+)
 
-from .custom_types import DBFileType
 from .query import Query, QueryJSONEncoder
 
 
@@ -69,27 +74,28 @@ class MyJsonList(TypeDecorator):
 class Base(DeclarativeBase):
     pass
 
+
 video_hashtag_association_table = Table(
     #  "video_hashtag_association",
     "videos_to_hashtags",
     Base.metadata,
     Column("video_id", ForeignKey("video.id"), primary_key=True),
     Column("hashtag_id", ForeignKey("hashtag.id"), primary_key=True),
-    )
+)
 
 
 class Hashtag(Base):
-    __tablename__ = 'hashtag'
+    __tablename__ = "hashtag"
 
     #  id: Mapped[int] = mapped_column(BigInteger, autoincrement=True, primary_key=True)
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String)
-    #  videos: Mapped[List["Video"]] = relationship(secondary=video_hashtag_association_table, back_populates="hashtags")
 
     __table_args__ = (UniqueConstraint("name"),)
 
     def __repr__(self) -> str:
         return f"Hashtag (id={self.id}, name={self.name})"
+
 
 class Video(Base):
     __tablename__ = "video"
@@ -115,10 +121,9 @@ class Video(Base):
     # We use Json here just to have list support in SQLite
     # While postgres has array support, sqlite doesn't and we want to keep it agnositc
     effect_ids = mapped_column(MyJsonList, nullable=True)
-    #  hashtag_names = mapped_column(MyJsonList, nullable=True)
-    #  hashtags: Mapped[List[Hashtag]] = relationship(secondary=video_hashtag_association_table, back_populates="videos")
-    hashtags: Mapped[List[Hashtag]] = relationship(secondary=video_hashtag_association_table)
-    #  hashtag_names = column_property(select(func.array_agg(Hashtag.name)).join(video_hashtag_association_table).where(id == video_hashtag_association_table.c.video_id).correlate_except(video_hashtag_association_table).scalar_subquery())
+    hashtags: Mapped[List[Hashtag]] = relationship(
+        secondary=video_hashtag_association_table
+    )
 
     playlist_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
     voice_to_text: Mapped[Optional[str]]
@@ -142,21 +147,32 @@ class Video(Base):
         return f"Video (id={self.id!r}, username={self.username!r}, source={self.source!r})"
 
 
-
-def _get_hashtag_name_to_obj_map(session: Session, video_data: list[dict[str, Any]]) -> Mapping[str, Hashtag]:
+def _get_hashtag_name_to_obj_map(
+    session: Session, video_data: list[dict[str, Any]]
+) -> Mapping[str, Hashtag]:
     """Gets hashtag name -> Hashtag object map, pulling existing Hashtag objects from database and
     creating new Hashtag objects for new hashtag names.
     """
     # Get all hashtag names references in this list of videos
-    hashtag_names_referenced = set(itertools.chain.from_iterable([video.get('hashtag_names', []) for video in video_data]))
+    hashtag_names_referenced = set(
+        itertools.chain.from_iterable(
+            [video.get("hashtag_names", []) for video in video_data]
+        )
+    )
     # Of all the referenced hashtag names get those which exist in the database
-    hashtag_name_to_hashtag = {row.name: row for row in session.scalars(select(Hashtag).filter(Hashtag.name.in_(hashtag_names_referenced)))}
+    hashtag_name_to_hashtag = {
+        row.name: row
+        for row in session.scalars(
+            select(Hashtag).filter(Hashtag.name.in_(hashtag_names_referenced))
+        )
+    }
     # Make new hashtag objects for hashtag names not yet in the database
     existing_hashtag_names = set(hashtag_name_to_hashtag.keys())
     new_hashtag_names = hashtag_names_referenced - existing_hashtag_names
     for hashtag_name in new_hashtag_names:
         hashtag_name_to_hashtag[hashtag_name] = Hashtag(name=hashtag_name)
     return hashtag_name_to_hashtag
+
 
 def custom_sqlite_upsert(
     video_data: list[dict[str, Any]],
@@ -182,15 +198,17 @@ def custom_sqlite_upsert(
             # manually add the source, keeping the original dict intact
             new_vid = copy.deepcopy(vid)
             new_vid["source"] = source
-            new_vid['create_time'] = datetime.datetime.fromtimestamp(vid['create_time'])
-            if 'hashtag_names' in vid:
-                new_vid['hashtags'] = [hashtag_name_to_hashtag[hashtag_name] for hashtag_name in vid['hashtag_names']]
-                del new_vid['hashtag_names']
+            new_vid["create_time"] = datetime.datetime.fromtimestamp(vid["create_time"])
+            if "hashtag_names" in vid:
+                new_vid["hashtags"] = [
+                    hashtag_name_to_hashtag[hashtag_name]
+                    for hashtag_name in vid["hashtag_names"]
+                ]
+                del new_vid["hashtag_names"]
 
             video_id_to_video[vid["id"]] = new_vid
 
-    # Taken from https://stackoverflow.com/questions/25955200/sqlalchemy-performing-a-bulk-upsert-if-exists-update-else-insert-in-postgr
-
+        # Taken from https://stackoverflow.com/questions/25955200/sqlalchemy-performing-a-bulk-upsert-if-exists-update-else-insert-in-postgr
 
         # Merge all the videos that already exist
         for each in session.query(Video).filter(Video.id.in_(video_id_to_video.keys())):
@@ -201,6 +219,7 @@ def custom_sqlite_upsert(
         session.add_all((Video(**vid) for vid in video_id_to_video.values()))
 
         session.commit()
+
 
 class Crawl(Base):
     __tablename__ = "crawl"
@@ -246,7 +265,7 @@ class Crawl(Base):
 
     def upload_self_to_db(self, engine: Engine) -> None:
         """Uploads current instance to DB"""
-        with get_sql_session(engine) as session:
+        with Session(engine) as session:
             # Reconcile self with an instance of the same primary key in the session.
             # Otherwise loads the object from the database based on primary key,
             #   and if none can be located, creates a new instance.
@@ -280,18 +299,15 @@ class Crawl(Base):
         self.upload_self_to_db(engine)
 
 
-def get_engine_and_create_tables(db_path: Union[str, Path], **kwargs) -> Engine:
-    if isinstance(db_path, Path):
-        engine = create_engine("sqlite:///{db_path}", **kwargs)
-    else:
-        engine = create_engine(db_path, **kwargs)
+def get_sqlite_engine_and_create_tables(db_path: Path, **kwargs) -> Engine:
+    return get_engine_and_create_tables("sqlite://{db_path.absolute()}", **kwargs)
+
+
+def get_engine_and_create_tables(db_path: str, **kwargs) -> Engine:
+    engine = create_engine(db_path, **kwargs)
     create_tables(engine)
 
     return engine
-
-
-def get_sql_session(engine: Engine) -> Session:
-    return Session(engine)
 
 
 def create_tables(engine: Engine) -> None:
