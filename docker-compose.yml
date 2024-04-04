@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:12
+    restart: unless-stopped
+    container_name: postgres
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=test-db
+    ports:
+      - '5432:5432'
+  postgres-integration-test:
+    platform: "linux/amd64"
+    attach: true
+    depends_on:
+      - db
+    build:
+      context: ./
+      dockerfile: ./Dockerfile-pytest-integration
+    entrypoint: "python3 -m pytest -vv --database-url postgresql://postgres:postgres@db:5432/test-db"
+

@@ -57,3 +57,9 @@ pip install .
 - Not [tiktok-research-client](https://github.com/AndersGiovanni/tiktok-research-client/tree/main)?
     - At the time of creation, the library was not available.
 
+## Testing
+To run unit tests:
+`python3 -m pytest`
+To run postgresql integration test (requires docker installed, may have to run
+as sudo):
+`docker compose build && docker compose run postgres-integration-test`

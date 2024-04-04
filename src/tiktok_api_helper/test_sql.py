@@ -32,12 +32,10 @@ MOCK_VIDEO_DATA = {
 }
 
 
-# TODO(macpd): create integration test with postgres, perhaps using postgres docker container
-
 
 @pytest.fixture
-def in_memory_database() -> Engine:
-    engine = get_engine_and_create_tables("sqlite://", echo=True)
+def test_database_engine(database_url) -> Engine:
+    engine = get_engine_and_create_tables(database_url, echo=True)
     yield engine
     # Clear database after test runs and releases fixture
     Base.metadata.drop_all(engine)
@@ -77,15 +75,15 @@ def mock_crawl():
     )
 
 
-def test_video_basic_insert(in_memory_database, mock_videos):
-    with Session(in_memory_database) as session:
+def test_video_basic_insert(test_database_engine, mock_videos):
+    with Session(test_database_engine) as session:
         session.add_all(mock_videos)
         session.commit()
         assert session.scalars(select(Video).order_by(Video.id)).all() == mock_videos
 
 
-def test_crawl_basic_insert(in_memory_database, mock_crawl):
-    with Session(in_memory_database) as session:
+def test_crawl_basic_insert(test_database_engine, mock_crawl):
+    with Session(test_database_engine) as session:
         mock_crawl = Crawl(
             cursor=1, has_more=False, search_id="test", query="test", source=["testing"]
         )
@@ -95,8 +93,8 @@ def test_crawl_basic_insert(in_memory_database, mock_crawl):
         assert session.scalars(select(Crawl).order_by(Crawl.id)).all() == [mock_crawl]
 
 
-def test_upsert(in_memory_database, mock_videos, mock_crawl):
-    with Session(in_memory_database) as session:
+def test_upsert(test_database_engine, mock_videos, mock_crawl):
+    with Session(test_database_engine) as session:
         session.add_all(mock_videos)
         session.commit()
 
@@ -126,7 +124,7 @@ def test_upsert(in_memory_database, mock_videos, mock_crawl):
                 },
             ],
             source=new_source,
-            engine=in_memory_database,
+            engine=test_database_engine,
         )
         assert session.scalars(select(Video.source).order_by(Video.id)).all() == [
             mock_videos[0].source + new_source,
@@ -139,14 +137,14 @@ def test_upsert(in_memory_database, mock_videos, mock_crawl):
 
 
 def test_upsert_existing_hashtags_names_gets_same_id(
-    in_memory_database,
+    test_database_engine,
     mock_videos,
 ):
     """Tests that adding a video with an existing hashtag name (from a previously added video)
     succeeds, gets the same ID it had previously, and does not raise a Unique violation error.
     """
     utcnow = datetime.datetime.utcnow().timestamp()
-    with Session(in_memory_database) as session:
+    with Session(test_database_engine) as session:
         session.commit()
 
         new_source = ["0.0-testing"]
@@ -161,7 +159,7 @@ def test_upsert_existing_hashtags_names_gets_same_id(
                 },
             ],
             source=new_source,
-            engine=in_memory_database,
+            engine=test_database_engine,
         )
         original_hashtags = session.scalars(
             select(Hashtag.id, Hashtag.name).order_by(Hashtag.name)
@@ -177,7 +175,7 @@ def test_upsert_existing_hashtags_names_gets_same_id(
                 },
             ],
             source=new_source,
-            engine=in_memory_database,
+            engine=test_database_engine,
         )
         assert (
             session.scalars(
@@ -207,11 +205,11 @@ def test_upsert_existing_hashtags_names_gets_same_id(
 
 
 def test_upsert_updates_existing_and_inserts_new_video_data(
-    in_memory_database,
+    test_database_engine,
     mock_videos,
 ):
     utcnow = datetime.datetime.utcnow().timestamp()
-    with Session(in_memory_database) as session:
+    with Session(test_database_engine) as session:
         session.add_all(mock_videos)
         session.commit()
 
@@ -227,7 +225,7 @@ def test_upsert_updates_existing_and_inserts_new_video_data(
                 },
             ],
             source=new_source,
-            engine=in_memory_database,
+            engine=test_database_engine,
         )
         assert session.execute(
             select(Video.id, Video.comment_count, Video.create_time).order_by(Video.id)
@@ -281,8 +279,8 @@ def test_upsert_updates_existing_and_inserts_new_video_data(
         ]
 
 
-def test_remove_all(in_memory_database, mock_videos, mock_crawl):
-    with Session(in_memory_database) as session:
+def test_remove_all(test_database_engine, mock_videos, mock_crawl):
+    with Session(test_database_engine) as session:
         session.add_all(mock_videos)
         session.add_all([mock_crawl])
         session.commit()
