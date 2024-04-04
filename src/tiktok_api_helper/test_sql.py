@@ -13,7 +13,7 @@ from .sql import (
     Hashtag,
     get_engine_and_create_tables,
     Base,
-    custom_sqlite_upsert,
+    upsert_videos,
 )
 
 MOCK_VIDEO_DATA = {
@@ -109,7 +109,7 @@ def test_upsert(in_memory_database, mock_videos, mock_crawl):
         ]
 
         new_source = ["0.0-testing"]
-        custom_sqlite_upsert(
+        upsert_videos(
             [
                 {
                     "id": mock_videos[0].id,
@@ -147,7 +147,7 @@ def test_upsert_existing_hashtags_names_gets_same_id(
         session.commit()
 
         new_source = ["0.0-testing"]
-        custom_sqlite_upsert(
+        upsert_videos(
             [
                 {
                     "id": 0,
@@ -163,7 +163,7 @@ def test_upsert_existing_hashtags_names_gets_same_id(
         original_hashtags = session.scalars(
             select(Hashtag.id, Hashtag.name).order_by(Hashtag.name)
         ).all()
-        custom_sqlite_upsert(
+        upsert_videos(
             [
                 {
                     "id": 1,
@@ -213,7 +213,7 @@ def test_upsert_updates_existing_and_inserts_new_video_data(
         session.commit()
 
         new_source = ["0.0-testing"]
-        custom_sqlite_upsert(
+        upsert_videos(
             [
                 MOCK_VIDEO_DATA,
                 {

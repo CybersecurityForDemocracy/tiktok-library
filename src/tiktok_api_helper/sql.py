@@ -146,11 +146,13 @@ class Video(Base):
         return f"Video (id={self.id!r}, username={self.username!r}, source={self.source!r})"
 
 
-def _get_hashtag_name_to_obj_map(
+def _get_hashtag_name_to_hashtag_object_map(
     session: Session, video_data: list[dict[str, Any]]
 ) -> Mapping[str, Hashtag]:
     """Gets hashtag name -> Hashtag object map, pulling existing Hashtag objects from database and
     creating new Hashtag objects for new hashtag names.
+    NOTE: this does NOT add new objects to the database, only creates the objects to be used in a
+    subsequest database interaction.
     """
     # Get all hashtag names references in this list of videos
     hashtag_names_referenced = set(
@@ -173,7 +175,7 @@ def _get_hashtag_name_to_obj_map(
     return hashtag_name_to_hashtag
 
 
-def custom_sqlite_upsert(
+def upsert_videos(
     video_data: list[dict[str, Any]],
     engine: Engine,
     source: Optional[list[str]] = None,
@@ -189,7 +191,7 @@ def custom_sqlite_upsert(
     """
     with Session(engine) as session:
         # Get all hashtag names references in this list of videos
-        hashtag_name_to_hashtag = _get_hashtag_name_to_obj_map(session, video_data)
+        hashtag_name_to_hashtag = _get_hashtag_name_to_hashtag_object_map(session, video_data)
 
         video_id_to_video = {}
 
