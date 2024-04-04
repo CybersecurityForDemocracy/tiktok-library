@@ -26,7 +26,7 @@ DBFileType = Annotated[
     ),
 ]
 
-DBUrlType = Annotated[str, typer.Option(help='database URL for storing API results')]
+DBUrlType = Annotated[str, typer.Option(help="database URL for storing API results")]
 
 QueryFileType = Annotated[
     Path,

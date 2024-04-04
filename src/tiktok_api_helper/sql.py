@@ -191,7 +191,9 @@ def upsert_videos(
     """
     with Session(engine) as session:
         # Get all hashtag names references in this list of videos
-        hashtag_name_to_hashtag = _get_hashtag_name_to_hashtag_object_map(session, video_data)
+        hashtag_name_to_hashtag = _get_hashtag_name_to_hashtag_object_map(
+            session, video_data
+        )
 
         video_id_to_video = {}
 

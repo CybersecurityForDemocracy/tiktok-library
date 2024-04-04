@@ -268,7 +268,9 @@ def run(
     logging.log(logging.INFO, f"Query: {query}")
 
     if db_url and db_file:
-        raise typer.BadParameter("--db_url and --db_file are mutually exclusive. Please use only one.")
+        raise typer.BadParameter(
+            "--db_url and --db_file are mutually exclusive. Please use only one."
+        )
     if not (db_url or db_file):
         raise typer.BadParameter("Must specify one of --db_url or --db_file")
 
