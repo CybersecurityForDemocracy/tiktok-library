@@ -32,6 +32,8 @@ MOCK_VIDEO_DATA = {
 }
 
 
+# TODO(macpd): create integration test with postgres, perhaps using postgres docker container
+
 @pytest.fixture
 def in_memory_database() -> Engine:
     engine = get_engine_and_create_tables("sqlite://", echo=True)
