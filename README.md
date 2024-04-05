@@ -41,7 +41,7 @@ pip install .
 - The library automatically manages the access token and refreshes it when needed.
 - TikTok research API quota is 1000 requests per day (https://developers.tiktok.com/doc/research-api-faq). When the API indicates that limit has been reached this library will retry (see `--rate-limit-wait-strategy` flag for available strategies) until quota limit resets and continue collection.
 - Database
-    - All "Crawls" are stored in a seperate SQLite database `crawls` and the data itself in `videos`.
+    - All "Crawls" are stored in a seperate table `crawl` and the data itself in `video`.
     - Data is written to DB after every TikTokRequest, by default containing up to 100 instances.
 
 ## Roadmpap
