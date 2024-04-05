@@ -62,4 +62,4 @@ To run unit tests:
 `python3 -m pytest`
 To run postgresql integration test (requires docker installed, may have to run
 as sudo):
-`docker compose build && docker compose run postgres-integration-test`
+`docker compose build && docker compose run postgres-integration-test && docker compose down`
