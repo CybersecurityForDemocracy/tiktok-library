@@ -32,7 +32,6 @@ MOCK_VIDEO_DATA = {
 }
 
 
-
 @pytest.fixture
 def test_database_engine(database_url) -> Engine:
     engine = get_engine_and_create_tables(database_url, echo=True)
