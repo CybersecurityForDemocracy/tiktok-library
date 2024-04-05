@@ -8,8 +8,7 @@ WORKDIR /app
 COPY ./src /app/src/
 COPY ./README.md ./pyproject.toml ./conftest.py /app/
 
-RUN ls -l /app
-
-RUN pip3 install pytest .
+RUN pip3 install pytest
+RUN pip3 install .
 
 # CMD python3 -m pytest -vv
