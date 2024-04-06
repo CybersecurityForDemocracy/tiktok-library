@@ -22,7 +22,12 @@ from .custom_types import (
     ApiCredentialsFileType,
     ApiRateLimitWaitStrategyType,
 )
-from .sql import Crawl, get_sqlite_engine_and_create_tables, get_engine_and_create_tables, upsert_videos
+from .sql import (
+    Crawl,
+    get_sqlite_engine_and_create_tables,
+    get_engine_and_create_tables,
+    upsert_videos,
+)
 from .api_client import (
     AcquitionConfig,
     ApiRateLimitWaitStrategy,

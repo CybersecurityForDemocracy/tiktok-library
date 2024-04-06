@@ -60,9 +60,10 @@ def mock_videos():
         ),
     ]
 
+
 @pytest.fixture
 def api_response_videos():
-    with open('src/tiktok_api_helper/testdata/api_response.json', 'r') as f:
+    with open("src/tiktok_api_helper/testdata/api_response.json", "r") as f:
         return json.loads(f.read())["data"]["videos"]
 
 
@@ -72,17 +73,30 @@ def mock_crawl():
         cursor=1, has_more=False, search_id="test", query="test", source=["testing"]
     )
 
-def assert_video_database_object_list_matches_api_responses_dict(video_objects, api_responses_video_dict):
+
+def assert_video_database_object_list_matches_api_responses_dict(
+    video_objects, api_responses_video_dict
+):
     video_id_to_database_object = {video.id: video for video in video_objects}
-    video_id_to_api_response_dict = {api_response_dict["id"]: api_response_dict for api_response_dict in api_responses_video_dict}
+    video_id_to_api_response_dict = {
+        api_response_dict["id"]: api_response_dict
+        for api_response_dict in api_responses_video_dict
+    }
     database_video_ids = set(video_id_to_database_object.keys())
     api_responses_video_ids = set(video_id_to_api_response_dict.keys())
-    assert database_video_ids == api_responses_video_ids, f"Database objects missing IDs in API response ({api_responses_video_ids - database_video_ids}). API responses missing IDs in database objects ({database_video_ids - api_responses_video_ids})"
+    assert (
+        database_video_ids == api_responses_video_ids
+    ), f"Database objects missing IDs in API response ({api_responses_video_ids - database_video_ids}). API responses missing IDs in database objects ({database_video_ids - api_responses_video_ids})"
     for video_id in database_video_ids:
-        _assert_video_database_object_matches_api_response_dict(video_id_to_database_object[video_id],
-                                                                video_id_to_api_response_dict[video_id])
- 
-def _assert_video_database_object_matches_api_response_dict(video_object, api_response_video_dict):
+        _assert_video_database_object_matches_api_response_dict(
+            video_id_to_database_object[video_id],
+            video_id_to_api_response_dict[video_id],
+        )
+
+
+def _assert_video_database_object_matches_api_response_dict(
+    video_object, api_response_video_dict
+):
     for k, v in api_response_video_dict.items():
         try:
             db_value = getattr(video_object, k)
@@ -92,9 +106,14 @@ def _assert_video_database_object_matches_api_response_dict(video_object, api_re
                 db_value.sort()
                 v.sort()
 
-            assert db_value == v, f"Video object {video_object!r} attribute {k} value {getattr(video_object, k)} != API response dict value {v}"
+            assert (
+                db_value == v
+            ), f"Video object {video_object!r} attribute {k} value {getattr(video_object, k)} != API response dict value {v}"
         except AttributeError as e:
-            raise ValueError(f"Video object {video_object!r} has not attribute {k}: {e}")
+            raise ValueError(
+                f"Video object {video_object!r} has not attribute {k}: {e}"
+            )
+
 
 def test_video_basic_insert(test_database_engine, mock_videos):
     with Session(test_database_engine) as session:
@@ -262,8 +281,9 @@ def test_upsert_updates_existing_and_inserts_new_video_data(
         video_in_db = session.scalars(
             select(Video).where(Video.id == api_response_videos[0]["id"])
         ).first()
-        _assert_video_database_object_matches_api_response_dict(video_in_db,
-                                                                  api_response_videos[0])
+        _assert_video_database_object_matches_api_response_dict(
+            video_in_db, api_response_videos[0]
+        )
         assert sorted(session.scalars(select(Hashtag.name)).all()) == [
             "Hello",
             "World",
@@ -280,10 +300,13 @@ def test_upsert_updates_existing_and_inserts_new_video_data(
             (api_response_videos[0]["id"], api_response_videos[0]["hashtag_names"]),
         ]
 
+
 def test_upsert_api_response_videos(test_database_engine, api_response_videos):
     with Session(test_database_engine) as session:
         upsert_videos(api_response_videos, test_database_engine)
-        assert_video_database_object_list_matches_api_responses_dict(session.scalars(select(Video)).all(), api_response_videos)
+        assert_video_database_object_list_matches_api_responses_dict(
+            session.scalars(select(Video)).all(), api_response_videos
+        )
 
 
 def test_remove_all(test_database_engine, mock_videos, mock_crawl):
