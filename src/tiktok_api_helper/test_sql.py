@@ -278,12 +278,32 @@ def test_upsert_updates_existing_and_inserts_new_video_data(
             ),
         ]
 
-        video_in_db = session.scalars(
-            select(Video).where(Video.id == api_response_videos[0]["id"])
-        ).first()
-        _assert_video_database_object_matches_api_response_dict(
-            video_in_db, api_response_videos[0]
+
+def test_upsert_updates_existing_and_inserts_new_video_datarand_hashtag_names(
+    test_database_engine,
+    mock_videos,
+    api_response_videos,
+):
+    utcnow = datetime.datetime.utcnow().timestamp()
+    with Session(test_database_engine) as session:
+        session.add_all(mock_videos)
+        session.commit()
+
+        new_source = ["0.0-testing"]
+        upsert_videos(
+            [
+                api_response_videos[0],
+                {
+                    "id": mock_videos[1].id,
+                    "comment_count": mock_videos[1].comment_count + 1,
+                    "create_time": utcnow,
+                    "hashtag_names": ["hashtag1", "hashtag2"],
+                },
+            ],
+            source=new_source,
+            engine=test_database_engine,
         )
+
         assert sorted(session.scalars(select(Hashtag.name)).all()) == [
             "Hello",
             "World",
@@ -292,6 +312,11 @@ def test_upsert_updates_existing_and_inserts_new_video_data(
             "hashtag1",
             "hashtag2",
         ]
+
+        if test_database_engine.dialect.name == "sqlite":
+            pytest.xfail(
+                "SQLite does to have function array_agg which Video.hashtag_names requires.  Therefore select(Video.hashtag_names) is expected to fail"
+            )
         assert session.execute(
             select(Video.id, Video.hashtag_names).order_by(Video.id)
         ).all() == [
