@@ -78,7 +78,6 @@ class Base(DeclarativeBase):
 
 
 video_hashtag_association_table = Table(
-    #  "video_hashtag_association",
     "videos_to_hashtags",
     Base.metadata,
     Column("video_id", ForeignKey("video.id"), primary_key=True),
