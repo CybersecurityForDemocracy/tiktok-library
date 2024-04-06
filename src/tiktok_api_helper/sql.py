@@ -152,17 +152,8 @@ class Video(Base):
         return [hashtag.name for hashtag in self.hashtags]
 
     @hashtag_names.inplace.expression
-    @classmethod
     def _hashtag_names_expression(cls) -> SQLColumnExpression[List[Hashtag]]:
-        column_expression = func.array_agg(func.distinct(Hashtag.name)).label("hashtag_names")
-        #  column_expression = func.group_concat(func.distinct(Hashtag.name)).label("hashtag_names")
-        return select(column_expression).select_from(video_hashtag_association_table).join(Hashtag,
-                                                                                           Hashtag.id
-                                                                                           ==
-                                                                                           video_hashtag_association_table.c.hashtag_id).join(Video,
-                                                                                                                                              Video.id
-                                                                                                                                              ==
-                                                                                                                                              video_hashtag_association_table.c.video_id).where(video_hashtag_association_table.c.video_id == cls.id).subquery()
+        return select(func.array_agg(func.distinct(Hashtag.name))).join(video_hashtag_association_table, Hashtag.id == video_hashtag_association_table.c.hashtag_id).where(video_hashtag_association_table.c.video_id == cls.id).label("hashtag_names")
 
 
 def _get_hashtag_name_to_hashtag_object_map(
@@ -233,7 +224,7 @@ def upsert_videos(
         # Taken from https://stackoverflow.com/questions/25955200/sqlalchemy-performing-a-bulk-upsert-if-exists-update-else-insert-in-postgr
 
         # Merge all the videos that already exist
-        for each in session.query(Video).filter(Video.id.in_(video_id_to_video.keys())):
+        for each in session.scalars(select(Video).where(Video.id.in_(video_id_to_video.keys()))):
             new_vid = Video(**video_id_to_video.pop(each.id))
             new_vid.source = each.source + new_vid.source
             session.merge(new_vid)

@@ -72,17 +72,17 @@ def mock_crawl():
         cursor=1, has_more=False, search_id="test", query="test", source=["testing"]
     )
 
-def assert_video_database_objects_equal_to_api_responses_dict(video_objects, api_responses_video_dict):
+def assert_video_database_object_list_matches_api_responses_dict(video_objects, api_responses_video_dict):
     video_id_to_database_object = {video.id: video for video in video_objects}
     video_id_to_api_response_dict = {api_response_dict["id"]: api_response_dict for api_response_dict in api_responses_video_dict}
     database_video_ids = set(video_id_to_database_object.keys())
     api_responses_video_ids = set(video_id_to_api_response_dict.keys())
     assert database_video_ids == api_responses_video_ids, f"Database objects missing IDs in API response ({api_responses_video_ids - database_video_ids}). API responses missing IDs in database objects ({database_video_ids - api_responses_video_ids})"
     for video_id in database_video_ids:
-        assert_video_database_object_equal_to_api_response_dict(video_id_to_database_object[video_id],
+        _assert_video_database_object_matches_api_response_dict(video_id_to_database_object[video_id],
                                                                 video_id_to_api_response_dict[video_id])
  
-def assert_video_database_object_equal_to_api_response_dict(video_object, api_response_video_dict):
+def _assert_video_database_object_matches_api_response_dict(video_object, api_response_video_dict):
     for k, v in api_response_video_dict.items():
         try:
             db_value = getattr(video_object, k)
@@ -211,15 +211,9 @@ def test_upsert_existing_hashtags_names_gets_same_id(
         assert session.execute(
             select(Video.id, Hashtag.name).outerjoin(Video.hashtags).order_by(Video.id)
         ).all() == [
-            (
-                0,
-                "hashtag1",
-            ),
+            (0, "hashtag1"),
             (0, "hashtag2"),
-            (
-                1,
-                "hashtag1",
-            ),
+            (1, "hashtag1"),
             (1, "hashtag2"),
             (1, "hashtag3"),
         ]
@@ -268,19 +262,8 @@ def test_upsert_updates_existing_and_inserts_new_video_data(
         video_in_db = session.scalars(
             select(Video).where(Video.id == api_response_videos[0]["id"])
         ).first()
-        for k, v in api_response_videos[0].items():
-            if k == "hashtag_names":
-                video_in_db_value = [hashtag.name for hashtag in video_in_db.hashtags]
-            else:
-                video_in_db_value = getattr(video_in_db, k)
-
-            if isinstance(video_in_db_value, datetime.datetime):
-                assert (
-                    int(video_in_db_value.timestamp()) == v
-                ), f"{k} field does not match"
-            else:
-                assert video_in_db_value == v, f"{k} field does not match"
-
+        _assert_video_database_object_matches_api_response_dict(video_in_db,
+                                                                  api_response_videos[0])
         assert sorted(session.scalars(select(Hashtag.name)).all()) == [
             "Hello",
             "World",
@@ -300,9 +283,7 @@ def test_upsert_updates_existing_and_inserts_new_video_data(
 def test_upsert_api_response_videos(test_database_engine, api_response_videos):
     with Session(test_database_engine) as session:
         upsert_videos(api_response_videos, test_database_engine)
-        assert_video_database_objects_equal_to_api_responses_dict(session.scalars(select(Video).outerjoin(Video.hashtags)).all(), api_response_videos)
-
-
+        assert_video_database_object_list_matches_api_responses_dict(session.scalars(select(Video)).all(), api_response_videos)
 
 
 def test_remove_all(test_database_engine, mock_videos, mock_crawl):
