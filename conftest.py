@@ -6,11 +6,11 @@ def pytest_addoption(parser):
     parser.addoption(
         "--database-url",
         action="store",
-        default="sqlite://",
+        default=None,
         help="URL to use for database tests. defaults to in-memory sqlite.",
     )
 
 
 @pytest.fixture
-def database_url(request):
+def database_url_command_line_arg(request):
     return request.config.getoption("--database-url")

@@ -22,7 +22,7 @@ from .custom_types import (
     ApiCredentialsFileType,
     ApiRateLimitWaitStrategyType,
 )
-from .sql import Crawl, get_engine_and_create_tables, upsert_videos
+from .sql import Crawl, get_sqlite_engine_and_create_tables, get_engine_and_create_tables, upsert_videos
 from .api_client import (
     AcquitionConfig,
     ApiRateLimitWaitStrategy,
@@ -191,7 +191,7 @@ def test(
     start_date_datetime = datetime.strptime("20220101", "%Y%m%d")
     end_date_datetime = datetime.strptime("20220101", "%Y%m%d")
 
-    engine = get_engine_and_create_tables(db_file)
+    engine = get_sqlite_engine_and_create_tables(db_file)
 
     config = AcquitionConfig(
         query=test_query,
@@ -277,7 +277,7 @@ def run(
     if db_url:
         engine = get_engine_and_create_tables(db_url)
     if db_file:
-        engine = get_engine_and_create_tables(db_file)
+        engine = get_sqlite_engine_and_create_tables(db_file)
 
     config = AcquitionConfig(
         query=query,

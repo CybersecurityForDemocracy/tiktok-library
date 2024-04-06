@@ -20,8 +20,10 @@ from sqlalchemy import (
     ForeignKey,
     UniqueConstraint,
     select,
+    SQLColumnExpression,
 )
 from sqlalchemy.ext.mutable import MutableDict
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import (
     DeclarativeBase,
     Mapped,
@@ -144,6 +146,23 @@ class Video(Base):
 
     def __repr__(self) -> str:
         return f"Video (id={self.id!r}, username={self.username!r}, source={self.source!r})"
+
+    @hybrid_property
+    def hashtag_names(self):
+        return [hashtag.name for hashtag in self.hashtags]
+
+    @hashtag_names.inplace.expression
+    @classmethod
+    def _hashtag_names_expression(cls) -> SQLColumnExpression[List[Hashtag]]:
+        column_expression = func.array_agg(func.distinct(Hashtag.name)).label("hashtag_names")
+        #  column_expression = func.group_concat(func.distinct(Hashtag.name)).label("hashtag_names")
+        return select(column_expression).select_from(video_hashtag_association_table).join(Hashtag,
+                                                                                           Hashtag.id
+                                                                                           ==
+                                                                                           video_hashtag_association_table.c.hashtag_id).join(Video,
+                                                                                                                                              Video.id
+                                                                                                                                              ==
+                                                                                                                                              video_hashtag_association_table.c.video_id).where(video_hashtag_association_table.c.video_id == cls.id).subquery()
 
 
 def _get_hashtag_name_to_hashtag_object_map(
@@ -303,11 +322,11 @@ class Crawl(Base):
 
 
 def get_sqlite_engine_and_create_tables(db_path: Path, **kwargs) -> Engine:
-    return get_engine_and_create_tables("sqlite://{db_path.absolute()}", **kwargs)
+    return get_engine_and_create_tables(f"sqlite:///{db_path.absolute()}", **kwargs)
 
 
-def get_engine_and_create_tables(db_path: str, **kwargs) -> Engine:
-    engine = create_engine(db_path, **kwargs)
+def get_engine_and_create_tables(db_url: str, **kwargs) -> Engine:
+    engine = create_engine(db_url, **kwargs)
     create_tables(engine)
 
     return engine
