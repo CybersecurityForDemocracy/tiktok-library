@@ -58,7 +58,7 @@ pip install .
     - At the time of creation, the library was not available.
 
 ## Testing
-To run unit tests:
+To run unit tests locally (requires pytest installed):
 `python3 -m pytest`
 To run postgresql integration test (requires docker installed, may have to run
 as sudo):
