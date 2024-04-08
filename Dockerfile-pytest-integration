@@ -1,14 +1,19 @@
 FROM python:3.11-slim
 
-RUN apt-get update
-RUN apt-get install python3 python3-pip -y
-RUN pip3 install --upgrade pip
 WORKDIR /app
 
-COPY ./src /app/src/
-COPY ./README.md ./pyproject.toml ./conftest.py /app/
+# Install update pip and hatch to build package
+RUN pip3 install --upgrade pip hatch
 
-RUN pip3 install pytest
-RUN pip3 install .
+# Copy necessary files from project root (but leave out others like secrets files, etc)
+COPY README.md pyproject.toml conftest.py ./
+# Copy source code
+COPY ./src/ ./src/
 
-# CMD python3 -m pytest -vv
+# Setup hatch env which will install deps
+RUN hatch env create test
+
+# Take arg for database URL, specified in docker-compose.yml
+ARG DATABASE_URL
+ENV DATABASE_URL=${DATABASE_URL:-}
+ENTRYPOINT hatch --env test run pytest . -vv --database-url "$DATABASE_URL"

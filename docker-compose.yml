@@ -19,5 +19,6 @@ services:
     build:
       context: ./
       dockerfile: ./Dockerfile-pytest-integration
-    entrypoint: "python3 -m pytest -vv --database-url postgresql://postgres:postgres@integration-test-db:5432/test-db"
+      args:
+        DATABASE_URL: "postgresql://postgres:postgres@integration-test-db:5432/test-db"
 
