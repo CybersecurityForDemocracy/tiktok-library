@@ -1,7 +1,7 @@
 import copy
 import datetime
 import logging
-from typing import Any, Optional, Union, List, Mapping
+from typing import Any, Optional, List, Mapping
 import json
 from pathlib import Path
 import itertools
@@ -151,14 +151,14 @@ class Video(Base):
         return [hashtag.name for hashtag in self.hashtags]
 
     @hashtag_names.inplace.expression
-    def _hashtag_names_expression(cls) -> SQLColumnExpression[List[Hashtag]]:
+    def _hashtag_names_expression(self) -> SQLColumnExpression[List[Hashtag]]:
         return (
             select(func.array_agg(func.distinct(Hashtag.name)))
             .join(
                 video_hashtag_association_table,
                 Hashtag.id == video_hashtag_association_table.c.hashtag_id,
             )
-            .where(video_hashtag_association_table.c.video_id == cls.id)
+            .where(video_hashtag_association_table.c.video_id == self.id)
             .label("hashtag_names")
         )
 

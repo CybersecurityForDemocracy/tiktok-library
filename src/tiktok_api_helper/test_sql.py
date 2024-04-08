@@ -3,7 +3,6 @@ import datetime
 from sqlalchemy import (
     Engine,
     select,
-    func,
 )
 from sqlalchemy.orm import Session
 import pytest
