@@ -84,6 +84,13 @@ video_hashtag_association_table = Table(
     Column("hashtag_id", ForeignKey("hashtag.id"), primary_key=True),
 )
 
+video_effect_id_association_table = Table(
+    "videos_to_effect_ids",
+    Base.metadata,
+    Column("video_id", ForeignKey("video.id"), primary_key=True),
+    Column("effect_id", ForeignKey("effect.id"), primary_key=True),
+)
+
 
 class Hashtag(Base):
     __tablename__ = "hashtag"
@@ -95,6 +102,17 @@ class Hashtag(Base):
 
     def __repr__(self) -> str:
         return f"Hashtag (id={self.id}, name={self.name})"
+
+class Effect(Base):
+    __tablename__ = "effect"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    effect_id: Mapped[str] = mapped_column(String)
+
+    __table_args__ = (UniqueConstraint("effect_id"),)
+
+    def __repr__(self) -> str:
+        return f"Effect (id={self.id}, effect_id={self.effect_id!r})"
 
 
 class Video(Base):
@@ -118,9 +136,7 @@ class Video(Base):
     share_count: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
     view_count: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
 
-    # We use Json here just to have list support in SQLite
-    # While postgres has array support, sqlite doesn't and we want to keep it agnositc
-    effect_ids = mapped_column(MyJsonList, nullable=True)
+    effects: Mapped[List[Effect]] = relationship(secondary=video_effect_id_association_table)
     hashtags: Mapped[List[Hashtag]] = relationship(
         secondary=video_hashtag_association_table
     )
@@ -138,6 +154,8 @@ class Video(Base):
         onupdate=func.now(),
     )
 
+    # We use Json here just to have list support in SQLite
+    # While postgres has array support, sqlite doesn't and we want to keep it agnositc
     source = mapped_column(MyJsonList, nullable=True)
     extra_data = Column(
         MUTABLE_JSON, nullable=True
@@ -160,6 +178,22 @@ class Video(Base):
             )
             .where(video_hashtag_association_table.c.video_id == self.id)
             .label("hashtag_names")
+        )
+
+    @hybrid_property
+    def effect_ids(self):
+        return [effect.effect_id for effect in self.effects]
+
+    @effect_ids.inplace.expression
+    def _effect_ids_expression(self) -> SQLColumnExpression[List[Hashtag]]:
+        return (
+            select(func.array_agg(func.distinct(Effect.effect_id)))
+            .join(
+                video_effect_id_association_table,
+                Effect.id == video_effect_id_association_table.c.effect_id
+            )
+            .where(video_effect_id_association_table.c.video_id == self.id)
+            .label("effect_ids")
         )
 
 
@@ -191,6 +225,34 @@ def _get_hashtag_name_to_hashtag_object_map(
         hashtag_name_to_hashtag[hashtag_name] = Hashtag(name=hashtag_name)
     return hashtag_name_to_hashtag
 
+def _get_effect_id_to_effect_object_map(
+    session: Session, video_data: list[dict[str, Any]]
+) -> Mapping[str, Effect]:
+    """Gets effect id -> Effect object map, pulling existing Effect objects from database and
+    creating new Effect objects for new effect ids.
+    NOTE: this does NOT add new objects to the database, only creates the objects to be used in a
+    subsequest database interaction.
+    """
+    # Get all effect ids references in this list of videos
+    effect_ids_referenced = set(
+        itertools.chain.from_iterable(
+            [video.get("effect_ids", []) for video in video_data]
+        )
+    )
+    # Of all the referenced effect ids get those which exist in the database
+    effect_id_to_effect = {
+        row.effect_id: row
+        for row in session.scalars(
+            select(Effect).filter(Effect.id.in_(effect_ids_referenced))
+        )
+    }
+    # Make new effect objects for effect ids not yet in the database
+    existing_effect_ids = set(effect_id_to_effect.keys())
+    new_effect_ids = effect_ids_referenced - existing_effect_ids
+    for effect_id in new_effect_ids:
+        effect_id_to_effect[effect_id] = Effect(effect_id=effect_id)
+    return effect_id_to_effect
+
 
 def upsert_videos(
     video_data: list[dict[str, Any]],
@@ -212,6 +274,11 @@ def upsert_videos(
             session, video_data
         )
 
+        # Get all effect ids references in this list of videos
+        effect_id_to_effect = _get_effect_id_to_effect_object_map(
+            session, video_data
+        )
+
         video_id_to_video = {}
 
         for vid in video_data:
@@ -219,6 +286,9 @@ def upsert_videos(
             new_vid = copy.deepcopy(vid)
             new_vid["source"] = source
             new_vid["create_time"] = datetime.datetime.fromtimestamp(vid["create_time"])
+            if "effect_ids" in vid:
+                new_vid["effects"] = [effect_id_to_effect[effect_id] for effect_id in vid["effect_ids"]]
+                del new_vid["effect_ids"]
             if "hashtag_names" in vid:
                 new_vid["hashtags"] = [
                     hashtag_name_to_hashtag[hashtag_name]

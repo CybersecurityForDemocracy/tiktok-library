@@ -12,6 +12,7 @@ from .sql import (
     Crawl,
     Video,
     Hashtag,
+    Effect,
     get_engine_and_create_tables,
     Base,
     upsert_videos,
@@ -50,7 +51,7 @@ def mock_videos():
             region_code="US",
             comment_count=1,
             create_time=now,
-            effect_ids=[1, 2, 3],
+            effects=[Effect(effect_id=1), Effect(effect_id=2), Effect(effect_id=3)],
             hashtags=[Hashtag(name="Hello"), Hashtag(name="World")],
             playlist_id=7044254287731739397,
             voice_to_text="a string",
@@ -97,6 +98,7 @@ def _assert_video_database_object_matches_api_response_dict(
     video_object, api_response_video_dict
 ):
     for k, v in api_response_video_dict.items():
+        print("checking", k)
         try:
             db_value = getattr(video_object, k)
             if isinstance(db_value, datetime.datetime):
@@ -278,7 +280,7 @@ def test_upsert_updates_existing_and_inserts_new_video_data(
         ]
 
 
-def test_upsert_updates_existing_and_inserts_new_video_datarand_hashtag_names(
+def test_upsert_updates_existing_and_inserts_new_video_data_and_hashtag_names(
     test_database_engine,
     mock_videos,
     api_response_videos,
@@ -322,6 +324,77 @@ def test_upsert_updates_existing_and_inserts_new_video_datarand_hashtag_names(
             (mock_videos[0].id, ["hashtag1", "hashtag2"]),
             (mock_videos[1].id, ["hashtag1", "hashtag2"]),
             (api_response_videos[0]["id"], api_response_videos[0]["hashtag_names"]),
+        ]
+
+        # Now add a new, and remove a previous, hashtag name from mock_videos[1]
+        upsert_videos(
+            [
+                {
+                    "id": mock_videos[1].id,
+                    "create_time": utcnow,
+                    "hashtag_names": ["hashtag2", "hashtag3"],
+                },
+            ],
+            source=new_source,
+            engine=test_database_engine,
+        )
+        assert sorted(session.scalars(select(Hashtag.name)).all()) == [
+            "Hello",
+            "World",
+            "cats",
+            "duet",
+            "hashtag1",
+            "hashtag2",
+            "hashtag3",
+        ]
+        assert session.execute(
+            select(Video.id, Video.hashtag_names).where(Video.id == mock_videos[1].id).order_by(Video.id)
+        ).all() == [
+            (mock_videos[1].id, ["hashtag2", "hashtag3"]),
+        ]
+
+
+def test_upsert_updates_existing_and_inserts_new_video_data_and_effect_id(
+    test_database_engine,
+    mock_videos,
+    api_response_videos,
+):
+    # This video has effect_ids
+    api_response_video = api_response_videos[19]
+    utcnow = datetime.datetime.utcnow().timestamp()
+    with Session(test_database_engine) as session:
+        session.add_all(mock_videos)
+        session.commit()
+
+        new_source = ["0.0-testing"]
+        upsert_videos(
+            [
+                api_response_video,
+                {
+                    "id": mock_videos[1].id,
+                    "comment_count": mock_videos[1].comment_count + 1,
+                    "create_time": utcnow,
+                    "effect_ids": ["1", "2", "3", "4"],
+                },
+            ],
+            source=new_source,
+            engine=test_database_engine,
+        )
+
+        assert sorted(session.scalars(select(Effect.effect_id)).all()) == [
+                '1', '2', '3', '4', '63960564',
+        ]
+
+        if test_database_engine.dialect.name == "sqlite":
+            pytest.xfail(
+                "SQLite does to have function array_agg which Video.hashtag_names requires.  Therefore select(Video.hashtag_names) is expected to fail"
+            )
+        assert session.execute(
+            select(Video.id, Video.effect_ids).order_by(Video.id)
+        ).all() == [
+            (mock_videos[0].id, None),
+            (mock_videos[1].id, ['1', '2', '3', '4']),
+            (api_response_video["id"], api_response_video["effect_ids"]),
         ]
 
 
