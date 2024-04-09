@@ -57,3 +57,17 @@ pip install .
 - Not [tiktok-research-client](https://github.com/AndersGiovanni/tiktok-research-client/tree/main)?
     - At the time of creation, the library was not available.
 
+### Development
+
+## Testing
+To run unit tests locally (requires pytest installed):
+`python3 -m pytest` OR use hatch `hatch run test:run`
+To run postgresql integration test (requires docker installed, may have to run
+as sudo):
+`docker compose build && docker compose run postgres-integration-test && docker compose down`
+
+## Automatic formatting with black
+To check if black would change code (but not actually make changes):
+`hatch run style:check`
+To apply changes from black
+`hatch run style:fmt`
