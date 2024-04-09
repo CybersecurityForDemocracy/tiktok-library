@@ -57,7 +57,7 @@ pip install .
 - Not [tiktok-research-client](https://github.com/AndersGiovanni/tiktok-research-client/tree/main)?
     - At the time of creation, the library was not available.
 
-### Development
+## Development
 
 ## Testing
 To run unit tests locally (requires pytest installed):
