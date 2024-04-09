@@ -24,7 +24,6 @@ dependencies = [
   "typer",
   "tenacity",
   "pendulum",
-  "psycopg2-binary"
 ]
 
 
