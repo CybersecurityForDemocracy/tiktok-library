@@ -228,7 +228,7 @@ def test_tiktok_api_request_client_wait_one_hour_on_rate_limit_wait_strategy(
         FAKE_SECRETS_YAML_FILE,
         api_request_session=mock_request_session_rate_limit_error,
         access_token_fetcher_session=mock_access_token_fetcher_session,
-        api_rate_limit_wait_strategy=api_client.ApiRateLimitWaitStrategy.WAIT_ONE_HOUR,
+        api_rate_limit_wait_strategy=api_client.ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS,
     )
     with pytest.raises(api_client.ApiRateLimitError):
         request.fetch(
@@ -245,10 +245,10 @@ def test_tiktok_api_request_client_wait_one_hour_on_rate_limit_wait_strategy(
     # Sleep will be called once less than num_retries because it is not called after last retry
     assert mock_sleep.call_count == num_retries - 1
     assert mock_sleep.mock_calls == [
-        call(3600.0),
-        call(3600.0),
-        call(3600.0),
-        call(3600.0),
+        call(14400.0),
+        call(14400.0),
+        call(14400.0),
+        call(14400.0),
     ]
 
 
