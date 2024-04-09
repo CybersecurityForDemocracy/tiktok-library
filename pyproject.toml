@@ -52,7 +52,7 @@ extra-dependencies = [
 ]
 
 [tool.hatch.envs.test.scripts]
-run = "pytest ."
+run = "pytest ./src -vv"
 
 [tool.hatch.envs.style]
 detached = true
