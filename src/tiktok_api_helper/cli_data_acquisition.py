@@ -242,7 +242,7 @@ def run(
     raw_responses_output_dir: RawResponsesOutputDir = None,
     query_file: QueryFileType = Path("query.yaml"),
     api_credentials_file: ApiCredentialsFileType = _DEFAULT_CREDENTIALS_FILE_PATH,
-    rate_limit_wait_strategy: ApiRateLimitWaitStrategyType = ApiRateLimitWaitStrategy.WAIT_ONE_HOUR,
+    rate_limit_wait_strategy: ApiRateLimitWaitStrategyType = ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS,
 ) -> None:
     """
 
