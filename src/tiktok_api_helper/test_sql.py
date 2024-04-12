@@ -278,7 +278,7 @@ def test_upsert_updates_existing_and_inserts_new_video_data(
         ]
 
 
-def test_upsert_updates_existing_and_inserts_new_video_datarand_hashtag_names(
+def test_upsert_updates_existing_and_inserts_new_video_data_and_hashtag_names(
     test_database_engine,
     mock_videos,
     api_response_videos,
@@ -312,16 +312,11 @@ def test_upsert_updates_existing_and_inserts_new_video_datarand_hashtag_names(
             "hashtag2",
         ]
 
-        if test_database_engine.dialect.name == "sqlite":
-            pytest.xfail(
-                "SQLite does to have function array_agg which Video.hashtag_names requires.  Therefore select(Video.hashtag_names) is expected to fail"
-            )
-        assert session.execute(
-            select(Video.id, Video.hashtag_names).order_by(Video.id)
-        ).all() == [
-            (mock_videos[0].id, ["hashtag1", "hashtag2"]),
-            (mock_videos[1].id, ["hashtag1", "hashtag2"]),
-            (api_response_videos[0]["id"], api_response_videos[0]["hashtag_names"]),
+        assert [(v.id, {*v.hashtag_names}) for v in
+                 session.scalars(select(Video).order_by(Video.id)).all()] == [
+            (mock_videos[0].id, {"hashtag1", "hashtag2"}),
+            (mock_videos[1].id, {"hashtag1", "hashtag2"}),
+            (api_response_videos[0]["id"], {*api_response_videos[0]["hashtag_names"]}),
         ]
 
 

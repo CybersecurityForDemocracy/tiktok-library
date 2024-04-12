@@ -146,21 +146,9 @@ class Video(Base):
     def __repr__(self) -> str:
         return f"Video (id={self.id!r}, username={self.username!r}, source={self.source!r})"
 
-    @hybrid_property
+    @property
     def hashtag_names(self):
         return [hashtag.name for hashtag in self.hashtags]
-
-    @hashtag_names.inplace.expression
-    def _hashtag_names_expression(self) -> SQLColumnExpression[List[Hashtag]]:
-        return (
-            select(func.array_agg(func.distinct(Hashtag.name)))
-            .join(
-                video_hashtag_association_table,
-                Hashtag.id == video_hashtag_association_table.c.hashtag_id,
-            )
-            .where(video_hashtag_association_table.c.video_id == self.id)
-            .label("hashtag_names")
-        )
 
 
 def _get_hashtag_name_to_hashtag_object_map(
@@ -168,8 +156,6 @@ def _get_hashtag_name_to_hashtag_object_map(
 ) -> Mapping[str, Hashtag]:
     """Gets hashtag name -> Hashtag object map, pulling existing Hashtag objects from database and
     creating new Hashtag objects for new hashtag names.
-    NOTE: this does NOT add new objects to the database, only creates the objects to be used in a
-    subsequest database interaction.
     """
     # Get all hashtag names references in this list of videos
     hashtag_names_referenced = set(
@@ -189,6 +175,8 @@ def _get_hashtag_name_to_hashtag_object_map(
     new_hashtag_names = hashtag_names_referenced - existing_hashtag_names
     for hashtag_name in new_hashtag_names:
         hashtag_name_to_hashtag[hashtag_name] = Hashtag(name=hashtag_name)
+
+    session.add_all(hashtag_name_to_hashtag.values())
     return hashtag_name_to_hashtag
 
 
