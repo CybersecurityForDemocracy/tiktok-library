@@ -312,8 +312,10 @@ def test_upsert_updates_existing_and_inserts_new_video_data_and_hashtag_names(
             "hashtag2",
         ]
 
-        assert [(v.id, {*v.hashtag_names}) for v in
-                 session.scalars(select(Video).order_by(Video.id)).all()] == [
+        assert [
+            (v.id, {*v.hashtag_names})
+            for v in session.scalars(select(Video).order_by(Video.id)).all()
+        ] == [
             (mock_videos[0].id, {"hashtag1", "hashtag2"}),
             (mock_videos[1].id, {"hashtag1", "hashtag2"}),
             (api_response_videos[0]["id"], {*api_response_videos[0]["hashtag_names"]}),
