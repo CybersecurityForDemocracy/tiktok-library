@@ -482,7 +482,8 @@ def test_upsert_updates_existing_and_inserts_new_video_data_and_effect_id(
                     "id": mock_videos[1].id,
                     "comment_count": mock_videos[1].comment_count + 1,
                     "create_time": utcnow,
-                    "effect_ids": ["101", "202", "303", "404"],
+                    # duplicate effect ID in list intentionally used since API does this sometimes
+                    "effect_ids": ["101", "202", "303", "404", "404"],
                 },
             ],
             source=new_source,
