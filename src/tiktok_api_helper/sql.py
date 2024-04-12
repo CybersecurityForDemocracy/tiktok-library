@@ -32,6 +32,7 @@ from sqlalchemy.orm import (
     synonym,
     relationship,
 )
+from sqlalchemy.dialects.postgresql import aggregate_order_by
 
 from .query import Query, QueryJSONEncoder
 
@@ -91,6 +92,20 @@ video_effect_id_association_table = Table(
     Column("effect_id", ForeignKey("effect.id"), primary_key=True),
 )
 
+video_query_tag_association_table = Table(
+    "videos_to_query_tags",
+    Base.metadata,
+    Column("video_id", ForeignKey("video.id"), primary_key=True),
+    Column("query_tag_id", ForeignKey("query_tag.id"), primary_key=True),
+)
+
+crawl_query_tag_association_table = Table(
+    "crawls_to_query_tags",
+    Base.metadata,
+    Column("crawl_id", ForeignKey("crawl.id"), primary_key=True),
+    Column("query_tag_id", ForeignKey("query_tag.id"), primary_key=True),
+)
+
 
 class Hashtag(Base):
     __tablename__ = "hashtag"
@@ -101,7 +116,18 @@ class Hashtag(Base):
     __table_args__ = (UniqueConstraint("name"),)
 
     def __repr__(self) -> str:
-        return f"Hashtag (id={self.id}, name={self.name})"
+        return f"Hashtag (id={self.id}, name={self.name!r})"
+
+class QueryTag(Base):
+    __tablename__ = "query_tag"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String)
+
+    __table_args__ = (UniqueConstraint("name"),)
+
+    def __repr__(self) -> str:
+        return f"QueryTag (id={self.id}, name={self.name!r})"
 
 class Effect(Base):
     __tablename__ = "effect"
@@ -157,12 +183,14 @@ class Video(Base):
     # We use Json here just to have list support in SQLite
     # While postgres has array support, sqlite doesn't and we want to keep it agnositc
     source = mapped_column(MyJsonList, nullable=True)
+    query_tags: Mapped[List[QueryTag]] = relationship(secondary=video_query_tag_association_table)
     extra_data = Column(
         MUTABLE_JSON, nullable=True
     )  # For future data I haven't thought of yet
 
     def __repr__(self) -> str:
-        return f"Video (id={self.id!r}, username={self.username!r}, source={self.source!r})"
+        return (f"Video (id={self.id!r}, username={self.username!r}, source={self.source!r}), "
+                f"hashtags={self.hashtags!r}, query_tags={self.query_tags!r}")
 
     @hybrid_property
     def hashtag_names(self):
@@ -171,7 +199,7 @@ class Video(Base):
     @hashtag_names.inplace.expression
     def _hashtag_names_expression(self) -> SQLColumnExpression[List[Hashtag]]:
         return (
-            select(func.array_agg(func.distinct(Hashtag.name)))
+            select(func.array_agg(aggregate_order_by(func.distinct(Hashtag.name), Hashtag.name)))
             .join(
                 video_hashtag_association_table,
                 Hashtag.id == video_hashtag_association_table.c.hashtag_id,
@@ -181,13 +209,30 @@ class Video(Base):
         )
 
     @hybrid_property
+    def query_tag_names(self):
+        return [query_tag.name for query_tag in self.query_tags]
+
+    @query_tag_names.inplace.expression
+    def _query_tag_names_expression(self) -> SQLColumnExpression[List[Hashtag]]:
+        return (
+            select(func.array_agg(aggregate_order_by(func.distinct(QueryTag.name), QueryTag.Name)))
+            .join(
+                video_query_tag_association_table,
+                Hashtag.id == video_query_tag_association_table.c.query_tag_id,
+            )
+            .where(video_query_tag_association_table.c.video_id == self.id)
+            .label("query_tag_names")
+        )
+
+    @hybrid_property
     def effect_ids(self):
         return [effect.effect_id for effect in self.effects]
 
     @effect_ids.inplace.expression
     def _effect_ids_expression(self) -> SQLColumnExpression[List[Hashtag]]:
         return (
-            select(func.array_agg(func.distinct(Effect.effect_id)))
+            select(func.array_agg(aggregate_order_by(func.distinct(Effect.effect_id),
+                                                     Effect.effect_id)))
             .join(
                 video_effect_id_association_table,
                 Effect.id == video_effect_id_association_table.c.effect_id
@@ -202,8 +247,6 @@ def _get_hashtag_name_to_hashtag_object_map(
 ) -> Mapping[str, Hashtag]:
     """Gets hashtag name -> Hashtag object map, pulling existing Hashtag objects from database and
     creating new Hashtag objects for new hashtag names.
-    NOTE: this does NOT add new objects to the database, only creates the objects to be used in a
-    subsequest database interaction.
     """
     # Get all hashtag names references in this list of videos
     hashtag_names_referenced = set(
@@ -215,7 +258,7 @@ def _get_hashtag_name_to_hashtag_object_map(
     hashtag_name_to_hashtag = {
         row.name: row
         for row in session.scalars(
-            select(Hashtag).filter(Hashtag.name.in_(hashtag_names_referenced))
+            select(Hashtag).where(Hashtag.name.in_(hashtag_names_referenced))
         )
     }
     # Make new hashtag objects for hashtag names not yet in the database
@@ -223,15 +266,39 @@ def _get_hashtag_name_to_hashtag_object_map(
     new_hashtag_names = hashtag_names_referenced - existing_hashtag_names
     for hashtag_name in new_hashtag_names:
         hashtag_name_to_hashtag[hashtag_name] = Hashtag(name=hashtag_name)
+    session.add_all(hashtag_name_to_hashtag.values())
     return hashtag_name_to_hashtag
+
+def _get_query_tag_name_to_query_tag_object_map(
+        session: Session, source: Optional[List[str]]
+) -> List[QueryTag]:
+    """Gets query_tag name -> QueryTag object map, pulling existing QueryTag objects from database and
+    creating new QueryTag objects for new query_tag names.
+    """
+    if not source:
+        return []
+    # Get all query_tag names references in this list of videos
+    query_tag_names_referenced = set(source)
+    # Of all the referenced query_tag names get those which exist in the database
+    query_tag_name_to_query_tag = {
+        row.name: row
+        for row in session.scalars(
+            select(QueryTag).where(QueryTag.name.in_(query_tag_names_referenced))
+        )
+    }
+    # Make new query_tag objects for query_tag names not yet in the database
+    existing_query_tag_names = set(query_tag_name_to_query_tag.keys())
+    new_query_tag_names = query_tag_names_referenced - existing_query_tag_names
+    for query_tag_name in new_query_tag_names:
+        query_tag_name_to_query_tag[query_tag_name] = QueryTag(name=query_tag_name)
+    session.add_all(query_tag_name_to_query_tag.values())
+    return list(query_tag_name_to_query_tag.values())
 
 def _get_effect_id_to_effect_object_map(
     session: Session, video_data: list[dict[str, Any]]
 ) -> Mapping[str, Effect]:
     """Gets effect id -> Effect object map, pulling existing Effect objects from database and
     creating new Effect objects for new effect ids.
-    NOTE: this does NOT add new objects to the database, only creates the objects to be used in a
-    subsequest database interaction.
     """
     # Get all effect ids references in this list of videos
     effect_ids_referenced = set(
@@ -243,7 +310,7 @@ def _get_effect_id_to_effect_object_map(
     effect_id_to_effect = {
         row.effect_id: row
         for row in session.scalars(
-            select(Effect).filter(Effect.id.in_(effect_ids_referenced))
+            select(Effect).where(Effect.effect_id.in_(effect_ids_referenced))
         )
     }
     # Make new effect objects for effect ids not yet in the database
@@ -251,6 +318,7 @@ def _get_effect_id_to_effect_object_map(
     new_effect_ids = effect_ids_referenced - existing_effect_ids
     for effect_id in new_effect_ids:
         effect_id_to_effect[effect_id] = Effect(effect_id=effect_id)
+    session.add_all(effect_id_to_effect.values())
     return effect_id_to_effect
 
 
@@ -274,6 +342,11 @@ def upsert_videos(
             session, video_data
         )
 
+        # Get all query_tag names references in this list of videos
+        query_tags = _get_query_tag_name_to_query_tag_object_map(
+            session, source
+        )
+
         # Get all effect ids references in this list of videos
         effect_id_to_effect = _get_effect_id_to_effect_object_map(
             session, video_data
@@ -295,6 +368,8 @@ def upsert_videos(
                     for hashtag_name in vid["hashtag_names"]
                 ]
                 del new_vid["hashtag_names"]
+            if source:
+                new_vid["query_tags"] = query_tags
 
             video_id_to_video[vid["id"]] = new_vid
 
@@ -311,6 +386,7 @@ def upsert_videos(
         session.add_all((Video(**vid) for vid in video_id_to_video.values()))
 
         session.commit()
+        session.expire_all()
 
 
 class Crawl(Base):
@@ -322,7 +398,7 @@ class Crawl(Base):
         DateTime(timezone=True), server_default=func.now()
     )
 
-    cursor: Mapped[int]
+    cursor: Mapped[int] = mapped_column(BigInteger)
     has_more: Mapped[bool]
     search_id: Mapped[str]
     query: Mapped[str]
@@ -332,13 +408,15 @@ class Crawl(Base):
     )
 
     source = mapped_column(MyJsonList, nullable=True)
+    query_tags: Mapped[List[QueryTag]] = relationship(secondary=crawl_query_tag_association_table)
     extra_data = Column(
         MUTABLE_JSON, nullable=True
     )  # For future data I haven't thought of yet
 
     def __repr__(self) -> str:
         return (
-            f"Query source={self.source!r}, started_at={self.crawl_started_at!r},"
+            f"Query source={self.source!r}, query_tags={self.query_tags!r}, "
+            f"started_at={self.crawl_started_at!r}, "
             f"has_more={self.has_more!r}, search_id={self.search_id!r}\n"
             f"query='{self.query!r}'"
         )

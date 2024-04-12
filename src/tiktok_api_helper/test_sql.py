@@ -3,6 +3,7 @@ import datetime
 from sqlalchemy import (
     Engine,
     select,
+    text,
 )
 from sqlalchemy.orm import Session
 import pytest
@@ -51,7 +52,7 @@ def mock_videos():
             region_code="US",
             comment_count=1,
             create_time=now,
-            effects=[Effect(effect_id=1), Effect(effect_id=2), Effect(effect_id=3)],
+            effects=[Effect(effect_id=101), Effect(effect_id=202), Effect(effect_id=303)],
             hashtags=[Hashtag(name="Hello"), Hashtag(name="World")],
             playlist_id=7044254287731739397,
             voice_to_text="a string",
@@ -109,7 +110,8 @@ def _assert_video_database_object_matches_api_response_dict(
 
             assert (
                 db_value == v
-            ), f"Video object {video_object!r} attribute {k} value {getattr(video_object, k)} != API response dict value {v}"
+            ), (f"Video object {video_object!r} attribute {k} value {getattr(video_object, k)} != "
+                f"API response dict value {v}; full API response dict:\n{api_response_video_dict}")
         except AttributeError as e:
             raise ValueError(
                 f"Video object {video_object!r} has not attribute {k}: {e}"
@@ -133,7 +135,6 @@ def test_crawl_basic_insert(test_database_engine, mock_crawl):
 
         assert session.scalars(select(Crawl).order_by(Crawl.id)).all() == [mock_crawl]
 
-
 def test_upsert(test_database_engine, mock_videos, mock_crawl):
     with Session(test_database_engine) as session:
         session.add_all(mock_videos)
@@ -150,30 +151,136 @@ def test_upsert(test_database_engine, mock_videos, mock_crawl):
             None,
         ]
 
-        new_source = ["0.0-testing"]
+        new_source = ["testing", "0.0-testing"]
         upsert_videos(
             [
                 {
                     "id": mock_videos[0].id,
                     "share_count": 300,
                     "create_time": datetime.datetime.utcnow().timestamp(),
+                    "hashtag_names": ["hashtag1", "hashtag2"],
                 },
                 {
                     "id": mock_videos[1].id,
                     "share_count": 3,
                     "create_time": datetime.datetime.utcnow().timestamp(),
+                    "hashtag_names": ["hashtag1", "hashtag2", "hashtag3"],
                 },
             ],
             source=new_source,
             engine=test_database_engine,
         )
+        session.expire_all()
         assert session.scalars(select(Video.source).order_by(Video.id)).all() == [
-            mock_videos[0].source + new_source,
-            mock_videos[1].source + new_source,
+                ['testing', '0.0-testing'],
+                ['testing', 'testing', '0.0-testing']
         ]
         assert session.scalars(select(Video.share_count).order_by(Video.id)).all() == [
             300,
             3,
+        ]
+        assert {v.id: {hashtag.name for hashtag in v.hashtags} for v in
+                session.scalars(select(Video).join(Video.hashtags).order_by(Video.id)).all()} == {
+                        mock_videos[0].id: {"hashtag1", "hashtag2"},
+                        mock_videos[1].id: {"hashtag1", "hashtag2", "hashtag3"},
+        }
+
+def test_upsert_existing_video_and_new_video_upserted_together(test_database_engine, mock_videos, mock_crawl):
+    with Session(test_database_engine) as session:
+        session.add_all([mock_videos[0]])
+        session.commit()
+
+        session.add_all([mock_crawl])
+        session.commit()
+        assert session.scalars(select(Video.source).order_by(Video.id)).all() == [
+            mock_videos[0].source,
+        ]
+        assert session.scalars(select(Video.share_count).order_by(Video.id)).all() == [
+            None,
+        ]
+
+        new_source = ["testing", "0.0-testing"]
+        upsert_videos(
+            [
+                {
+                    "id": mock_videos[0].id,
+                    "share_count": 300,
+                    "create_time": datetime.datetime.utcnow().timestamp(),
+                    "hashtag_names": ["hashtag1", "hashtag2"],
+                },
+                {
+                    "id": mock_videos[1].id,
+                    "share_count": mock_videos[1].share_count,
+                    "create_time": datetime.datetime.utcnow().timestamp(),
+                    "hashtag_names": mock_videos[1].hashtag_names,
+                    "region_code": mock_videos[1].region_code,
+                    "username": mock_videos[1].username,
+                },
+            ],
+            source=new_source,
+            engine=test_database_engine,
+        )
+        session.expire_all()
+        assert session.scalars(select(Video.source).order_by(Video.id)).all() == [
+            new_source,
+            new_source,
+        ]
+        assert session.scalars(select(Video.share_count).order_by(Video.id)).all() == [
+            300,
+            mock_videos[1].share_count,
+        ]
+        assert session.execute(
+            select(Video.id, Hashtag.name).outerjoin(Video.hashtags).order_by(Video.id)
+        ).all() == [
+           (1, "hashtag1"),
+           (1, "hashtag2"),
+           (2, 'Hello'),
+           (2, 'World'),
+        ]
+        assert [{*v.hashtag_names} for v in
+                session.scalars(select(Video).order_by(Video.id)).all()] == [
+           {"hashtag1", "hashtag2"},
+           {'Hello', 'World'}
+        ]
+
+def test_upsert_no_prior_insert(test_database_engine, mock_videos, mock_crawl):
+    with Session(test_database_engine) as session:
+        new_source = ["0.0-testing"]
+        upsert_videos(
+            [
+                {
+                    "id": mock_videos[0].id,
+                    "username": "tron",
+                    "region_code": "US",
+                    "share_count": 300,
+                    "create_time": datetime.datetime.utcnow().timestamp(),
+                    "hashtag_names": ["hashtag1", "hashtag2"],
+                },
+                {
+                    "id": mock_videos[1].id,
+                    "username": "tron",
+                    "region_code": "US",
+                    "share_count": 3,
+                    "create_time": datetime.datetime.utcnow().timestamp(),
+                    "hashtag_names": ["hashtag1", "hashtag2"],
+                },
+            ],
+            source=new_source,
+            engine=test_database_engine,
+        )
+        session.expire_all()
+        assert session.scalars(select(Video.source).order_by(Video.id)).all() == [
+            new_source,
+            new_source,
+        ]
+        assert session.scalars(select(Video.share_count).order_by(Video.id)).all() == [
+            300,
+            3,
+        ]
+        assert [{*v.hashtag_names} for v in
+                session.scalars(select(Video).order_by(Video.id)).all()] == [
+           {"hashtag1", "hashtag2"},
+           {"hashtag1", "hashtag2"},
         ]
 
 
@@ -202,6 +309,7 @@ def test_upsert_existing_hashtags_names_gets_same_id(
             source=new_source,
             engine=test_database_engine,
         )
+        session.expire_all()
         original_hashtags = session.scalars(
             select(Hashtag.id, Hashtag.name).order_by(Hashtag.name)
         ).all()
@@ -218,6 +326,7 @@ def test_upsert_existing_hashtags_names_gets_same_id(
             source=new_source,
             engine=test_database_engine,
         )
+        session.expire_all()
         assert (
             session.scalars(
                 select(Hashtag.id, Hashtag.name)
@@ -255,7 +364,7 @@ def test_upsert_updates_existing_and_inserts_new_video_data(
                 api_response_videos[0],
                 {
                     "id": mock_videos[1].id,
-                    "comment_count": mock_videos[1].comment_count + 1,
+                    "comment_count": 200,
                     "create_time": utcnow,
                     "hashtag_names": ["hashtag1", "hashtag2"],
                 },
@@ -263,13 +372,14 @@ def test_upsert_updates_existing_and_inserts_new_video_data(
             source=new_source,
             engine=test_database_engine,
         )
+        session.expire_all()
         assert session.execute(
             select(Video.id, Video.comment_count, Video.create_time).order_by(Video.id)
         ).all() == [
             (mock_videos[0].id, None, mock_videos[0].create_time),
             (
                 mock_videos[1].id,
-                mock_videos[1].comment_count + 1,
+                200,
                 datetime.datetime.fromtimestamp(utcnow),
             ),
             (
@@ -304,6 +414,7 @@ def test_upsert_updates_existing_and_inserts_new_video_data_and_hashtag_names(
             source=new_source,
             engine=test_database_engine,
         )
+        session.expire_all()
 
         assert sorted(session.scalars(select(Hashtag.name)).all()) == [
             "Hello",
@@ -314,17 +425,20 @@ def test_upsert_updates_existing_and_inserts_new_video_data_and_hashtag_names(
             "hashtag2",
         ]
 
-        if test_database_engine.dialect.name == "sqlite":
-            pytest.xfail(
-                "SQLite does to have function array_agg which Video.hashtag_names requires.  Therefore select(Video.hashtag_names) is expected to fail"
-            )
-        assert session.execute(
-            select(Video.id, Video.hashtag_names).order_by(Video.id)
-        ).all() == [
-            (mock_videos[0].id, ["hashtag1", "hashtag2"]),
-            (mock_videos[1].id, ["hashtag1", "hashtag2"]),
-            (api_response_videos[0]["id"], api_response_videos[0]["hashtag_names"]),
+        assert [(v.id, {*v.hashtag_names}) for v in session.scalars(select(Video).order_by(Video.id)).all()] == [
+            (mock_videos[0].id, {"hashtag1", "hashtag2"}),
+            (mock_videos[1].id, {"hashtag1", "hashtag2"}),
+            (api_response_videos[0]["id"], {*api_response_videos[0]["hashtag_names"]}),
         ]
+        if test_database_engine.dialect.name != "sqlite":
+            assert [(v.id, v.hashtag_names) for v in session.scalars(select(Video).order_by(Video.id)).all()] == session.execute(select(Video.id, Video.hashtag_names).order_by(Video.id)).all()
+            assert session.execute(
+                select(Video.id, Video.hashtag_names).order_by(Video.id)
+            ).all() == [
+                (mock_videos[0].id, ["hashtag1", "hashtag2"]),
+                (mock_videos[1].id, ["hashtag1", "hashtag2"]),
+                (api_response_videos[0]["id"], api_response_videos[0]["hashtag_names"]),
+            ]
 
         # Now add a new, and remove a previous, hashtag name from mock_videos[1]
         upsert_videos(
@@ -338,6 +452,7 @@ def test_upsert_updates_existing_and_inserts_new_video_data_and_hashtag_names(
             source=new_source,
             engine=test_database_engine,
         )
+        session.expire_all()
         assert sorted(session.scalars(select(Hashtag.name)).all()) == [
             "Hello",
             "World",
@@ -347,10 +462,18 @@ def test_upsert_updates_existing_and_inserts_new_video_data_and_hashtag_names(
             "hashtag2",
             "hashtag3",
         ]
-        assert session.execute(
-            select(Video.id, Video.hashtag_names).where(Video.id == mock_videos[1].id).order_by(Video.id)
-        ).all() == [
-            (mock_videos[1].id, ["hashtag2", "hashtag3"]),
+
+        session.expire_all()
+        if test_database_engine.dialect.name != "sqlite":
+            assert session.execute(
+                select(Video.id, Video.hashtag_names).where(Video.id == mock_videos[1].id).order_by(Video.id)
+            ).all() == [
+                (mock_videos[1].id, ["hashtag2", "hashtag3"]),
+            ]
+
+        assert [(v.id, {*v.hashtag_names}) for v in session.scalars(select(Video).where(Video.id ==
+                                                                                        mock_videos[1].id).order_by(Video.id)).all()] == [
+            (mock_videos[1].id, {"hashtag2", "hashtag3"}),
         ]
 
 
@@ -374,33 +497,40 @@ def test_upsert_updates_existing_and_inserts_new_video_data_and_effect_id(
                     "id": mock_videos[1].id,
                     "comment_count": mock_videos[1].comment_count + 1,
                     "create_time": utcnow,
-                    "effect_ids": ["1", "2", "3", "4"],
+                    "effect_ids": ["101", "202", "303", "404"],
                 },
             ],
             source=new_source,
             engine=test_database_engine,
         )
+        session.expire_all()
 
         assert sorted(session.scalars(select(Effect.effect_id)).all()) == [
-                '1', '2', '3', '4', '63960564',
+               "101", "202", "303", "404", '63960564',
         ]
 
-        if test_database_engine.dialect.name == "sqlite":
-            pytest.xfail(
-                "SQLite does to have function array_agg which Video.hashtag_names requires.  Therefore select(Video.hashtag_names) is expected to fail"
-            )
-        assert session.execute(
-            select(Video.id, Video.effect_ids).order_by(Video.id)
-        ).all() == [
-            (mock_videos[0].id, None),
-            (mock_videos[1].id, ['1', '2', '3', '4']),
-            (api_response_video["id"], api_response_video["effect_ids"]),
-        ]
+        if test_database_engine.dialect.name != "sqlite":
+            assert session.execute(
+                select(Video.id, Video.effect_ids).order_by(Video.id)
+            ).all() == [
+                (mock_videos[0].id, None),
+                (mock_videos[1].id, ["101", "202", "303", "404"]),
+                (api_response_video["id"], api_response_video["effect_ids"]),
+            ]
+
+        assert {v.id: v.effect_ids for v in session.scalars(
+            select(Video).order_by(Video.id)).all()} == {
+            mock_videos[0].id: [],
+            mock_videos[1].id: ["101", "202", "303", "404"],
+            api_response_video["id"]: api_response_video["effect_ids"],
+        }
+
 
 
 def test_upsert_api_response_videos(test_database_engine, api_response_videos):
     with Session(test_database_engine) as session:
         upsert_videos(api_response_videos, test_database_engine)
+        session.expire_all()
         assert_video_database_object_list_matches_api_responses_dict(
             session.scalars(select(Video)).all(), api_response_videos
         )
