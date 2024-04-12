@@ -32,7 +32,6 @@ from sqlalchemy.orm import (
     synonym,
     relationship,
 )
-from sqlalchemy.dialects.postgresql import aggregate_order_by
 
 from .query import Query, QueryJSONEncoder
 
@@ -205,6 +204,7 @@ class Video(Base):
         return [effect.effect_id for effect in self.effects]
 
 
+# TODO(macpd): make generic method for this and use for all many-to-many objects inserted with video
 def _get_hashtag_name_to_hashtag_object_map(
     session: Session, video_data: list[dict[str, Any]]
 ) -> Mapping[str, Hashtag]:
@@ -285,6 +285,7 @@ def _get_effect_id_to_effect_object_map(
     return effect_id_to_effect
 
 
+# TODO(macpd): rename source to query_tags
 def upsert_videos(
     video_data: list[dict[str, Any]],
     engine: Engine,

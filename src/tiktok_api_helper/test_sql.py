@@ -100,7 +100,6 @@ def _assert_video_database_object_matches_api_response_dict(
     video_object, api_response_video_dict
 ):
     for k, v in api_response_video_dict.items():
-        print("checking", k)
         try:
             db_value = getattr(video_object, k)
             if isinstance(db_value, datetime.datetime):
@@ -116,7 +115,7 @@ def _assert_video_database_object_matches_api_response_dict(
         except AttributeError as e:
             raise ValueError(
                 f"Video object {video_object!r} has not attribute {k}: {e}"
-            )
+            ) from e
 
 
 def test_video_basic_insert(test_database_engine, mock_videos):
@@ -502,7 +501,7 @@ def test_upsert_updates_existing_and_inserts_new_video_data_and_effect_id(
             api_response_video["id"]: api_response_video["effect_ids"],
         }
 
-def test_upsert_updates_existing_and_inserts_new_video_data_and_effect_id(
+def test_upsert_updates_existing_and_inserts_new_video_data_and_query_tags(
     test_database_engine,
     mock_videos,
     api_response_videos,
@@ -557,11 +556,9 @@ def test_remove_all(test_database_engine, mock_videos, mock_crawl):
         assert session.scalars(select(Crawl)).all() == [mock_crawl]
 
         for video in session.scalars(select(Video)):
-            print("Deleting video", video)
             session.delete(video)
 
         for crawl in session.scalars(select(Crawl)):
-            print("Deleting crawl", crawl)
             session.delete(crawl)
 
         session.commit()
