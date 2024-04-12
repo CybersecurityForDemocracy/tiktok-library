@@ -192,54 +192,17 @@ class Video(Base):
         return (f"Video (id={self.id!r}, username={self.username!r}, source={self.source!r}), "
                 f"hashtags={self.hashtags!r}, query_tags={self.query_tags!r}")
 
-    @hybrid_property
+    @property
     def hashtag_names(self):
         return [hashtag.name for hashtag in self.hashtags]
 
-    @hashtag_names.inplace.expression
-    def _hashtag_names_expression(self) -> SQLColumnExpression[List[Hashtag]]:
-        return (
-            select(func.array_agg(aggregate_order_by(func.distinct(Hashtag.name), Hashtag.name)))
-            .join(
-                video_hashtag_association_table,
-                Hashtag.id == video_hashtag_association_table.c.hashtag_id,
-            )
-            .where(video_hashtag_association_table.c.video_id == self.id)
-            .label("hashtag_names")
-        )
-
-    @hybrid_property
+    @property
     def query_tag_names(self):
         return [query_tag.name for query_tag in self.query_tags]
 
-    @query_tag_names.inplace.expression
-    def _query_tag_names_expression(self) -> SQLColumnExpression[List[Hashtag]]:
-        return (
-            select(func.array_agg(aggregate_order_by(func.distinct(QueryTag.name), QueryTag.Name)))
-            .join(
-                video_query_tag_association_table,
-                Hashtag.id == video_query_tag_association_table.c.query_tag_id,
-            )
-            .where(video_query_tag_association_table.c.video_id == self.id)
-            .label("query_tag_names")
-        )
-
-    @hybrid_property
+    @property
     def effect_ids(self):
         return [effect.effect_id for effect in self.effects]
-
-    @effect_ids.inplace.expression
-    def _effect_ids_expression(self) -> SQLColumnExpression[List[Hashtag]]:
-        return (
-            select(func.array_agg(aggregate_order_by(func.distinct(Effect.effect_id),
-                                                     Effect.effect_id)))
-            .join(
-                video_effect_id_association_table,
-                Effect.id == video_effect_id_association_table.c.effect_id
-            )
-            .where(video_effect_id_association_table.c.video_id == self.id)
-            .label("effect_ids")
-        )
 
 
 def _get_hashtag_name_to_hashtag_object_map(

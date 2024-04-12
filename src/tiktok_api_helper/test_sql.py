@@ -14,6 +14,7 @@ from .sql import (
     Video,
     Hashtag,
     Effect,
+    QueryTag,
     get_engine_and_create_tables,
     Base,
     upsert_videos,
@@ -430,15 +431,6 @@ def test_upsert_updates_existing_and_inserts_new_video_data_and_hashtag_names(
             (mock_videos[1].id, {"hashtag1", "hashtag2"}),
             (api_response_videos[0]["id"], {*api_response_videos[0]["hashtag_names"]}),
         ]
-        if test_database_engine.dialect.name != "sqlite":
-            assert [(v.id, v.hashtag_names) for v in session.scalars(select(Video).order_by(Video.id)).all()] == session.execute(select(Video.id, Video.hashtag_names).order_by(Video.id)).all()
-            assert session.execute(
-                select(Video.id, Video.hashtag_names).order_by(Video.id)
-            ).all() == [
-                (mock_videos[0].id, ["hashtag1", "hashtag2"]),
-                (mock_videos[1].id, ["hashtag1", "hashtag2"]),
-                (api_response_videos[0]["id"], api_response_videos[0]["hashtag_names"]),
-            ]
 
         # Now add a new, and remove a previous, hashtag name from mock_videos[1]
         upsert_videos(
@@ -464,12 +456,6 @@ def test_upsert_updates_existing_and_inserts_new_video_data_and_hashtag_names(
         ]
 
         session.expire_all()
-        if test_database_engine.dialect.name != "sqlite":
-            assert session.execute(
-                select(Video.id, Video.hashtag_names).where(Video.id == mock_videos[1].id).order_by(Video.id)
-            ).all() == [
-                (mock_videos[1].id, ["hashtag2", "hashtag3"]),
-            ]
 
         assert [(v.id, {*v.hashtag_names}) for v in session.scalars(select(Video).where(Video.id ==
                                                                                         mock_videos[1].id).order_by(Video.id)).all()] == [
@@ -509,15 +495,6 @@ def test_upsert_updates_existing_and_inserts_new_video_data_and_effect_id(
                "101", "202", "303", "404", '63960564',
         ]
 
-        if test_database_engine.dialect.name != "sqlite":
-            assert session.execute(
-                select(Video.id, Video.effect_ids).order_by(Video.id)
-            ).all() == [
-                (mock_videos[0].id, None),
-                (mock_videos[1].id, ["101", "202", "303", "404"]),
-                (api_response_video["id"], api_response_video["effect_ids"]),
-            ]
-
         assert {v.id: v.effect_ids for v in session.scalars(
             select(Video).order_by(Video.id)).all()} == {
             mock_videos[0].id: [],
@@ -525,6 +502,41 @@ def test_upsert_updates_existing_and_inserts_new_video_data_and_effect_id(
             api_response_video["id"]: api_response_video["effect_ids"],
         }
 
+def test_upsert_updates_existing_and_inserts_new_video_data_and_effect_id(
+    test_database_engine,
+    mock_videos,
+    api_response_videos,
+):
+    # This video has query_tag_names
+    api_response_video = api_response_videos[19]
+    utcnow = datetime.datetime.utcnow().timestamp()
+    with Session(test_database_engine) as session:
+        session.add_all(mock_videos)
+        session.commit()
+
+        new_source = ["0.0-testing"]
+        upsert_videos(
+            [
+                api_response_video,
+                {
+                    "id": mock_videos[1].id,
+                    "comment_count": mock_videos[1].comment_count + 1,
+                    "create_time": utcnow,
+                },
+            ],
+            source=new_source,
+            engine=test_database_engine,
+        )
+        session.expire_all()
+
+        assert sorted(session.scalars(select(QueryTag.name)).all()) == new_source
+
+        assert {v.id: v.query_tag_names for v in session.scalars(
+            select(Video).order_by(Video.id)).all()} == {
+            mock_videos[0].id: [],
+            mock_videos[1].id: new_source,
+            api_response_video["id"]: new_source,
+        }
 
 
 def test_upsert_api_response_videos(test_database_engine, api_response_videos):
