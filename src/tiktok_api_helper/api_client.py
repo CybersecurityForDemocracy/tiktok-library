@@ -33,7 +33,7 @@ def field_is_not_empty(instance, attribute, value):
 
 
 class ApiRateLimitWaitStrategy(enum.StrEnum):
-    WAIT_ONE_HOUR = enum.auto()
+    WAIT_FOUR_HOURS = enum.auto()
     WAIT_NEXT_UTC_MIDNIGHT = enum.auto()
 
 
@@ -67,7 +67,7 @@ class AcquitionConfig:
     source: Optional[list[str]] = None
     raw_responses_output_dir: Optional[Path] = None
     api_rate_limit_wait_strategy: ApiRateLimitWaitStrategy = attrs.field(
-        default=ApiRateLimitWaitStrategy.WAIT_ONE_HOUR,
+        default=ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS,
         validator=attrs.validators.instance_of(ApiRateLimitWaitStrategy),
     )
 
@@ -158,7 +158,7 @@ def json_decoding_error_retry_immediately_or_api_rate_limi_wait_until_next_utc_m
     return 0
 
 
-def json_decoding_error_retry_immediately_or_api_rate_limi_wait_one_hour(
+def json_decoding_error_retry_immediately_or_api_rate_limi_wait_four_hours(
     retry_state,
 ):
     exception = retry_state.outcome.exception()
@@ -168,10 +168,10 @@ def json_decoding_error_retry_immediately_or_api_rate_limi_wait_one_hour(
 
     if isinstance(exception, ApiRateLimitError):
         logging.warning(
-            "Response indicates rate limit exceeded: %r\nSleeping one hour before trying again.",
+            "Response indicates rate limit exceeded: %r\nSleeping four hours before trying again.",
             exception,
         )
-        return timedelta(hours=1).seconds
+        return timedelta(hours=4).seconds
 
     logging.warning("Unknown exception in wait callback: %r", exception)
     return 0
@@ -186,7 +186,7 @@ class TikTokApiRequestClient:
     _api_request_session: rq.Session = attrs.field()
     _raw_responses_output_dir: Optional[Path] = None
     _api_rate_limit_wait_strategy: ApiRateLimitWaitStrategy = attrs.field(
-        default=ApiRateLimitWaitStrategy.WAIT_ONE_HOUR,
+        default=ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS,
         validator=attrs.validators.instance_of(ApiRateLimitWaitStrategy),
     )
 
@@ -298,9 +298,12 @@ class TikTokApiRequestClient:
         else:
             stop_strategy = tenacity.stop_never
 
-        if self._api_rate_limit_wait_strategy == ApiRateLimitWaitStrategy.WAIT_ONE_HOUR:
+        if (
+            self._api_rate_limit_wait_strategy
+            == ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS
+        ):
             wait_strategy = (
-                json_decoding_error_retry_immediately_or_api_rate_limi_wait_one_hour
+                json_decoding_error_retry_immediately_or_api_rate_limi_wait_four_hours
             )
         elif (
             self._api_rate_limit_wait_strategy
