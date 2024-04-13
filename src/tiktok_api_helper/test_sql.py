@@ -226,14 +226,9 @@ def test_upsert_existing_hashtags_names_gets_same_id(
         )
 
         # Confirm mapping of hashtag IDs -> video IDs is correct
-        assert session.execute(
-            select(Video.id, Hashtag.name).outerjoin(Video.hashtags).order_by(Video.id)
-        ).all() == [
-            (0, "hashtag1"),
-            (0, "hashtag2"),
-            (1, "hashtag1"),
-            (1, "hashtag2"),
-            (1, "hashtag3"),
+        assert [(v.id, {*v.hashtag_names}) for v in session.scalars(select(Video).order_by(Video.id)).all()] == [
+            (0, {"hashtag1", "hashtag2"}),
+            (1, {"hashtag1", "hashtag2", "hashtag3"}),
         ]
 
 
