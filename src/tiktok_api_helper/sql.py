@@ -396,6 +396,7 @@ class Crawl(Base):
             search_id=res_data["search_id"],
             query=json.dumps(query, cls=QueryJSONEncoder),
             source=source,
+            query_tags=source
         )
 
     def upload_self_to_db(self, engine: Engine) -> None:

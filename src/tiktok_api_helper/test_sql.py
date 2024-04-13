@@ -22,6 +22,8 @@ from .sql import (
 
 _IN_MEMORY_SQLITE_DATABASE_URL = "sqlite://"
 
+# TODO(macpd): add tests for crawl query_tags
+
 
 @pytest.fixture
 def test_database_engine(database_url_command_line_arg) -> Engine:
@@ -507,8 +509,8 @@ def test_upsert_updates_existing_and_inserts_new_video_data_and_query_tags(
     mock_videos,
     api_response_videos,
 ):
-    # This video has query_tag_names
-    api_response_video = api_response_videos[19]
+    # Test adding query_tags from an API response
+    api_response_video = api_response_videos[0]
     utcnow = datetime.datetime.utcnow().timestamp()
     with Session(test_database_engine) as session:
         session.add_all(mock_videos)
