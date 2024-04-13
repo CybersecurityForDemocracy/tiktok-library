@@ -311,10 +311,14 @@ def test_upsert_existing_hashtags_names_gets_same_id(
             source=new_source,
             engine=test_database_engine,
         )
+
         session.expire_all()
-        original_hashtags = session.scalars(
+
+        original_hashtags = session.execute(
             select(Hashtag.id, Hashtag.name).order_by(Hashtag.name)
         ).all()
+        assert original_hashtags == [(1, "hashtag1"), (2, "hashtag2")]
+
         upsert_videos(
             [
                 {
@@ -328,9 +332,11 @@ def test_upsert_existing_hashtags_names_gets_same_id(
             source=new_source,
             engine=test_database_engine,
         )
+
         session.expire_all()
+
         assert (
-            session.scalars(
+            session.execute(
                 select(Hashtag.id, Hashtag.name)
                 .where(Hashtag.name.in_(["hashtag1", "hashtag2"]))
                 .order_by(Hashtag.name)
@@ -339,14 +345,12 @@ def test_upsert_existing_hashtags_names_gets_same_id(
         )
 
         # Confirm mapping of hashtag IDs -> video IDs is correct
-        assert session.execute(
-            select(Video.id, Hashtag.name).outerjoin(Video.hashtags).order_by(Video.id)
-        ).all() == [
-            (0, "hashtag1"),
-            (0, "hashtag2"),
-            (1, "hashtag1"),
-            (1, "hashtag2"),
-            (1, "hashtag3"),
+        assert [
+            (v.id, {*v.hashtag_names})
+            for v in session.scalars(select(Video).order_by(Video.id)).all()
+        ] == [
+            (0, {"hashtag1", "hashtag2"}),
+            (1, {"hashtag1", "hashtag2", "hashtag3"}),
         ]
 
 
@@ -427,7 +431,10 @@ def test_upsert_updates_existing_and_inserts_new_video_data_and_hashtag_names(
             "hashtag2",
         ]
 
-        assert [(v.id, {*v.hashtag_names}) for v in session.scalars(select(Video).order_by(Video.id)).all()] == [
+        assert [
+            (v.id, {*v.hashtag_names})
+            for v in session.scalars(select(Video).order_by(Video.id)).all()
+        ] == [
             (mock_videos[0].id, {"hashtag1", "hashtag2"}),
             (mock_videos[1].id, {"hashtag1", "hashtag2"}),
             (api_response_videos[0]["id"], {*api_response_videos[0]["hashtag_names"]}),

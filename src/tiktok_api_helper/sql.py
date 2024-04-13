@@ -229,6 +229,7 @@ def _get_hashtag_name_to_hashtag_object_map(
     new_hashtag_names = hashtag_names_referenced - existing_hashtag_names
     for hashtag_name in new_hashtag_names:
         hashtag_name_to_hashtag[hashtag_name] = Hashtag(name=hashtag_name)
+
     session.add_all(hashtag_name_to_hashtag.values())
     return hashtag_name_to_hashtag
 
