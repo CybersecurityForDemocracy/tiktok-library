@@ -107,7 +107,9 @@ def _assert_video_database_object_matches_api_response_dict(
 
             assert (
                 db_value == v
-            ), f"Video object {video_object!r} attribute {k} value {getattr(video_object, k)} != API response dict value {v}"
+            ), (f"Video object {video_object!r} attribute {k} value {getattr(video_object, k)} != "
+                f"API response dict value {v}; full API response dict:\n{api_response_video_dict}")
+
         except AttributeError as e:
             raise ValueError(
                 f"Video object {video_object!r} has not attribute {k}: {e}"
