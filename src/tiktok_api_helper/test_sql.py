@@ -233,8 +233,8 @@ def test_upsert_existing_video_and_new_video_upserted_together(test_database_eng
         ]
         assert {v.id: {*v.hashtag_names} for v in
                 session.scalars(select(Video).order_by(Video.id)).all()} == {
-            1: {"hashtag1", "hashtag2"},
-            2: {'Hello', 'World'}
+            mock_videos[0].id: {"hashtag1", "hashtag2"},
+            mock_videos[1].id: {'Hello', 'World'}
         }
 
 def test_upsert_no_prior_insert(test_database_engine, mock_videos, mock_crawl):
@@ -280,7 +280,6 @@ def test_upsert_no_prior_insert(test_database_engine, mock_videos, mock_crawl):
 
 def test_upsert_existing_hashtags_names_gets_same_id(
     test_database_engine,
-    mock_videos,
 ):
     """Tests that adding a video with an existing hashtag name (from a previously added video)
     succeeds, gets the same ID it had previously, and does not raise a Unique violation error.
