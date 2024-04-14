@@ -203,10 +203,11 @@ def test_upsert_existing_hashtags_names_gets_same_id(
 
         session.expire_all()
 
-        original_hashtags = session.execute(
-            select(Hashtag.id, Hashtag.name).order_by(Hashtag.name)
-        ).all()
-        assert original_hashtags == [(1, "hashtag1"), (2, "hashtag2")]
+        original_hashtags = {
+            hashtag.id: hashtag.name for hashtag in
+            session.scalars(select(Hashtag).order_by(Hashtag.name)).all()
+        }
+        assert set(original_hashtags.values()) == {"hashtag1", "hashtag2"}
 
         upsert_videos(
             [
@@ -225,11 +226,12 @@ def test_upsert_existing_hashtags_names_gets_same_id(
         session.expire_all()
 
         assert (
-            session.execute(
-                select(Hashtag.id, Hashtag.name)
+            {hashtag.id: hashtag.name for hashtag in
+             session.scalars(
+                select(Hashtag)
                 .where(Hashtag.name.in_(["hashtag1", "hashtag2"]))
                 .order_by(Hashtag.name)
-            ).all()
+            ).all()}
             == original_hashtags
         )
 
