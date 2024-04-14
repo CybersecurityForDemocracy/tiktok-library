@@ -231,19 +231,11 @@ def test_upsert_existing_video_and_new_video_upserted_together(test_database_eng
             300,
             mock_videos[1].share_count,
         ]
-        assert session.execute(
-            select(Video.id, Hashtag.name).outerjoin(Video.hashtags).order_by(Video.id)
-        ).all() == [
-           (1, "hashtag1"),
-           (1, "hashtag2"),
-           (2, 'Hello'),
-           (2, 'World'),
-        ]
-        assert [{*v.hashtag_names} for v in
-                session.scalars(select(Video).order_by(Video.id)).all()] == [
-           {"hashtag1", "hashtag2"},
-           {'Hello', 'World'}
-        ]
+        assert {v.id: {*v.hashtag_names} for v in
+                session.scalars(select(Video).order_by(Video.id)).all()} == {
+            1: {"hashtag1", "hashtag2"},
+            2: {'Hello', 'World'}
+        }
 
 def test_upsert_no_prior_insert(test_database_engine, mock_videos, mock_crawl):
     with Session(test_database_engine) as session:
@@ -314,10 +306,11 @@ def test_upsert_existing_hashtags_names_gets_same_id(
 
         session.expire_all()
 
-        original_hashtags = session.execute(
-            select(Hashtag.id, Hashtag.name).order_by(Hashtag.name)
-        ).all()
-        assert original_hashtags == [(1, "hashtag1"), (2, "hashtag2")]
+        original_hashtags = {
+            hashtag.id: hashtag.name for hashtag in
+            session.scalars(select(Hashtag).order_by(Hashtag.name)).all()
+        }
+        assert set(original_hashtags.values()) == {"hashtag1", "hashtag2"}
 
         upsert_videos(
             [
@@ -336,11 +329,12 @@ def test_upsert_existing_hashtags_names_gets_same_id(
         session.expire_all()
 
         assert (
-            session.execute(
-                select(Hashtag.id, Hashtag.name)
+            {hashtag.id: hashtag.name for hashtag in
+             session.scalars(
+                select(Hashtag)
                 .where(Hashtag.name.in_(["hashtag1", "hashtag2"]))
                 .order_by(Hashtag.name)
-            ).all()
+            ).all()}
             == original_hashtags
         )
 
