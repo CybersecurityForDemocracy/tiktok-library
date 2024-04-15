@@ -14,6 +14,7 @@ from typing_extensions import Annotated
 from . import utils
 from .custom_types import (
     DBFileType,
+    DBUrlType,
     TikTokStartDateFormat,
     TikTokEndDateFormat,
     RawResponsesOutputDir,
@@ -21,7 +22,12 @@ from .custom_types import (
     ApiCredentialsFileType,
     ApiRateLimitWaitStrategyType,
 )
-from .sql import Crawl, Video, get_engine_and_create_tables
+from .sql import (
+    Crawl,
+    get_sqlite_engine_and_create_tables,
+    get_engine_and_create_tables,
+    upsert_videos,
+)
 from .api_client import (
     AcquitionConfig,
     ApiRateLimitWaitStrategy,
@@ -49,7 +55,7 @@ def insert_videos_from_response(
     source: Optional[list] = None,
 ) -> None:
     try:
-        Video.custom_sqlite_upsert(videos, source=source, engine=engine)
+        upsert_videos(videos, source=source, engine=engine)
     except Exception as e:
         logging.log(logging.ERROR, f"Error with upsert! Videos: {videos}\n Error: {e}")
         logging.log(logging.ERROR, "Skipping Upsert")
@@ -190,7 +196,7 @@ def test(
     start_date_datetime = datetime.strptime("20220101", "%Y%m%d")
     end_date_datetime = datetime.strptime("20220101", "%Y%m%d")
 
-    engine = get_engine_and_create_tables(db_file)
+    engine = get_sqlite_engine_and_create_tables(db_file)
 
     config = AcquitionConfig(
         query=test_query,
@@ -223,7 +229,8 @@ def run(
     # breaks the documentation of CLI Arguments for some reason
     start_date_str: TikTokStartDateFormat,
     end_date_str: TikTokEndDateFormat,
-    db_file: DBFileType,
+    db_file: DBFileType = None,
+    db_url: DBUrlType = None,
     stop_after_one_request: Annotated[
         bool, typer.Option(help="Stop after the first request - Useful for testing")
     ] = False,
@@ -265,7 +272,17 @@ def run(
 
     logging.log(logging.INFO, f"Query: {query}")
 
-    engine = get_engine_and_create_tables(db_file)
+    if db_url and db_file:
+        raise typer.BadParameter(
+            "--db_url and --db_file are mutually exclusive. Please use only one."
+        )
+    if not (db_url or db_file):
+        raise typer.BadParameter("Must specify one of --db_url or --db_file")
+
+    if db_url:
+        engine = get_engine_and_create_tables(db_url)
+    if db_file:
+        engine = get_sqlite_engine_and_create_tables(db_file)
 
     config = AcquitionConfig(
         query=query,

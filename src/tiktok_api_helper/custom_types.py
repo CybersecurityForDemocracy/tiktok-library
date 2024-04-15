@@ -18,13 +18,15 @@ TikTokEndDateFormat = Annotated[
 
 DBFileType = Annotated[
     Path,
-    typer.Argument(
+    typer.Option(
         exists=False,
         file_okay=True,
         dir_okay=False,
         help="Path to the SQLite database file",
     ),
 ]
+
+DBUrlType = Annotated[str, typer.Option(help="database URL for storing API results")]
 
 QueryFileType = Annotated[
     Path,
