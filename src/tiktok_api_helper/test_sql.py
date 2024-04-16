@@ -110,10 +110,11 @@ def _assert_video_database_object_matches_api_response_dict(
                 db_value.sort()
                 v.sort()
 
-            assert (
-                db_value == v
-            ), (f"Video object {video_object!r} attribute {k} value {getattr(video_object, k)} != "
-                f"API response dict value {v}; full API response dict:\n{api_response_video_dict}")
+            assert db_value == v, (
+                f"Video object {video_object!r} attribute {k} value {getattr(video_object, k)} != "
+                f"API response dict value {v}; full API response dict:\n{api_response_video_dict}"
+            )
+
         except AttributeError as e:
             raise ValueError(
                 f"Video object {video_object!r} has not attribute {k}: {e}"
@@ -306,8 +307,8 @@ def test_upsert_existing_hashtags_names_gets_same_id(
         session.expire_all()
 
         original_hashtags = {
-            hashtag.id: hashtag.name for hashtag in
-            session.scalars(select(Hashtag).order_by(Hashtag.name)).all()
+            hashtag.id: hashtag.name
+            for hashtag in session.scalars(select(Hashtag).order_by(Hashtag.name)).all()
         }
         assert set(original_hashtags.values()) == {"hashtag1", "hashtag2"}
 
@@ -327,15 +328,14 @@ def test_upsert_existing_hashtags_names_gets_same_id(
 
         session.expire_all()
 
-        assert (
-            {hashtag.id: hashtag.name for hashtag in
-             session.scalars(
+        assert {
+            hashtag.id: hashtag.name
+            for hashtag in session.scalars(
                 select(Hashtag)
                 .where(Hashtag.name.in_(["hashtag1", "hashtag2"]))
                 .order_by(Hashtag.name)
-            ).all()}
-            == original_hashtags
-        )
+            ).all()
+        } == original_hashtags
 
         # Confirm mapping of hashtag IDs -> video IDs is correct
         assert [
