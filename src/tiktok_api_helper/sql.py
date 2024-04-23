@@ -84,7 +84,7 @@ class Base(DeclarativeBase):
     })
 
 
-video_hashtag_association_table = Table(
+videos_to_hashtags_association_table = Table(
     "videos_to_hashtags",
     Base.metadata,
     Column("video_id", ForeignKey("video.id"), primary_key=True),
@@ -102,7 +102,7 @@ class Hashtag(Base):
     def __repr__(self) -> str:
         return f"Hashtag (id={self.id}, name={self.name!r})"
 
-video_crawl_tag_association_table = Table(
+videos_to_crawl_tags_association_table = Table(
     "videos_to_crawl_tags",
     Base.metadata,
     Column("video_id", ForeignKey("video.id"), primary_key=True),
@@ -110,7 +110,7 @@ video_crawl_tag_association_table = Table(
 )
 
 
-crawl_crawl_tag_association_table = Table(
+crawls_to_crawl_tags_association_table = Table(
     "crawls_to_crawl_tags",
     Base.metadata,
     Column("crawl_id", ForeignKey("crawl.id"), primary_key=True),
@@ -129,7 +129,7 @@ class CrawlTag(Base):
     def __repr__(self) -> str:
         return f"CrawlTag (id={self.id}, name={self.name!r})"
 
-video_effect_id_association_table = Table(
+videos_to_effect_ids_association_table = Table(
     "videos_to_effect_ids",
     Base.metadata,
     Column("video_id", ForeignKey("video.id"), primary_key=True),
@@ -170,9 +170,9 @@ class Video(Base):
     share_count: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
     view_count: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
 
-    effects: Mapped[List[Effect]] = relationship(secondary=video_effect_id_association_table)
+    effects: Mapped[List[Effect]] = relationship(secondary=videos_to_effect_ids_association_table)
     hashtags: Mapped[List[Hashtag]] = relationship(
-        secondary=video_hashtag_association_table
+        secondary=videos_to_hashtags_association_table
     )
 
     playlist_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
@@ -191,7 +191,7 @@ class Video(Base):
     # We use Json here just to have list support in SQLite
     # While postgres has array support, sqlite doesn't and we want to keep it agnositc
     source = mapped_column(MyJsonList, nullable=True)
-    crawl_tags: Mapped[List[CrawlTag]] = relationship(secondary=video_crawl_tag_association_table)
+    crawl_tags: Mapped[List[CrawlTag]] = relationship(secondary=videos_to_crawl_tags_association_table)
     extra_data = Column(
         MUTABLE_JSON, nullable=True
     )  # For future data I haven't thought of yet
@@ -387,7 +387,7 @@ class Crawl(Base):
     )
 
     source = mapped_column(MyJsonList, nullable=True)
-    crawl_tags: Mapped[List[CrawlTag]] = relationship(secondary=crawl_crawl_tag_association_table)
+    crawl_tags: Mapped[List[CrawlTag]] = relationship(secondary=crawls_to_crawl_tags_association_table)
     extra_data = Column(
         MUTABLE_JSON, nullable=True
     )  # For future data I haven't thought of yet
