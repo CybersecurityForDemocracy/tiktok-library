@@ -84,28 +84,6 @@ video_hashtag_association_table = Table(
     Column("hashtag_id", ForeignKey("hashtag.id"), primary_key=True),
 )
 
-video_effect_id_association_table = Table(
-    "videos_to_effect_ids",
-    Base.metadata,
-    Column("video_id", ForeignKey("video.id"), primary_key=True),
-    Column("effect_id", ForeignKey("effect.id"), primary_key=True),
-)
-
-video_query_tag_association_table = Table(
-    "videos_to_query_tags",
-    Base.metadata,
-    Column("video_id", ForeignKey("video.id"), primary_key=True),
-    Column("query_tag_id", ForeignKey("query_tag.id"), primary_key=True),
-)
-
-crawl_query_tag_association_table = Table(
-    "crawls_to_query_tags",
-    Base.metadata,
-    Column("crawl_id", ForeignKey("crawl.id"), primary_key=True),
-    Column("query_tag_id", ForeignKey("query_tag.id"), primary_key=True),
-)
-
-
 class Hashtag(Base):
     __tablename__ = "hashtag"
 
@@ -117,6 +95,22 @@ class Hashtag(Base):
     def __repr__(self) -> str:
         return f"Hashtag (id={self.id}, name={self.name!r})"
 
+video_query_tag_association_table = Table(
+    "videos_to_query_tags",
+    Base.metadata,
+    Column("video_id", ForeignKey("video.id"), primary_key=True),
+    Column("query_tag_id", ForeignKey("query_tag.id"), primary_key=True),
+)
+
+
+crawl_query_tag_association_table = Table(
+    "crawls_to_query_tags",
+    Base.metadata,
+    Column("crawl_id", ForeignKey("crawl.id"), primary_key=True),
+    Column("query_tag_id", ForeignKey("query_tag.id"), primary_key=True),
+)
+
+
 class QueryTag(Base):
     __tablename__ = "query_tag"
 
@@ -127,6 +121,13 @@ class QueryTag(Base):
 
     def __repr__(self) -> str:
         return f"QueryTag (id={self.id}, name={self.name!r})"
+
+video_effect_id_association_table = Table(
+    "videos_to_effect_ids",
+    Base.metadata,
+    Column("video_id", ForeignKey("video.id"), primary_key=True),
+    Column("effect_id", ForeignKey("effect.id"), primary_key=True),
+)
 
 class Effect(Base):
     __tablename__ = "effect"
