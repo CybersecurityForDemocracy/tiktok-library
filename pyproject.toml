@@ -52,6 +52,13 @@ extra-dependencies = [
   "pytest"
 ]
 
+[tool.hatch.envs.alembic]
+extra-dependencies = [
+  "pytest",
+  "black",
+  "alembic"
+]
+
 [tool.hatch.envs.test.scripts]
 run = "pytest ./src -vv"
 
