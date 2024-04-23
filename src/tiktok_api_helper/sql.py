@@ -144,6 +144,7 @@ class Video(Base):
     __tablename__ = "video"
 
     id: Mapped[int] = mapped_column(BigInteger, autoincrement=False, primary_key=True)
+    crawl_id: Mapped[int] = mapped_column(ForeignKey('crawl.id'))
     video_id = synonym("id")
     item_id = synonym("id")
 
@@ -188,8 +189,9 @@ class Video(Base):
     )  # For future data I haven't thought of yet
 
     def __repr__(self) -> str:
-        return (f"Video (id={self.id!r}, username={self.username!r}, source={self.source!r}), "
-                f"hashtags={self.hashtags!r}, query_tags={self.query_tags!r}")
+        return (f"Video (id={self.id!r}, crawl_id={self.crawl_id!r}, username={self.username!r}, "
+                f"source={self.source!r}), hashtags={self.hashtags!r}, "
+                f"query_tags={self.query_tags!r}")
 
     @property
     def hashtag_names(self):
@@ -289,6 +291,7 @@ def _get_effect_id_to_effect_object_map(
 # TODO(macpd): rename source to query_tags
 def upsert_videos(
     video_data: list[dict[str, Any]],
+    crawl_id: int,
     engine: Engine,
     source: Optional[list[str]] = None,
 ):
@@ -323,6 +326,7 @@ def upsert_videos(
             # manually add the source, keeping the original dict intact
             new_vid = copy.deepcopy(vid)
             new_vid["source"] = source
+            new_vid["crawl_id"] = crawl_id
             new_vid["create_time"] = datetime.datetime.fromtimestamp(vid["create_time"])
             if "effect_ids" in vid:
                 new_vid["effects"] = list({effect_id_to_effect[effect_id] for effect_id in
@@ -359,6 +363,7 @@ class Crawl(Base):
     __tablename__ = "crawl"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    videos: Mapped[List[Video]] = relationship()
 
     crawl_started_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
@@ -381,7 +386,7 @@ class Crawl(Base):
 
     def __repr__(self) -> str:
         return (
-            f"Query source={self.source!r}, query_tags={self.query_tags!r}, "
+            f"Crawl id={self.id}, source={self.source!r}, query_tags={self.query_tags!r}, "
             f"started_at={self.crawl_started_at!r}, "
             f"has_more={self.has_more!r}, search_id={self.search_id!r}\n"
             f"query='{self.query!r}'"

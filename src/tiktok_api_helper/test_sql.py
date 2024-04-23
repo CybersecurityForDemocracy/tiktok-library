@@ -39,7 +39,14 @@ def test_database_engine(database_url_command_line_arg) -> Engine:
 
 
 @pytest.fixture
-def mock_videos():
+def mock_crawl():
+    return Crawl(
+        id=1, cursor=1, has_more=False, search_id="test", query="test", source=["testing"]
+    )
+
+
+@pytest.fixture
+def mock_videos(mock_crawl):
     now = datetime.datetime.now()
     return [
         Video(
@@ -48,6 +55,7 @@ def mock_videos():
             region_code="US",
             create_time=now,
             hashtags=[Hashtag(name="hashtag1"), Hashtag(name="hashtag2")],
+            crawl_id=mock_crawl.id,
         ),
         Video(
             id=2,
@@ -61,6 +69,7 @@ def mock_videos():
             voice_to_text="a string",
             extra_data={"some-future-field-i-havent-thought-of": ["value"]},
             source=["testing"],
+            crawl_id=mock_crawl.id,
         ),
     ]
 
@@ -69,13 +78,6 @@ def mock_videos():
 def api_response_videos():
     with open("src/tiktok_api_helper/testdata/api_response.json", "r") as f:
         return json.loads(f.read())["data"]["videos"]
-
-
-@pytest.fixture
-def mock_crawl():
-    return Crawl(
-        cursor=1, has_more=False, search_id="test", query="test", source=["testing"]
-    )
 
 
 def assert_video_database_object_list_matches_api_responses_dict(
@@ -140,10 +142,8 @@ def test_crawl_basic_insert(test_database_engine, mock_crawl):
 
 def test_upsert(test_database_engine, mock_videos, mock_crawl):
     with Session(test_database_engine) as session:
-        session.add_all(mock_videos)
-        session.commit()
-
         session.add_all([mock_crawl])
+        session.add_all(mock_videos)
         session.commit()
         assert session.scalars(select(Video.source).order_by(Video.id)).all() == [
             mock_videos[0].source,
@@ -170,6 +170,7 @@ def test_upsert(test_database_engine, mock_videos, mock_crawl):
                     "hashtag_names": ["hashtag1", "hashtag2", "hashtag3"],
                 },
             ],
+            crawl_id=mock_crawl.id,
             source=new_source,
             engine=test_database_engine,
         )
@@ -190,10 +191,8 @@ def test_upsert(test_database_engine, mock_videos, mock_crawl):
 
 def test_upsert_existing_video_and_new_video_upserted_together(test_database_engine, mock_videos, mock_crawl):
     with Session(test_database_engine) as session:
-        session.add_all([mock_videos[0]])
-        session.commit()
-
         session.add_all([mock_crawl])
+        session.add_all([mock_videos[0]])
         session.commit()
         assert session.scalars(select(Video.source).order_by(Video.id)).all() == [
             mock_videos[0].source,
@@ -220,6 +219,7 @@ def test_upsert_existing_video_and_new_video_upserted_together(test_database_eng
                     "username": mock_videos[1].username,
                 },
             ],
+            crawl_id=mock_crawl.id,
             source=new_source,
             engine=test_database_engine,
         )
@@ -260,6 +260,7 @@ def test_upsert_no_prior_insert(test_database_engine, mock_videos, mock_crawl):
                     "hashtag_names": ["hashtag1", "hashtag2"],
                 },
             ],
+            crawl_id=mock_crawl.id,
             source=new_source,
             engine=test_database_engine,
         )
@@ -281,12 +282,14 @@ def test_upsert_no_prior_insert(test_database_engine, mock_videos, mock_crawl):
 
 def test_upsert_existing_hashtags_names_gets_same_id(
     test_database_engine,
+    mock_crawl,
 ):
     """Tests that adding a video with an existing hashtag name (from a previously added video)
     succeeds, gets the same ID it had previously, and does not raise a Unique violation error.
     """
     utcnow = datetime.datetime.utcnow().timestamp()
     with Session(test_database_engine) as session:
+        session.add_all([mock_crawl])
         session.commit()
 
         new_source = ["0.0-testing"]
@@ -300,6 +303,7 @@ def test_upsert_existing_hashtags_names_gets_same_id(
                     "region_code": "US",
                 },
             ],
+            crawl_id=mock_crawl.id,
             source=new_source,
             engine=test_database_engine,
         )
@@ -322,6 +326,7 @@ def test_upsert_existing_hashtags_names_gets_same_id(
                     "region_code": "US",
                 },
             ],
+            crawl_id=mock_crawl.id,
             source=new_source,
             engine=test_database_engine,
         )
@@ -350,10 +355,12 @@ def test_upsert_existing_hashtags_names_gets_same_id(
 def test_upsert_updates_existing_and_inserts_new_video_data(
     test_database_engine,
     mock_videos,
+    mock_crawl,
     api_response_videos,
 ):
     utcnow = datetime.datetime.utcnow().timestamp()
     with Session(test_database_engine) as session:
+        session.add_all([mock_crawl])
         session.add_all(mock_videos)
         session.commit()
 
@@ -368,6 +375,7 @@ def test_upsert_updates_existing_and_inserts_new_video_data(
                     "hashtag_names": ["hashtag1", "hashtag2"],
                 },
             ],
+            crawl_id=mock_crawl.id,
             source=new_source,
             engine=test_database_engine,
         )
@@ -392,10 +400,12 @@ def test_upsert_updates_existing_and_inserts_new_video_data(
 def test_upsert_updates_existing_and_inserts_new_video_data_and_hashtag_names(
     test_database_engine,
     mock_videos,
+    mock_crawl,
     api_response_videos,
 ):
     utcnow = datetime.datetime.utcnow().timestamp()
     with Session(test_database_engine) as session:
+        session.add_all([mock_crawl])
         session.add_all(mock_videos)
         session.commit()
 
@@ -410,6 +420,7 @@ def test_upsert_updates_existing_and_inserts_new_video_data_and_hashtag_names(
                     "hashtag_names": ["hashtag1", "hashtag2"],
                 },
             ],
+            crawl_id=mock_crawl.id,
             source=new_source,
             engine=test_database_engine,
         )
@@ -442,6 +453,7 @@ def test_upsert_updates_existing_and_inserts_new_video_data_and_hashtag_names(
                     "hashtag_names": ["hashtag2", "hashtag3"],
                 },
             ],
+            crawl_id=mock_crawl.id,
             source=new_source,
             engine=test_database_engine,
         )
@@ -467,12 +479,14 @@ def test_upsert_updates_existing_and_inserts_new_video_data_and_hashtag_names(
 def test_upsert_updates_existing_and_inserts_new_video_data_and_effect_id(
     test_database_engine,
     mock_videos,
+    mock_crawl,
     api_response_videos,
 ):
     # This video has effect_ids
     api_response_video = api_response_videos[19]
     utcnow = datetime.datetime.utcnow().timestamp()
     with Session(test_database_engine) as session:
+        session.add_all([mock_crawl])
         session.add_all(mock_videos)
         session.commit()
 
@@ -488,6 +502,7 @@ def test_upsert_updates_existing_and_inserts_new_video_data_and_effect_id(
                     "effect_ids": ["101", "202", "303", "404", "404"],
                 },
             ],
+            crawl_id=mock_crawl.id,
             source=new_source,
             engine=test_database_engine,
         )
@@ -507,12 +522,14 @@ def test_upsert_updates_existing_and_inserts_new_video_data_and_effect_id(
 def test_upsert_updates_existing_and_inserts_new_video_data_and_query_tags(
     test_database_engine,
     mock_videos,
+    mock_crawl,
     api_response_videos,
 ):
     # Test adding query_tags from an API response
     api_response_video = api_response_videos[0]
     utcnow = datetime.datetime.utcnow().timestamp()
     with Session(test_database_engine) as session:
+        session.add_all([mock_crawl])
         session.add_all(mock_videos)
         session.commit()
 
@@ -526,6 +543,7 @@ def test_upsert_updates_existing_and_inserts_new_video_data_and_query_tags(
                     "create_time": utcnow,
                 },
             ],
+            crawl_id=mock_crawl.id,
             source=new_source,
             engine=test_database_engine,
         )
@@ -541,9 +559,10 @@ def test_upsert_updates_existing_and_inserts_new_video_data_and_query_tags(
         }
 
 
-def test_upsert_api_response_videos(test_database_engine, api_response_videos):
+def test_upsert_api_response_videos(test_database_engine, mock_crawl, api_response_videos):
     with Session(test_database_engine) as session:
-        upsert_videos(api_response_videos, test_database_engine)
+        session.add_all([mock_crawl])
+        upsert_videos(api_response_videos, crawl_id=mock_crawl.id, engine=test_database_engine)
         session.expire_all()
         assert_video_database_object_list_matches_api_responses_dict(
             session.scalars(select(Video)).all(), api_response_videos
@@ -552,8 +571,8 @@ def test_upsert_api_response_videos(test_database_engine, api_response_videos):
 
 def test_remove_all(test_database_engine, mock_videos, mock_crawl):
     with Session(test_database_engine) as session:
-        session.add_all(mock_videos)
         session.add_all([mock_crawl])
+        session.add_all(mock_videos)
         session.commit()
         assert session.scalars(select(Video).order_by(Video.id)).all() == mock_videos
         assert session.scalars(select(Crawl)).all() == [mock_crawl]
