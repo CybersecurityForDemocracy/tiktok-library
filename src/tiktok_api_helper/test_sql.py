@@ -14,7 +14,7 @@ from .sql import (
     Video,
     Hashtag,
     Effect,
-    QueryTag,
+    CrawlTag,
     get_engine_and_create_tables,
     Base,
     upsert_videos,
@@ -22,7 +22,7 @@ from .sql import (
 
 _IN_MEMORY_SQLITE_DATABASE_URL = "sqlite://"
 
-# TODO(macpd): add tests for crawl query_tags
+# TODO(macpd): add tests for crawl crawl_tags
 
 
 @pytest.fixture
@@ -519,13 +519,13 @@ def test_upsert_updates_existing_and_inserts_new_video_data_and_effect_id(
             api_response_video["id"]: api_response_video["effect_ids"],
         }
 
-def test_upsert_updates_existing_and_inserts_new_video_data_and_query_tags(
+def test_upsert_updates_existing_and_inserts_new_video_data_and_crawl_tags(
     test_database_engine,
     mock_videos,
     mock_crawl,
     api_response_videos,
 ):
-    # Test adding query_tags from an API response
+    # Test adding crawl_tags from an API response
     api_response_video = api_response_videos[0]
     utcnow = datetime.datetime.utcnow().timestamp()
     with Session(test_database_engine) as session:
@@ -549,9 +549,9 @@ def test_upsert_updates_existing_and_inserts_new_video_data_and_query_tags(
         )
         session.expire_all()
 
-        assert sorted(session.scalars(select(QueryTag.name)).all()) == new_source
+        assert sorted(session.scalars(select(CrawlTag.name)).all()) == new_source
 
-        assert {v.id: v.query_tag_names for v in session.scalars(
+        assert {v.id: v.crawl_tag_names for v in session.scalars(
             select(Video).order_by(Video.id)).all()} == {
             mock_videos[0].id: [],
             mock_videos[1].id: new_source,

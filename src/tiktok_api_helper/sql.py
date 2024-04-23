@@ -102,24 +102,24 @@ class Hashtag(Base):
     def __repr__(self) -> str:
         return f"Hashtag (id={self.id}, name={self.name!r})"
 
-video_query_tag_association_table = Table(
-    "videos_to_query_tags",
+video_crawl_tag_association_table = Table(
+    "videos_to_crawl_tags",
     Base.metadata,
     Column("video_id", ForeignKey("video.id"), primary_key=True),
-    Column("query_tag_id", ForeignKey("query_tag.id"), primary_key=True),
+    Column("crawl_tag_id", ForeignKey("crawl_tag.id"), primary_key=True),
 )
 
 
-crawl_query_tag_association_table = Table(
-    "crawls_to_query_tags",
+crawl_crawl_tag_association_table = Table(
+    "crawls_to_crawl_tags",
     Base.metadata,
     Column("crawl_id", ForeignKey("crawl.id"), primary_key=True),
-    Column("query_tag_id", ForeignKey("query_tag.id"), primary_key=True),
+    Column("crawl_tag_id", ForeignKey("crawl_tag.id"), primary_key=True),
 )
 
 
-class QueryTag(Base):
-    __tablename__ = "query_tag"
+class CrawlTag(Base):
+    __tablename__ = "crawl_tag"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String)
@@ -127,7 +127,7 @@ class QueryTag(Base):
     __table_args__ = (UniqueConstraint("name"),)
 
     def __repr__(self) -> str:
-        return f"QueryTag (id={self.id}, name={self.name!r})"
+        return f"CrawlTag (id={self.id}, name={self.name!r})"
 
 video_effect_id_association_table = Table(
     "videos_to_effect_ids",
@@ -191,7 +191,7 @@ class Video(Base):
     # We use Json here just to have list support in SQLite
     # While postgres has array support, sqlite doesn't and we want to keep it agnositc
     source = mapped_column(MyJsonList, nullable=True)
-    query_tags: Mapped[List[QueryTag]] = relationship(secondary=video_query_tag_association_table)
+    crawl_tags: Mapped[List[CrawlTag]] = relationship(secondary=video_crawl_tag_association_table)
     extra_data = Column(
         MUTABLE_JSON, nullable=True
     )  # For future data I haven't thought of yet
@@ -199,15 +199,15 @@ class Video(Base):
     def __repr__(self) -> str:
         return (f"Video (id={self.id!r}, crawl_id={self.crawl_id!r}, username={self.username!r}, "
                 f"source={self.source!r}), hashtags={self.hashtags!r}, "
-                f"query_tags={self.query_tags!r}")
+                f"crawl_tags={self.crawl_tags!r}")
 
     @property
     def hashtag_names(self):
         return [hashtag.name for hashtag in self.hashtags]
 
     @property
-    def query_tag_names(self):
-        return [query_tag.name for query_tag in self.query_tags]
+    def crawl_tag_names(self):
+        return [crawl_tag.name for crawl_tag in self.crawl_tags]
 
     @property
     def effect_ids(self):
@@ -243,30 +243,30 @@ def _get_hashtag_name_to_hashtag_object_map(
     session.add_all(hashtag_name_to_hashtag.values())
     return hashtag_name_to_hashtag
 
-def _get_query_tag_name_to_query_tag_object_map(
+def _get_crawl_tag_name_to_crawl_tag_object_map(
         session: Session, source: Optional[List[str]]
-) -> List[QueryTag]:
-    """Gets query_tag name -> QueryTag object map, pulling existing QueryTag objects from database and
-    creating new QueryTag objects for new query_tag names.
+) -> List[CrawlTag]:
+    """Gets crawl_tag name -> CrawlTag object map, pulling existing CrawlTag objects from database and
+    creating new CrawlTag objects for new crawl_tag names.
     """
     if not source:
         return []
-    # Get all query_tag names references in this list of videos
-    query_tag_names_referenced = set(source)
-    # Of all the referenced query_tag names get those which exist in the database
-    query_tag_name_to_query_tag = {
+    # Get all crawl_tag names references in this list of videos
+    crawl_tag_names_referenced = set(source)
+    # Of all the referenced crawl_tag names get those which exist in the database
+    crawl_tag_name_to_crawl_tag = {
         row.name: row
         for row in session.scalars(
-            select(QueryTag).where(QueryTag.name.in_(query_tag_names_referenced))
+            select(CrawlTag).where(CrawlTag.name.in_(crawl_tag_names_referenced))
         )
     }
-    # Make new query_tag objects for query_tag names not yet in the database
-    existing_query_tag_names = set(query_tag_name_to_query_tag.keys())
-    new_query_tag_names = query_tag_names_referenced - existing_query_tag_names
-    for query_tag_name in new_query_tag_names:
-        query_tag_name_to_query_tag[query_tag_name] = QueryTag(name=query_tag_name)
-    session.add_all(query_tag_name_to_query_tag.values())
-    return list(query_tag_name_to_query_tag.values())
+    # Make new crawl_tag objects for crawl_tag names not yet in the database
+    existing_crawl_tag_names = set(crawl_tag_name_to_crawl_tag.keys())
+    new_crawl_tag_names = crawl_tag_names_referenced - existing_crawl_tag_names
+    for crawl_tag_name in new_crawl_tag_names:
+        crawl_tag_name_to_crawl_tag[crawl_tag_name] = CrawlTag(name=crawl_tag_name)
+    session.add_all(crawl_tag_name_to_crawl_tag.values())
+    return list(crawl_tag_name_to_crawl_tag.values())
 
 def _get_effect_id_to_effect_object_map(
     session: Session, video_data: list[dict[str, Any]]
@@ -296,7 +296,7 @@ def _get_effect_id_to_effect_object_map(
     return effect_id_to_effect
 
 
-# TODO(macpd): rename source to query_tags
+# TODO(macpd): rename source to crawl_tags
 def upsert_videos(
     video_data: list[dict[str, Any]],
     crawl_id: int,
@@ -318,8 +318,8 @@ def upsert_videos(
             session, video_data
         )
 
-        # Get all query_tag names references in this list of videos
-        query_tags = _get_query_tag_name_to_query_tag_object_map(
+        # Get all crawl_tag names references in this list of videos
+        crawl_tags = _get_crawl_tag_name_to_crawl_tag_object_map(
             session, source
         )
 
@@ -347,7 +347,7 @@ def upsert_videos(
                 })
                 del new_vid["hashtag_names"]
             if source:
-                new_vid["query_tags"] = query_tags
+                new_vid["crawl_tags"] = crawl_tags
 
             video_id_to_video[vid["id"]] = new_vid
 
@@ -387,14 +387,14 @@ class Crawl(Base):
     )
 
     source = mapped_column(MyJsonList, nullable=True)
-    query_tags: Mapped[List[QueryTag]] = relationship(secondary=crawl_query_tag_association_table)
+    crawl_tags: Mapped[List[CrawlTag]] = relationship(secondary=crawl_crawl_tag_association_table)
     extra_data = Column(
         MUTABLE_JSON, nullable=True
     )  # For future data I haven't thought of yet
 
     def __repr__(self) -> str:
         return (
-            f"Crawl id={self.id}, source={self.source!r}, query_tags={self.query_tags!r}, "
+            f"Crawl id={self.id}, source={self.source!r}, crawl_tags={self.crawl_tags!r}, "
             f"started_at={self.crawl_started_at!r}, "
             f"has_more={self.has_more!r}, search_id={self.search_id!r}\n"
             f"query='{self.query!r}'"
@@ -410,7 +410,7 @@ class Crawl(Base):
             search_id=res_data["search_id"],
             query=json.dumps(query, cls=QueryJSONEncoder),
             source=source,
-            query_tags=source
+            crawl_tags=source
         )
 
     def upload_self_to_db(self, engine: Engine) -> None:
