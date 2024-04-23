@@ -41,39 +41,6 @@ from .query import Query, QueryJSONEncoder
 MUTABLE_JSON = MutableDict.as_mutable(JSON)  # type: ignore
 
 
-class MyJsonList(TypeDecorator):
-    """We override the JSON type to natively support lists better.
-    This is because SQLite doesn't support lists natively, so we need to convert them to JSON
-    """
-
-    impl = MUTABLE_JSON
-
-    cache_ok = True
-
-    def coerce_compared_value(self, op, value):
-        """Needed - See the warning section in the docs
-        https://docs.sqlalchemy.org/en/20/core/custom_types.html
-        """
-        return self.impl.coerce_compared_value(op, value)  # type: ignore
-
-    def process_bind_param(
-        self, value: Optional[list], dialect
-    ) -> dict[str, list] | None:
-        if value is None:
-            return None
-
-        return convert_to_json(value)
-
-    def process_result_value(self, value: Optional[dict[str, list]], dialect) -> list:
-        if value is None:
-            return []
-
-        if not isinstance(value, dict):
-            raise ValueError("value must be a dict!")
-
-        return value.get("list", [])
-
-
 class Base(DeclarativeBase):
     metadata = MetaData(naming_convention={
         "ix": "%(column_0_label)s_idx",
@@ -188,9 +155,6 @@ class Video(Base):
         onupdate=func.now(),
     )
 
-    # We use Json here just to have list support in SQLite
-    # While postgres has array support, sqlite doesn't and we want to keep it agnositc
-    source = mapped_column(MyJsonList, nullable=True)
     crawl_tags: Mapped[List[CrawlTag]] = relationship(secondary=videos_to_crawl_tags_association_table)
     extra_data = Column(
         MUTABLE_JSON, nullable=True
@@ -386,7 +350,6 @@ class Crawl(Base):
         DateTime(timezone=True), onupdate=func.now(), server_default=func.now()
     )
 
-    source = mapped_column(MyJsonList, nullable=True)
     crawl_tags: Mapped[List[CrawlTag]] = relationship(secondary=crawls_to_crawl_tags_association_table)
     extra_data = Column(
         MUTABLE_JSON, nullable=True
