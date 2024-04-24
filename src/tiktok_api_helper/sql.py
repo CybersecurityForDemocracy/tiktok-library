@@ -114,12 +114,20 @@ class Effect(Base):
     def __repr__(self) -> str:
         return f"Effect (id={self.id}, effect_id={self.effect_id!r})"
 
+videos_to_crawls_association_table = Table(
+    "videos_to_crawls",
+    Base.metadata,
+    Column("video_id", ForeignKey("video.id"), primary_key=True),
+    Column("crawl_id", ForeignKey("crawl.id"), primary_key=True),
+)
+
 
 class Video(Base):
     __tablename__ = "video"
 
     id: Mapped[int] = mapped_column(BigInteger, autoincrement=False, primary_key=True)
-    crawl_id: Mapped[int] = mapped_column(ForeignKey('crawl.id'))
+    #  crawl_id: Mapped[int] = mapped_column(ForeignKey('crawl.id'))
+    crawls: Mapped[List["Crawl"]] = relationship(secondary=videos_to_crawls_association_table)
     video_id = synonym("id")
     item_id = synonym("id")
 
@@ -161,9 +169,9 @@ class Video(Base):
     )  # For future data I haven't thought of yet
 
     def __repr__(self) -> str:
-        return (f"Video (id={self.id!r}, crawl_id={self.crawl_id!r}, username={self.username!r}, "
-                f"source={self.source!r}), hashtags={self.hashtags!r}, "
-                f"crawl_tags={self.crawl_tags!r}")
+        return (f"Video (id={self.id!r}, username={self.username!r}, "
+                f"hashtags={self.hashtags!r}, "
+                f"crawl_tags={self.crawl_tags!r}, crawls={self.crawls!r}")
 
     @property
     def hashtag_names(self):
@@ -208,15 +216,15 @@ def _get_hashtag_name_to_hashtag_object_map(
     return hashtag_name_to_hashtag
 
 def _get_crawl_tag_name_to_crawl_tag_object_map(
-        session: Session, source: Optional[List[str]]
+        session: Session, crawl_tags: Optional[List[str]]
 ) -> List[CrawlTag]:
     """Gets crawl_tag name -> CrawlTag object map, pulling existing CrawlTag objects from database and
     creating new CrawlTag objects for new crawl_tag names.
     """
-    if not source:
+    if not crawl_tags:
         return []
     # Get all crawl_tag names references in this list of videos
-    crawl_tag_names_referenced = set(source)
+    crawl_tag_names_referenced = set(crawl_tags)
     # Of all the referenced crawl_tag names get those which exist in the database
     crawl_tag_name_to_crawl_tag = {
         row.name: row
@@ -260,12 +268,11 @@ def _get_effect_id_to_effect_object_map(
     return effect_id_to_effect
 
 
-# TODO(macpd): rename source to crawl_tags
 def upsert_videos(
     video_data: list[dict[str, Any]],
     crawl_id: int,
     engine: Engine,
-    source: Optional[list[str]] = None,
+    crawl_tags: Optional[list[str]] = None,
 ):
     """
     Columns must be the same when doing a upsert which is annoying since we have
@@ -284,7 +291,7 @@ def upsert_videos(
 
         # Get all crawl_tag names references in this list of videos
         crawl_tags = _get_crawl_tag_name_to_crawl_tag_object_map(
-            session, source
+            session, crawl_tags
         )
 
         # Get all effect ids references in this list of videos
@@ -297,8 +304,7 @@ def upsert_videos(
         for vid in video_data:
             # manually add the source, keeping the original dict intact
             new_vid = copy.deepcopy(vid)
-            new_vid["source"] = source
-            new_vid["crawl_id"] = crawl_id
+            new_vid["crawls"] = session.scalars(select(Crawl).where(Crawl.id == crawl_id)).all() 
             new_vid["create_time"] = datetime.datetime.fromtimestamp(vid["create_time"])
             if "effect_ids" in vid:
                 new_vid["effects"] = list({effect_id_to_effect[effect_id] for effect_id in
@@ -310,10 +316,11 @@ def upsert_videos(
                     for hashtag_name in vid["hashtag_names"]
                 })
                 del new_vid["hashtag_names"]
-            if source:
+            if crawl_tags:
                 new_vid["crawl_tags"] = crawl_tags
 
             video_id_to_video[vid["id"]] = new_vid
+            #  print('new_vid:', new_vid)
 
         # Taken from https://stackoverflow.com/questions/25955200/sqlalchemy-performing-a-bulk-upsert-if-exists-update-else-insert-in-postgr
 
@@ -322,7 +329,10 @@ def upsert_videos(
             select(Video).where(Video.id.in_(video_id_to_video.keys()))
         ):
             new_vid = Video(**video_id_to_video.pop(each.id))
-            new_vid.source = each.source + new_vid.source
+            #  new_vid.source = each.source + new_vid.source
+            new_vid.crawl_tags = each.crawl_tags + new_vid.crawl_tags
+            new_vid.crawls = each.crawls + new_vid.crawls
+            #  print('new_vid to merge:', new_vid)
             session.merge(new_vid)
 
         session.add_all((Video(**vid) for vid in video_id_to_video.values()))
@@ -335,7 +345,7 @@ class Crawl(Base):
     __tablename__ = "crawl"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    videos: Mapped[List[Video]] = relationship()
+    #  videos: Mapped[List[Video]] = relationship(secondary=videos_to_crawls_association_table)
 
     crawl_started_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
@@ -357,7 +367,7 @@ class Crawl(Base):
 
     def __repr__(self) -> str:
         return (
-            f"Crawl id={self.id}, source={self.source!r}, crawl_tags={self.crawl_tags!r}, "
+            f"Crawl id={self.id}, crawl_tags={self.crawl_tags!r}, "
             f"started_at={self.crawl_started_at!r}, "
             f"has_more={self.has_more!r}, search_id={self.search_id!r}\n"
             f"query='{self.query!r}'"
@@ -365,15 +375,14 @@ class Crawl(Base):
 
     @classmethod
     def from_request(
-        cls, res_data: dict, query: Query, source: Optional[list[str]] = None
+        cls, res_data: dict, query: Query, crawl_tags: Optional[list[str]] = None
     ) -> "Crawl":
         return cls(
             cursor=res_data["cursor"],
             has_more=res_data["has_more"],
             search_id=res_data["search_id"],
             query=json.dumps(query, cls=QueryJSONEncoder),
-            source=source,
-            crawl_tags=source
+            crawl_tags=[CrawlTag(name=name) for name in crawl_tags],
         )
 
     def upload_self_to_db(self, engine: Engine) -> None:
