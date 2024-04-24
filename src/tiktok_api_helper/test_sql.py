@@ -301,23 +301,22 @@ def test_upsert_existing_hashtags_names_gets_same_id(
         session.add_all([mock_crawl])
         session.commit()
 
-    new_crawl_tags = ["0.0-testing"]
-    upsert_videos(
-        [
-            {
-                "id": 0,
-                "hashtag_names": ["hashtag1", "hashtag2"],
-                "create_time": utcnow,
-                "username": "user0",
-                "region_code": "US",
-            },
-        ],
-        crawl_id=mock_crawl.id,
-        crawl_tags=new_crawl_tags,
-        engine=test_database_engine,
-    )
+        new_crawl_tags = ["0.0-testing"]
+        upsert_videos(
+            [
+                {
+                    "id": 0,
+                    "hashtag_names": ["hashtag1", "hashtag2"],
+                    "create_time": utcnow,
+                    "username": "user0",
+                    "region_code": "US",
+                },
+            ],
+            crawl_id=mock_crawl.id,
+            crawl_tags=new_crawl_tags,
+            engine=test_database_engine,
+        )
 
-    with Session(test_database_engine) as session:
         original_hashtags = {
             hashtag.id: hashtag.name
             for hashtag in session.scalars(select(Hashtag).order_by(Hashtag.name)).all()
@@ -562,16 +561,16 @@ def test_upsert_updates_existing_and_inserts_new_video_data_and_crawl_tags(
         )
         session.expire_all()
         expected_crawl_tags = set()
-        ([expected_crawl_tags.add(val) for list_value in original_crawl_tags.values() for val in
-          list_value])
-        (expected_crawl_tags.add(val) for val in new_crawl_tags)
+        [expected_crawl_tags.add(val) for list_value in original_crawl_tags.values() for val in
+          list_value]
+        [expected_crawl_tags.add(val) for val in new_crawl_tags]
 
         assert set((session.scalars(select(CrawlTag.name)).all())) == expected_crawl_tags
 
         assert {v.id: v.crawl_tag_names for v in session.scalars(
             select(Video).order_by(Video.id)).all()} == {
             mock_videos[0].id: original_crawl_tags[mock_videos[0].id],
-            mock_videos[1].id: original_crawl_tags[mock_videos[0].id] + new_crawl_tags,
+            mock_videos[1].id: original_crawl_tags[mock_videos[1].id] + new_crawl_tags,
             api_response_video["id"]: new_crawl_tags,
         }
 
