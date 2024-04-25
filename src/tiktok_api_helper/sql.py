@@ -126,7 +126,6 @@ class Video(Base):
     __tablename__ = "video"
 
     id: Mapped[int] = mapped_column(BigInteger, autoincrement=False, primary_key=True)
-    #  crawl_id: Mapped[int] = mapped_column(ForeignKey('crawl.id'))
     crawls: Mapped[List["Crawl"]] = relationship(secondary=videos_to_crawls_association_table)
     video_id = synonym("id")
     item_id = synonym("id")
@@ -344,8 +343,7 @@ def upsert_videos(
 class Crawl(Base):
     __tablename__ = "crawl"
 
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    #  videos: Mapped[List[Video]] = relationship(secondary=videos_to_crawls_association_table)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
 
     crawl_started_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
