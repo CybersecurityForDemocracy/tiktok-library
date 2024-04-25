@@ -138,7 +138,7 @@ def test_video_basic_insert(test_database_engine, mock_videos):
 def test_crawl_basic_insert(test_database_engine):
     with Session(test_database_engine) as session:
         mock_crawl = Crawl(
-            cursor=1, has_more=False, search_id="test", query="test",
+            id=1, cursor=1, has_more=False, search_id="test", query="test",
             crawl_tags=[CrawlTag(name="testing")]
         )
         session.add_all(mock_crawl.crawl_tags)
@@ -146,6 +146,34 @@ def test_crawl_basic_insert(test_database_engine):
         session.commit()
 
         assert session.scalars(select(Crawl).order_by(Crawl.id)).all() == [mock_crawl]
+
+def test_crawl_tags_inserted_via_crawl(test_database_engine, mock_crawl):
+    assert mock_crawl.crawl_tags
+    for crawl_tag in mock_crawl.crawl_tags:
+        assert crawl_tag.name
+        assert not crawl_tag.id
+
+    crawl_tag_names = [crawl_tag.name for crawl_tag in mock_crawl.crawl_tags]
+
+    mock_crawl.upload_self_to_db(test_database_engine)
+
+    with Session(test_database_engine) as session:
+        assert [crawl_tag.name for crawl_tag in session.scalar(select(Crawl).where(Crawl.id == mock_crawl.id)).crawl_tags] == crawl_tag_names
+
+    # Confirm uploading to database again does not cause issue.
+    mock_crawl.upload_self_to_db(test_database_engine)
+
+    # Now add some tags
+    more_crawl_tag_names = crawl_tag_names + ["crawl_tag1", "crawl_tag2"]
+    new_crawl = Crawl.from_request(res_data={"cursor": mock_crawl.cursor, "has_more": True,
+                                             "search_id": 1}, query="{}",
+                                   crawl_tags=more_crawl_tag_names)
+    # have to do this because SqlAlchemy does not properly setup auto increment for BigInteger
+    new_crawl.id = 2
+    new_crawl.upload_self_to_db(test_database_engine)
+    with Session(test_database_engine) as session:
+        assert [crawl_tag.name for crawl_tag in session.scalar(select(Crawl).where(Crawl.id == new_crawl.id)).crawl_tags] == more_crawl_tag_names
+
 
 def test_upsert(test_database_engine, mock_videos):
     with Session(test_database_engine) as session:

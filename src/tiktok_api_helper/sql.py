@@ -22,6 +22,7 @@ from sqlalchemy import (
     select,
     SQLColumnExpression,
     MetaData,
+    Identity,
 )
 from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.ext.hybrid import hybrid_property
@@ -319,7 +320,6 @@ def upsert_videos(
                 new_vid["crawl_tags"] = crawl_tags
 
             video_id_to_video[vid["id"]] = new_vid
-            #  print('new_vid:', new_vid)
 
         # Taken from https://stackoverflow.com/questions/25955200/sqlalchemy-performing-a-bulk-upsert-if-exists-update-else-insert-in-postgr
 
@@ -328,10 +328,8 @@ def upsert_videos(
             select(Video).where(Video.id.in_(video_id_to_video.keys()))
         ):
             new_vid = Video(**video_id_to_video.pop(each.id))
-            #  new_vid.source = each.source + new_vid.source
             new_vid.crawl_tags = each.crawl_tags + new_vid.crawl_tags
             new_vid.crawls = each.crawls + new_vid.crawls
-            #  print('new_vid to merge:', new_vid)
             session.merge(new_vid)
 
         session.add_all((Video(**vid) for vid in video_id_to_video.values()))
@@ -343,7 +341,7 @@ def upsert_videos(
 class Crawl(Base):
     __tablename__ = "crawl"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True, autoincrement=True)
 
     crawl_started_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
@@ -386,9 +384,15 @@ class Crawl(Base):
     def upload_self_to_db(self, engine: Engine) -> None:
         """Uploads current instance to DB"""
         with Session(engine) as session:
-            # Reconcile self with an instance of the same primary key in the session.
-            # Otherwise loads the object from the database based on primary key,
-            #   and if none can be located, creates a new instance.
+            # Put new crawl tag names to DB, and pull existing tag names objects into current
+            # session.
+            crawl_tag_name_to_crawl_tag = {
+                crawl_tag.name: crawl_tag for crawl_tag in self.crawl_tags}
+            for each in session.scalars(select(CrawlTag).where(CrawlTag.name.in_(crawl_tag_name_to_crawl_tag.keys()))):
+                new_crawl_tag = crawl_tag_name_to_crawl_tag.pop(each.name)
+                new_crawl_tag.id = each.id
+                session.merge(new_crawl_tag)
+
             session.merge(self)
             session.commit()
 
