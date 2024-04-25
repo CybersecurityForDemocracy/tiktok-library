@@ -81,10 +81,17 @@ def run_long_query(config: AcquitionConfig):
         )
         return
 
-    crawl = Crawl.from_request(res.request_data, config.query, crawl_tags=config.crawl_tags)
+    crawl = Crawl.from_request(
+        res.request_data, config.query, crawl_tags=config.crawl_tags
+    )
     crawl.upload_self_to_db(config.engine)
 
-    insert_videos_from_response(res.videos, crawl_id=crawl.id, engine=config.engine, crawl_tags=config.crawl_tags)
+    insert_videos_from_response(
+        res.videos,
+        crawl_id=crawl.id,
+        engine=config.engine,
+        crawl_tags=config.crawl_tags,
+    )
 
     # manual tqdm maintance
     count = 1
@@ -105,7 +112,10 @@ def run_long_query(config: AcquitionConfig):
             next_res_data=res.request_data, videos=res.videos, engine=config.engine
         )
         insert_videos_from_response(
-            res.videos, crawl_id=crawl.id, crawl_tags=config.crawl_tags, engine=config.engine
+            res.videos,
+            crawl_id=crawl.id,
+            crawl_tags=config.crawl_tags,
+            engine=config.engine,
         )
 
         pbar.update(1)
