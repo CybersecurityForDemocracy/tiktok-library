@@ -1,4 +1,5 @@
 import datetime
+import itertools
 
 from sqlalchemy import (
     Engine,
@@ -560,10 +561,7 @@ def test_upsert_updates_existing_and_inserts_new_video_data_and_crawl_tags(
             engine=test_database_engine,
         )
         session.expire_all()
-        expected_crawl_tags = set()
-        [expected_crawl_tags.add(val) for list_value in original_crawl_tags.values() for val in
-          list_value]
-        [expected_crawl_tags.add(val) for val in new_crawl_tags]
+        expected_crawl_tags = set(itertools.chain.from_iterable(original_crawl_tags.values())) | set(new_crawl_tags)
 
         assert set((session.scalars(select(CrawlTag.name)).all())) == expected_crawl_tags
 
