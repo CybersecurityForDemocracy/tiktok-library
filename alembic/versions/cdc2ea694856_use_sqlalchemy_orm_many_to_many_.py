@@ -20,15 +20,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Make crawl.id a BigInteger
-    op.alter_column(
-        "crawl",
-        "id",
-        existing_type=sa.BIGINT(),
-        type_=sa.Integer(),
-        existing_nullable=False,
-        autoincrement=True,
-    )
+    # Make timesamp columns into ones with timezone
     op.alter_column(
         "crawl",
         "crawl_started_at",
@@ -45,6 +37,22 @@ def upgrade() -> None:
         existing_nullable=True,
         existing_server_default=sa.text("CURRENT_TIMESTAMP"),
     )
+    op.alter_column(
+        "video",
+        "crawled_at",
+        existing_type=postgresql.TIMESTAMP(),
+        type_=sa.DateTime(timezone=True),
+        existing_nullable=False,
+        existing_server_default=sa.text("CURRENT_TIMESTAMP"),
+    )
+    op.alter_column(
+        "video",
+        "crawled_updated_at",
+        existing_type=postgresql.TIMESTAMP(),
+        type_=sa.DateTime(timezone=True),
+        existing_nullable=True,
+    )
+
 
     # Rename query_tag -> crawl_tag table and all references to query_tag in columns, primary key, and unique
     # constraint
@@ -119,22 +127,6 @@ def upgrade() -> None:
                     sa.Column("crawl_id", sa.BigInteger, sa.ForeignKey("crawl.id"), primary_key=True),
                     )
 
-
-    op.alter_column(
-        "video",
-        "crawled_at",
-        existing_type=postgresql.TIMESTAMP(),
-        type_=sa.DateTime(timezone=True),
-        existing_nullable=False,
-        existing_server_default=sa.text("CURRENT_TIMESTAMP"),
-    )
-    op.alter_column(
-        "video",
-        "crawled_updated_at",
-        existing_type=postgresql.TIMESTAMP(),
-        type_=sa.DateTime(timezone=True),
-        existing_nullable=True,
-    )
 
     # Migrate crawl.source data to crawls_to_crawl_tags association table
     migrate_crawl_source_column_data_to_crawls_to_crawl_tags()
