@@ -1,4 +1,4 @@
-"""use SqlAlchemy ORM many-to-many relationships of hashtags, effect IDs, query tags, and many-to-one for video -> crawl_id.
+"""use SqlAlchemy ORM many-to-many relationships of videos to hashtags, effect IDs, and crawl tags.  add many-to-one for video -> crawl_id. rename query_tags -> crawl_tags. Migraate data from existing columns (which used MyJsonList type) into new schema.
 
 Revision ID: cdc2ea694856
 Revises: 
@@ -52,7 +52,7 @@ def upgrade() -> None:
     op.drop_constraint("query_tag_pkey", "crawl_tag", type_="priamry")
     op.drop_constraint("query_tag_name_key", "crawl_tag", type_="unique")
     op.create_primary_key(name=None, table_name="crawl_tag", columns=["id"])
-    op.create_unique_constraint(name=None, table_name="crawl_tag", ["name"])
+    op.create_unique_constraint(name=None, table_name="crawl_tag", columns=["name"])
 
     # Rename crawls_to_query_tags -> crawls_to_crawl_tags in table and all references to query_tag in columns, primary key, and unique
     # constraint
@@ -412,7 +412,7 @@ def downgrade() -> None:
     op.drop_constraint("crawl_tag_pkey", "query_tag", type_="priamry")
     op.drop_constraint("crawl_tag_name_key", "query_tag", type_="unique")
     op.create_primary_key(name=None, table_name="query_tag", columns=["id"])
-    op.create_unique_constraint(name=None, table_name="query_tag", ["name"])
+    op.create_unique_constraint(name=None, table_name="query_tag", columns=["name"])
 
     # Rename crawls_to_crawl_tags -> crawls_to_query_tags in table and all references to crawl_tag in columns, primary key, and unique
     # constraint
