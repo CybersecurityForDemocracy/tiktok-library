@@ -49,7 +49,7 @@ def upgrade() -> None:
     # Rename query_tag -> crawl_tag table and all references to query_tag in columns, primary key, and unique
     # constraint
     op.rename_table("query_tag", "crawl_tag")
-    op.drop_constraint("query_tag_pkey", "crawl_tag", type_="priamry")
+    op.drop_constraint("query_tag_pkey", "crawl_tag", type_="primary")
     op.drop_constraint("query_tag_name_key", "crawl_tag", type_="unique")
     op.create_primary_key(name=None, table_name="crawl_tag", columns=["id"])
     op.create_unique_constraint(name=None, table_name="crawl_tag", columns=["name"])
@@ -59,7 +59,7 @@ def upgrade() -> None:
     op.rename_table("crawls_to_query_tags", "crawls_to_crawl_tags")
     op.alter_column(table_name="crawls_to_crawl_tags", column_name="query_tag_id",
                     new_column_name="crawl_tag_id")
-    op.drop_constraint(constraint_name="crawls_to_query_tags_pkey", table_name="crawls_to_crawl_tags", type_="priamry")
+    op.drop_constraint(constraint_name="crawls_to_query_tags_pkey", table_name="crawls_to_crawl_tags", type_="primary")
     op.create_primary_key(name=None, table_name="crawls_to_crawl_tags", columns=["crawl_id",
                                                                                  "crawl_tag_id"])
     op.drop_constraint(constraint_name="crawls_to_query_tags_crawl_id_fkey",
@@ -82,7 +82,7 @@ def upgrade() -> None:
     op.rename_table("videos_to_query_tags", "videos_to_crawl_tags")
     op.alter_column(table_name="videos_to_crawl_tags", column_name="query_tag_id",
                     new_column_name="crawl_tag_id")
-    op.drop_constraint(constraint_name="videos_to_query_tags_pkey", table_name="videos_to_crawl_tags", type_="priamry")
+    op.drop_constraint(constraint_name="videos_to_query_tags_pkey", table_name="videos_to_crawl_tags", type_="primary")
     op.create_primary_key(name=None, table_name="videos_to_crawl_tags", columns=["video_id",
                                                                                  "crawl_tag_id"])
     op.drop_constraint(constraint_name="videos_to_query_tags_video_id_fkey",
@@ -409,7 +409,7 @@ def downgrade() -> None:
     # Rename crawl_tag -> query_tag table and all references to crawl_tag in columns, primary key, and unique
     # constraint
     op.rename_table("crawl_tag", "query_tag")
-    op.drop_constraint("crawl_tag_pkey", "query_tag", type_="priamry")
+    op.drop_constraint("crawl_tag_pkey", "query_tag", type_="primary")
     op.drop_constraint("crawl_tag_name_key", "query_tag", type_="unique")
     op.create_primary_key(name=None, table_name="query_tag", columns=["id"])
     op.create_unique_constraint(name=None, table_name="query_tag", columns=["name"])
@@ -419,7 +419,7 @@ def downgrade() -> None:
     op.rename_table("crawls_to_crawl_tags", "crawls_to_query_tags")
     op.alter_column(table_name="crawls_to_query_tags", column_name="crawl_tag_id",
                     new_column_name="query_tag_id")
-    op.drop_constraint(constraint_name="crawls_to_crawl_tags_pkey", table_name="crawls_to_query_tags", type_="priamry")
+    op.drop_constraint(constraint_name="crawls_to_crawl_tags_pkey", table_name="crawls_to_query_tags", type_="primary")
     op.create_primary_key(name=None, table_name="crawls_to_query_tags", columns=["crawl_id",
                                                                                  "query_tag_id"])
     op.drop_constraint(constraint_name="crawls_to_crawl_tags_crawl_id_fkey",
@@ -442,7 +442,7 @@ def downgrade() -> None:
     op.rename_table("videos_to_crawl_tags", "videos_to_query_tags")
     op.alter_column(table_name="videos_to_query_tags", column_name="crawl_tag_id",
                     new_column_name="query_tag_id")
-    op.drop_constraint(constraint_name="videos_to_crawl_tags_pkey", table_name="videos_to_query_tags", type_="priamry")
+    op.drop_constraint(constraint_name="videos_to_crawl_tags_pkey", table_name="videos_to_query_tags", type_="primary")
     op.create_primary_key(name=None, table_name="videos_to_query_tags", columns=["video_id",
                                                                                  "query_tag_id"])
     op.drop_constraint(constraint_name="videos_to_crawl_tags_video_id_fkey",
