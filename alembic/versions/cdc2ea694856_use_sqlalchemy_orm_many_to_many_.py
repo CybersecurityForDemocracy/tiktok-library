@@ -252,20 +252,20 @@ def revert_association_table_data_to_json_list_type(association_table_name,
                                                     source_table_id_column,
                                                     source_table_value_column):
     op.execute(
-        f"WITH ( "
+        f"WITH source_id_to_json_list AS ( "
             f"SELECT {association_table_source_id_column}, json_build_object('list', json_agg(value_to_aggregate)) AS json_list FROM "
             f"( "
             f"    SELECT {association_table_source_id_column}, {new_value_table_name}.{new_value_table_value_column} AS value_to_aggregate FROM {association_table_name} JOIN {new_value_table_name} ON({association_table_name}.{association_table_value_id_column} = {new_value_table_name}.{new_value_table_id_column}) "
             f") AS a GROUP BY {association_table_source_id_column} "
-        f") AS source_id_to_json_list "
-        f"UPDATE {source_table_name} SET {source_table_value_column} = source_id_to_json_list.json_lsit WHERE {source_table_name}.{source_table_id_column} = source_id_to_json_list.{association_table_source_id_column}")
+        f") "
+        f"UPDATE {source_table_name} SET {source_table_value_column} = source_id_to_json_list.json_list FROM source_id_to_json_list WHERE {source_table_name}.{source_table_id_column} = source_id_to_json_list.{association_table_source_id_column}")
 
-def revert_crawl_source_column_data_from_crawls_to_crawl_tags():
+def revert_crawl_source_column_data_from_crawls_to_query_tags():
     revert_association_table_data_to_json_list_type(
-            association_table_name="crawls_to_crawl_tags",
+            association_table_name="crawls_to_query_tags",
             association_table_source_id_column="crawl_id",
-            association_table_value_id_column="crawl_tag_id",
-            new_value_table_name="crawl_tag",
+            association_table_value_id_column="query_tag_id",
+            new_value_table_name="query_tag",
             new_value_table_id_column="id",
             new_value_table_value_column="name",
             source_table_name="crawl",
@@ -274,12 +274,12 @@ def revert_crawl_source_column_data_from_crawls_to_crawl_tags():
 
 
 
-def revert_video_source_column_data_from_videos_to_crawl_tags():
+def revert_video_source_column_data_from_videos_to_query_tags():
     revert_association_table_data_to_json_list_type(
-            association_table_name="videos_to_crawl_tags",
+            association_table_name="videos_to_query_tags",
             association_table_source_id_column="video_id",
-            association_table_value_id_column="crawl_tag_id",
-            new_value_table_name="crawl_tag",
+            association_table_value_id_column="query_tag_id",
+            new_value_table_name="query_tag",
             new_value_table_id_column="id",
             new_value_table_value_column="name",
             source_table_name="video",
@@ -339,9 +339,6 @@ def downgrade() -> None:
             nullable=True,
         ),
     )
-    op.drop_constraint(
-        op.f("video_crawl_id_crawl_fkey"), "video", type_="foreignkey"
-    )
     op.alter_column(
         "video",
         "crawled_updated_at",
@@ -357,9 +354,8 @@ def downgrade() -> None:
         existing_nullable=False,
         existing_server_default=sa.text("CURRENT_TIMESTAMP"),
     )
-    op.drop_column("video", "crawl_id")
     op.drop_constraint(op.f("hashtag_name_uniq"), "hashtag", type_="unique")
-    op.create_unique_constraint("hashtag_name_key", "hashtag", ["constraint_name"])
+    op.create_unique_constraint("hashtag_name_key", "hashtag", ["name"])
     op.drop_constraint(op.f("effect_effect_id_uniq"), "effect", type_="unique")
     op.create_unique_constraint(
         "effect_effect_id_key", "effect", ["effect_id"]
@@ -397,14 +393,23 @@ def downgrade() -> None:
         existing_nullable=False,
         autoincrement=True,
     )
+    # Drop FK references so the primary keys they rely on can be dropped/added back.
+    op.drop_constraint(constraint_name="crawls_to_crawl_tags_crawl_id_crawl_fkey",
+                       table_name="crawls_to_crawl_tags", type_="foreignkey")
+    op.drop_constraint(constraint_name="crawls_to_crawl_tags_crawl_tag_id_crawl_tag_fkey",
+                       table_name="crawls_to_crawl_tags", type_="foreignkey")
+    op.drop_constraint(constraint_name="videos_to_crawl_tags_video_id_video_fkey",
+                       table_name="videos_to_crawl_tags", type_="foreignkey")
+    op.drop_constraint(constraint_name="videos_to_crawl_tags_crawl_tag_id_crawl_tag_fkey",
+                       table_name="videos_to_crawl_tags", type_="foreignkey")
 
     # Rename crawl_tag -> query_tag table and all references to crawl_tag in columns, primary key, and unique
     # constraint
     op.rename_table("crawl_tag", "query_tag")
     op.drop_constraint("crawl_tag_pkey", "query_tag", type_="primary")
-    op.drop_constraint("crawl_tag_name_key", "query_tag", type_="unique")
+    op.drop_constraint("crawl_tag_name_uniq", "query_tag", type_="unique")
     op.create_primary_key(constraint_name=None, table_name="query_tag", columns=["id"])
-    op.create_unique_constraint(constraint_name=None, table_name="query_tag", columns=["name"])
+    op.create_unique_constraint(constraint_name="query_tag_name_key", table_name="query_tag", columns=["name"])
 
     # Rename crawls_to_crawl_tags -> crawls_to_query_tags in table and all references to crawl_tag in columns, primary key, and unique
     # constraint
@@ -414,18 +419,14 @@ def downgrade() -> None:
     op.drop_constraint(constraint_name="crawls_to_crawl_tags_pkey", table_name="crawls_to_query_tags", type_="primary")
     op.create_primary_key(constraint_name=None, table_name="crawls_to_query_tags", columns=["crawl_id",
                                                                                  "query_tag_id"])
-    op.drop_constraint(constraint_name="crawls_to_crawl_tags_crawl_id_fkey",
-                       table_name="crawls_to_query_tags", type_="foreignkey")
-    op.create_foreign_key(constraint_name=None,
+    op.create_foreign_key(constraint_name="crawls_to_query_tags_crawl_id_fkey",
                           source_table="crawls_to_query_tags",
                           referent_table="crawl",
                           local_cols=["crawl_id"],
                           remote_cols=["id"])
-    op.drop_constraint(constraint_name="crawls_to_crawl_tags_crawl_tag_id_fkey",
-                       table_name="crawls_to_query_tags", type_="foreignkey")
-    op.create_foreign_key(constraint_name=None,
-                          source_table="query_tag",
-                          referent_table="crawl",
+    op.create_foreign_key(constraint_name="crawls_to_query_tags_query_tag_id_fkey",
+                          source_table="crawls_to_query_tags",
+                          referent_table="query_tag",
                           local_cols=["query_tag_id"],
                           remote_cols=["id"])
 
@@ -437,29 +438,22 @@ def downgrade() -> None:
     op.drop_constraint(constraint_name="videos_to_crawl_tags_pkey", table_name="videos_to_query_tags", type_="primary")
     op.create_primary_key(constraint_name=None, table_name="videos_to_query_tags", columns=["video_id",
                                                                                  "query_tag_id"])
-    op.drop_constraint(constraint_name="videos_to_crawl_tags_video_id_fkey",
-                       table_name="videos_to_query_tags", type_="foreignkey")
-    op.create_foreign_key(constraint_name=None,
+    op.create_foreign_key(constraint_name="videos_to_query_tags_video_id_fkey",
                           source_table="videos_to_query_tags",
                           referent_table="video",
                           local_cols=["video_id"],
                           remote_cols=["id"])
-    op.drop_constraint(constraint_name="videos_to_crawl_tags_crawl_tag_id_fkey",
-                       table_name="videos_to_query_tags", type_="foreignkey")
-    op.create_foreign_key(constraint_name=None,
-                          source_table="query_tag",
-                          referent_table="crawl",
+    op.create_foreign_key(constraint_name="videos_to_query_tags_query_tag_id_fkey",
+                          source_table="videos_to_query_tags",
+                          referent_table="query_tag",
                           local_cols=["query_tag_id"],
                           remote_cols=["id"])
 
 
 
-    revert_crawl_source_column_data_from_crawls_to_crawl_tags()
-    revert_video_source_column_data_from_videos_to_crawl_tags()
+    revert_crawl_source_column_data_from_crawls_to_query_tags()
+    revert_video_source_column_data_from_videos_to_query_tags()
     revert_video_hashtag_names_column_data_from_videos_to_hashtags()
     revert_video_effect_ids_column_data_from_videos_to_effect_ids()
 
-    op.drop_table("videos_to_crawl_tags")
-    op.drop_table("crawls_to_crawl_tags")
-    op.drop_table("crawl_tag")
-    # ### end Alembic commands ###
+    op.drop_table("videos_to_crawls")
