@@ -1,7 +1,7 @@
 import copy
 import datetime
 import logging
-from typing import Any, Optional, List, Mapping
+from typing import Any, Optional, Set, Mapping, Sequence
 import json
 from pathlib import Path
 import itertools
@@ -134,7 +134,7 @@ class Video(Base):
     __tablename__ = "video"
 
     id: Mapped[int] = mapped_column(BigInteger, autoincrement=False, primary_key=True)
-    crawls: Mapped[List["Crawl"]] = relationship(
+    crawls: Mapped[Set["Crawl"]] = relationship(
         secondary=videos_to_crawls_association_table
     )
     video_id = synonym("id")
@@ -154,10 +154,10 @@ class Video(Base):
     share_count: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
     view_count: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
 
-    effects: Mapped[List[Effect]] = relationship(
+    effects: Mapped[Set[Effect]] = relationship(
         secondary=videos_to_effect_ids_association_table
     )
-    hashtags: Mapped[List[Hashtag]] = relationship(
+    hashtags: Mapped[Set[Hashtag]] = relationship(
         secondary=videos_to_hashtags_association_table
     )
 
@@ -174,7 +174,7 @@ class Video(Base):
         onupdate=func.now(),
     )
 
-    crawl_tags: Mapped[List[CrawlTag]] = relationship(
+    crawl_tags: Mapped[Set[CrawlTag]] = relationship(
         secondary=videos_to_crawl_tags_association_table
     )
     extra_data = Column(
@@ -190,15 +190,15 @@ class Video(Base):
 
     @property
     def hashtag_names(self):
-        return [hashtag.name for hashtag in self.hashtags]
+        return {hashtag.name for hashtag in self.hashtags}
 
     @property
     def crawl_tag_names(self):
-        return [crawl_tag.name for crawl_tag in self.crawl_tags]
+        return {crawl_tag.name for crawl_tag in self.crawl_tags}
 
     @property
     def effect_ids(self):
-        return [effect.effect_id for effect in self.effects]
+        return {effect.effect_id for effect in self.effects}
 
 
 # TODO(macpd): make generic method for this and use for all many-to-many objects inserted with video
@@ -232,8 +232,8 @@ def _get_hashtag_name_to_hashtag_object_map(
 
 
 def _get_crawl_tag_name_to_crawl_tag_object_map(
-    session: Session, crawl_tags: Optional[List[str]]
-) -> List[CrawlTag]:
+    session: Session, crawl_tags: Optional[Sequence[str]]
+) -> Set[CrawlTag]:
     """Gets crawl_tag name -> CrawlTag object map, pulling existing CrawlTag objects from database and
     creating new CrawlTag objects for new crawl_tag names.
     """
@@ -254,7 +254,7 @@ def _get_crawl_tag_name_to_crawl_tag_object_map(
     for crawl_tag_name in new_crawl_tag_names:
         crawl_tag_name_to_crawl_tag[crawl_tag_name] = CrawlTag(name=crawl_tag_name)
     session.add_all(crawl_tag_name_to_crawl_tag.values())
-    return list(crawl_tag_name_to_crawl_tag.values())
+    return set(crawl_tag_name_to_crawl_tag.values())
 
 
 def _get_effect_id_to_effect_object_map(
@@ -289,7 +289,7 @@ def upsert_videos(
     video_data: list[dict[str, Any]],
     crawl_id: int,
     engine: Engine,
-    crawl_tags: Optional[list[str]] = None,
+    crawl_tags: Optional[Sequence[str]] = None,
 ):
     """
     Columns must be the same when doing a upsert which is annoying since we have
@@ -313,26 +313,21 @@ def upsert_videos(
         effect_id_to_effect = _get_effect_id_to_effect_object_map(session, video_data)
 
         video_id_to_video = {}
+        crawl = set(session.scalars(select(Crawl).where(Crawl.id == crawl_id)).all())
 
         for vid in video_data:
             # manually add the source, keeping the original dict intact
             new_vid = copy.deepcopy(vid)
-            new_vid["crawls"] = session.scalars(
-                select(Crawl).where(Crawl.id == crawl_id)
-            ).all()
+            new_vid["crawls"] = crawl
             new_vid["create_time"] = datetime.datetime.fromtimestamp(vid["create_time"])
             if "effect_ids" in vid:
-                new_vid["effects"] = list(
-                    {effect_id_to_effect[effect_id] for effect_id in vid["effect_ids"]}
-                )
+                new_vid["effects"] = {effect_id_to_effect[effect_id] for effect_id in vid["effect_ids"]}
                 del new_vid["effect_ids"]
             if "hashtag_names" in vid:
-                new_vid["hashtags"] = list(
-                    {
+                new_vid["hashtags"] = {
                         hashtag_name_to_hashtag[hashtag_name]
                         for hashtag_name in vid["hashtag_names"]
                     }
-                )
                 del new_vid["hashtag_names"]
             if crawl_tags:
                 new_vid["crawl_tags"] = crawl_tags
@@ -346,8 +341,8 @@ def upsert_videos(
             select(Video).where(Video.id.in_(video_id_to_video.keys()))
         ):
             new_vid = Video(**video_id_to_video.pop(each.id))
-            new_vid.crawl_tags = each.crawl_tags + new_vid.crawl_tags
-            new_vid.crawls = each.crawls + new_vid.crawls
+            new_vid.crawl_tags.update(each.crawl_tags)
+            new_vid.crawls.update(each.crawls)
             session.merge(new_vid)
 
         session.add_all((Video(**vid) for vid in video_id_to_video.values()))
@@ -376,7 +371,7 @@ class Crawl(Base):
         DateTime(timezone=True), onupdate=func.now(), server_default=func.now()
     )
 
-    crawl_tags: Mapped[List[CrawlTag]] = relationship(
+    crawl_tags: Mapped[Set[CrawlTag]] = relationship(
         secondary=crawls_to_crawl_tags_association_table
     )
     extra_data = Column(
@@ -400,7 +395,7 @@ class Crawl(Base):
             has_more=res_data["has_more"],
             search_id=res_data["search_id"],
             query=json.dumps(query, cls=QueryJSONEncoder),
-            crawl_tags=[CrawlTag(name=name) for name in crawl_tags],
+            crawl_tags={CrawlTag(name=name) for name in crawl_tags},
         )
 
     def upload_self_to_db(self, engine: Engine) -> None:
