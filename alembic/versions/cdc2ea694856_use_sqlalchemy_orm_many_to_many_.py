@@ -1,4 +1,4 @@
-"""use SqlAlchemy ORM many-to-many relationships of videos to hashtags, effect IDs, and crawl tags.  add many-to-one for video -> crawl_id. rename query_tags -> crawl_tags. Migraate data from existing columns (which used MyJsonList type) into new schema. WARNING: downgrade does NOT restore video.source
+"""use SqlAlchemy ORM many-to-many relationships of videos to hashtags, effect IDs, and crawl tags.  add many-to-one for video -> crawl_id. rename query_tags -> crawl_tags. Migraate data from existing columns (which used MyJsonList type) into new schema.
 
 Revision ID: cdc2ea694856
 Revises: 
@@ -94,14 +94,6 @@ def upgrade() -> None:
         column_name="query_tag_id",
         new_column_name="crawl_tag_id",
     )
-    # Make crawl_id type same as crawl.id
-    op.alter_column(
-        "crawls_to_crawl_tags",
-        "crawl_id",
-        existing_type=sa.Integer(),
-        type_=sa.BIGINT(),
-        existing_nullable=False,
-    )
     op.drop_constraint(
         constraint_name="crawls_to_query_tags_pkey",
         table_name="crawls_to_crawl_tags",
@@ -127,9 +119,38 @@ def upgrade() -> None:
         remote_cols=["id"],
     )
 
-    # Drop videos_to_query_tags table. we can reconstruct this data from video -> videos_to_crawls
-    # -> crawls_to_crawl_tags
-    op.drop_table("videos_to_query_tags")
+    # Rename videod_to_query_tags -> videod_to_crawl_tags in table and all references to query_tag in columns, primary key, and unique
+    # constraint
+    op.rename_table("videos_to_query_tags", "videos_to_crawl_tags")
+    op.alter_column(
+        table_name="videos_to_crawl_tags",
+        column_name="query_tag_id",
+        new_column_name="crawl_tag_id",
+    )
+    op.drop_constraint(
+        constraint_name="videos_to_query_tags_pkey",
+        table_name="videos_to_crawl_tags",
+        type_="primary",
+    )
+    op.create_primary_key(
+        constraint_name=None,
+        table_name="videos_to_crawl_tags",
+        columns=["video_id", "crawl_tag_id"],
+    )
+    op.create_foreign_key(
+        constraint_name=None,
+        source_table="videos_to_crawl_tags",
+        referent_table="video",
+        local_cols=["video_id"],
+        remote_cols=["id"],
+    )
+    op.create_foreign_key(
+        constraint_name=None,
+        source_table="videos_to_crawl_tags",
+        referent_table="crawl_tag",
+        local_cols=["crawl_tag_id"],
+        remote_cols=["id"],
+    )
 
     # Use new naming convention for constraints
     op.drop_constraint("effect_effect_id_key", "effect", type_="unique")
@@ -153,6 +174,7 @@ def upgrade() -> None:
 
     # Migrate data from fields that used MyJsonList type to respective association tables, and then
     # drop the columns
+    migrate_video_source_column_data_to_videos_to_crawl_tags()
     migrate_video_hashtag_names_column_data_to_videos_to_hashtags()
     migrate_video_effect_ids_column_data_to_videos_to_effect_ids()
 
@@ -216,6 +238,31 @@ def migrate_crawl_source_column_data_to_crawls_to_crawl_tags():
         source_table_id_column="id",
         source_table_value_column="source",
     )
+
+
+def migrate_video_source_column_data_to_videos_to_crawl_tags():
+    migrate_source_column_data_to_association_table(
+        association_table_name="videos_to_crawl_tags",
+        association_table_source_id_column="video_id",
+        association_table_value_id_column="crawl_tag_id",
+        new_value_table_name="crawl_tag",
+        new_value_table_id_column="id",
+        new_value_table_value_column="name",
+        source_table_name="video",
+        source_table_id_column="id",
+        source_table_value_column="source",
+    )
+    # Make sure crawl_tag has all existing source names
+    #  op.execute("INSERT INTO crawl_tag (name) "
+    #  "SELECT DISTINCT json_array_elements_text(source->'list') FROM video "
+    #  "ON CONFLICT (name) DO NOTHING;")
+    #  # Get list of video_id with crawl_tag (extracted from source->'list'), join it with crawl_tag on
+    #  # name, and insert (video_id, crawl_tag_id) into videos_to_crawl_tags
+    #  op.execute("INSERT INTO videos_to_crawl_tags (video_id, crawl_tag_id) "
+    #  "SELECT video_id, crawl_tag.id FROM "
+    #  "    (SELECT id AS video_id, json_array_elements_text(source->'list') as crawl_tag "
+    #  "     FROM video) AS video_sources "
+    #  "JOIN crawl_tag ON (video_sources.crawl_tag = crawl_tag.name)")
 
 
 def migrate_video_hashtag_names_column_data_to_videos_to_hashtags():
@@ -420,6 +467,16 @@ def downgrade() -> None:
         table_name="crawls_to_crawl_tags",
         type_="foreignkey",
     )
+    op.drop_constraint(
+        constraint_name="videos_to_crawl_tags_video_id_video_fkey",
+        table_name="videos_to_crawl_tags",
+        type_="foreignkey",
+    )
+    op.drop_constraint(
+        constraint_name="videos_to_crawl_tags_crawl_tag_id_crawl_tag_fkey",
+        table_name="videos_to_crawl_tags",
+        type_="foreignkey",
+    )
 
     # Rename crawl_tag -> query_tag table and all references to crawl_tag in columns, primary key, and unique
     # constraint
@@ -464,7 +521,6 @@ def downgrade() -> None:
         remote_cols=["id"],
     )
 
-    # TODO(macpd): reconstruct videos_to_query_tags table
     # Rename videod_to_crawl_tags -> videod_to_query_tags in table and all references to crawl_tag in columns, primary key, and unique
     # constraint
     op.rename_table("videos_to_crawl_tags", "videos_to_query_tags")
