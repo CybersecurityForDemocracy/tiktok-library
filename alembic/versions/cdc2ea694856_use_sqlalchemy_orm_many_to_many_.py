@@ -216,17 +216,6 @@ def migrate_source_column_data_to_association_table(
 
 
 def migrate_crawl_source_column_data_to_crawls_to_crawl_tags():
-    #  # Make sure crawl_tag has all existing source names
-    #  op.execute("INSERT INTO crawl_tag (name) "
-    #  "SELECT DISTINCT json_array_elements_text(source->'list') FROM crawl "
-    #  "ON CONFLICT (name) DO NOTHING;")
-    #  # Get list of crawl_id with crawl_tag (extracted from source->'list'), join it with crawl_tag on
-    #  # name, and insert (crawl_id, crawl_tag_id) into crawls_to_crawl_tags
-    #  op.execute("INSERT INTO crawls_to_crawl_tags (crawl_id, crawl_tag_id) "
-    #  "SELECT crawl_id, crawl_tag.id FROM "
-    #  "    (SELECT id AS crawl_id, json_array_elements_text(source->'list') as crawl_tag "
-    #  "     FROM crawl) AS crawl_sources "
-    #  "JOIN crawl_tag ON (crawl_sources.crawl_tag = crawl_tag.name)")
     migrate_source_column_data_to_association_table(
         association_table_name="crawls_to_crawl_tags",
         association_table_source_id_column="crawl_id",
@@ -252,22 +241,9 @@ def migrate_video_source_column_data_to_videos_to_crawl_tags():
         source_table_id_column="id",
         source_table_value_column="source",
     )
-    # Make sure crawl_tag has all existing source names
-    #  op.execute("INSERT INTO crawl_tag (name) "
-    #  "SELECT DISTINCT json_array_elements_text(source->'list') FROM video "
-    #  "ON CONFLICT (name) DO NOTHING;")
-    #  # Get list of video_id with crawl_tag (extracted from source->'list'), join it with crawl_tag on
-    #  # name, and insert (video_id, crawl_tag_id) into videos_to_crawl_tags
-    #  op.execute("INSERT INTO videos_to_crawl_tags (video_id, crawl_tag_id) "
-    #  "SELECT video_id, crawl_tag.id FROM "
-    #  "    (SELECT id AS video_id, json_array_elements_text(source->'list') as crawl_tag "
-    #  "     FROM video) AS video_sources "
-    #  "JOIN crawl_tag ON (video_sources.crawl_tag = crawl_tag.name)")
 
 
 def migrate_video_hashtag_names_column_data_to_videos_to_hashtags():
-    #  op.execute("INSERT INTO hashtag (name) SELECT DISTINCT json_array_elements_text(hashtag_names->'list') FROM video ON CONFLICT (name) DO NOTHING;")
-    #  op.execute("INSERT INTO videos_to_hashtags (video_id, hashtag_id) SELECT video_id, hashtag.id (SELECT id AS video_id, json_array_elements_text(hashtag_names->'list') AS hashtag_name FROM video) AS video_hashtags FROM video JOIN hashtag ON (video_hashtags.hashtag_name = hashtag.name);")
     migrate_source_column_data_to_association_table(
         association_table_name="videos_to_hashtags",
         association_table_source_id_column="video_id",
@@ -282,8 +258,6 @@ def migrate_video_hashtag_names_column_data_to_videos_to_hashtags():
 
 
 def migrate_video_effect_ids_column_data_to_videos_to_effect_ids():
-    #  op.execute("INSERT INTO effect (effect_id) SELECT DISTINCT json_array_elements_text(effect_ids->'list') FROM video WHERE ON CONFLICT (name) DO NOTHING;")
-    #  op.execute("INSERT INTO videos_to_effect_ids (video_id, effect_id) SELECT video_id, effect_id.id (SELECT id AS video_id, json_array_elements_text(effect_ids->'list') AS effect_id FROM video) AS video_effect_ids FROM video JOIN effect ON (video_effect_ids.effect_id = effect.effect_id);")
     migrate_source_column_data_to_association_table(
         association_table_name="videos_to_effect_ids",
         association_table_source_id_column="video_id",
@@ -375,7 +349,6 @@ def revert_video_effect_ids_column_data_from_videos_to_effect_ids():
     )
 
 
-# TODO(macpd): implement downgrade data migration from association tables to MyJsonList types.
 def downgrade() -> None:
     op.add_column(
         "video",
