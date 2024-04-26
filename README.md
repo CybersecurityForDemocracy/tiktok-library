@@ -81,10 +81,11 @@ for this which can be invoked like so:
 ```
 $ hatch --env alembic run alembic ...
 ```
-The alembic config in this repo `alembic.ini` is basic config. To use it you
-will need to define `sqlalchemy.url`. If you want to operate on different
-database URLs you can use a technique documented in https://alembic.sqlalchemy.org/en/latest/cookbook.html#run-multiple-alembic-environments-from-one-ini-file
-briefly you would add something like:
+The alembic config in this repo `alembic.ini` is a basic config barely modified
+from generic default. To use it you will need to define `sqlalchemy.url`. If you
+want to operate on different database URLs you can use a technique documented in
+https://alembic.sqlalchemy.org/en/latest/cookbook.html#run-multiple-alembic-environments-from-one-ini-file
+briefly you would add something like the following to `alembic.ini`:
 ```
 [test]
 sqlalchemy.url = driver://user:pass@localhost/test_database_name
