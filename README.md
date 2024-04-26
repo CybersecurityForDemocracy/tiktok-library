@@ -96,7 +96,7 @@ sqlalchemy.url = driver://user:pass@localhost/prod_database_name
 
 Then you can specify which database to use via the config section name:
 ```
-$ hatch --env alembic run alembic --name test ...
+$ hatch --env alembic run alembic --name test <alembic command>
 ```
 
 NOTE: if a database has not had alembic run against it, but nonetheless has
