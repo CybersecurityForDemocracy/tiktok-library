@@ -72,5 +72,36 @@ To check if black would change code (but not actually make changes):
 To apply changes from black
 `hatch run style:fmt`
 
-## TODO(macpd): document alembic
-https://alembic.sqlalchemy.org/en/latest/tutorial.html
+## Alembic database schema migrations
+Alembic is a tool/framework for database schema migrations. For instructions on
+how to use and and create revisions see https://alembic.sqlalchemy.org/en/latest/tutorial.html
+
+There is hatch env
+for this which can be invoked like so:
+```
+$ hatch --env alembic run alembic ...
+```
+The alembic config in this repo `alembic.ini` is basic config. To use it you
+will need to define `sqlalchemy.url`. If you want to operate on different
+database URLs you can use a technique documented in https://alembic.sqlalchemy.org/en/latest/cookbook.html#run-multiple-alembic-environments-from-one-ini-file
+briefly you would add something like:
+```
+[test]
+sqlalchemy.url = driver://user:pass@localhost/test_database_name
+
+[prod]
+sqlalchemy.url = driver://user:pass@localhost/prod_database_name
+```
+
+Then you can specify which database to use via the config section name:
+```
+$ hatch --env alembic run alembic --name test ...
+```
+
+NOTE: if a database has not had alembic run against it, but nonetheless has
+up-to-date schema, alembic commands will fail saying it is not on the latest
+version. You can "stamp" the database as being at HEAD (refering here to alembic
+versions, NOT git commits) with the following:
+```
+$ hatch --env alembic run alembic --name test stamp head
+```
