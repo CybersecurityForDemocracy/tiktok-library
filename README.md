@@ -71,3 +71,6 @@ To check if black would change code (but not actually make changes):
 `hatch run style:check`
 To apply changes from black
 `hatch run style:fmt`
+
+## TODO(macpd): document alembic
+https://alembic.sqlalchemy.org/en/latest/tutorial.html
