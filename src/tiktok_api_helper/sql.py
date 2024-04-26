@@ -321,13 +321,15 @@ def upsert_videos(
             new_vid["crawls"] = crawl
             new_vid["create_time"] = datetime.datetime.fromtimestamp(vid["create_time"])
             if "effect_ids" in vid:
-                new_vid["effects"] = {effect_id_to_effect[effect_id] for effect_id in vid["effect_ids"]}
+                new_vid["effects"] = {
+                    effect_id_to_effect[effect_id] for effect_id in vid["effect_ids"]
+                }
                 del new_vid["effect_ids"]
             if "hashtag_names" in vid:
                 new_vid["hashtags"] = {
-                        hashtag_name_to_hashtag[hashtag_name]
-                        for hashtag_name in vid["hashtag_names"]
-                    }
+                    hashtag_name_to_hashtag[hashtag_name]
+                    for hashtag_name in vid["hashtag_names"]
+                }
                 del new_vid["hashtag_names"]
             if crawl_tags:
                 new_vid["crawl_tags"] = crawl_tags

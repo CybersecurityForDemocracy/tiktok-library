@@ -369,21 +369,25 @@ def test_upsert_no_prior_insert(test_database_engine, mock_videos, mock_crawl):
             {"hashtag1", "hashtag2"},
         ]
 
-def test_upsert_videos_to_crawls_association(test_database_engine, mock_crawl, api_response_videos):
+
+def test_upsert_videos_to_crawls_association(
+    test_database_engine, mock_crawl, api_response_videos
+):
     expected_crawl_id = mock_crawl.id
     with Session(test_database_engine) as session:
         mock_crawl.upload_self_to_db(test_database_engine)
 
     upsert_videos(
-            api_response_videos,
+        api_response_videos,
         crawl_id=mock_crawl.id,
         crawl_tags=["testing"],
         engine=test_database_engine,
     )
     with Session(test_database_engine) as session:
-        assert {v.id: {crawl.id for crawl in v.crawls} for v in
-                session.scalars(select(Video).order_by(Video.id)).all()} == {
-                    v["id"]: {expected_crawl_id} for v in api_response_videos}
+        assert {
+            v.id: {crawl.id for crawl in v.crawls}
+            for v in session.scalars(select(Video).order_by(Video.id)).all()
+        } == {v["id"]: {expected_crawl_id} for v in api_response_videos}
 
 
 def test_upsert_existing_hashtags_names_gets_same_id(
@@ -673,9 +677,10 @@ def test_upsert_updates_existing_and_inserts_new_video_data_and_crawl_tags(
             engine=test_database_engine,
         )
         session.expire_all()
-        expected_crawl_tags = set(
-            itertools.chain.from_iterable(original_crawl_tags.values())
-        ) | new_crawl_tags
+        expected_crawl_tags = (
+            set(itertools.chain.from_iterable(original_crawl_tags.values()))
+            | new_crawl_tags
+        )
 
         assert (
             set((session.scalars(select(CrawlTag.name)).all())) == expected_crawl_tags
