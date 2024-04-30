@@ -14,7 +14,6 @@ from sqlalchemy import (
     String,
     create_engine,
     func,
-    Integer,
     BigInteger,
     Table,
     ForeignKey,
@@ -46,9 +45,9 @@ MUTABLE_JSON = MutableDict.as_mutable(JSON)  # type: ignore
 # always a 64-bit signed integer." according to sqlite documentation
 # https://www.sqlite.org/autoinc.html#summary. Thus primrary keys of this type do not get assigned
 # an autoincrement default new value correctly.
-BigIntegerType = BigInteger()
-BigIntegerType = BigIntegerType.with_variant(postgresql.BIGINT(), 'postgresql')
-BigIntegerType = BigIntegerType.with_variant(sqlite.INTEGER(), 'sqlite')
+BigIntegerForPrimaryKeyType = BigInteger()
+BigIntegerForPrimaryKeyType = BigIntegerForPrimaryKeyType.with_variant(postgresql.BIGINT(), 'postgresql')
+BigIntegerForPrimaryKeyType = BigIntegerForPrimaryKeyType.with_variant(sqlite.INTEGER(), 'sqlite')
 
 
 class Base(DeclarativeBase):
@@ -142,7 +141,7 @@ videos_to_crawls_association_table = Table(
 class Video(Base):
     __tablename__ = "video"
 
-    id: Mapped[int] = mapped_column(BigIntegerType, autoincrement=False, primary_key=True)
+    id: Mapped[int] = mapped_column(BigIntegerForPrimaryKeyType, autoincrement=False, primary_key=True)
     crawls: Mapped[Set["Crawl"]] = relationship(
         secondary=videos_to_crawls_association_table
     )
@@ -156,12 +155,12 @@ class Video(Base):
     username: Mapped[str]
     region_code: Mapped[str] = mapped_column(String(2))
     video_description: Mapped[Optional[str]]
-    music_id: Mapped[Optional[int]] = mapped_column(BigIntegerType, nullable=True)
+    music_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
 
-    like_count: Mapped[Optional[int]] = mapped_column(BigIntegerType, nullable=True)
-    comment_count: Mapped[Optional[int]] = mapped_column(BigIntegerType, nullable=True)
-    share_count: Mapped[Optional[int]] = mapped_column(BigIntegerType, nullable=True)
-    view_count: Mapped[Optional[int]] = mapped_column(BigIntegerType, nullable=True)
+    like_count: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    comment_count: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    share_count: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    view_count: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
 
     effects: Mapped[Set[Effect]] = relationship(
         secondary=videos_to_effect_ids_association_table
@@ -170,7 +169,7 @@ class Video(Base):
         secondary=videos_to_hashtags_association_table
     )
 
-    playlist_id: Mapped[Optional[int]] = mapped_column(BigIntegerType, nullable=True)
+    playlist_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
     voice_to_text: Mapped[Optional[str]]
 
     # Columns here are not returned by the API, but are added by us
@@ -365,14 +364,14 @@ class Crawl(Base):
     __tablename__ = "crawl"
 
     id: Mapped[int] = mapped_column(
-        BigIntegerType, primary_key=True, autoincrement=True
+        BigIntegerForPrimaryKeyType, primary_key=True, autoincrement=True
     )
 
     crawl_started_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
 
-    cursor: Mapped[int] = mapped_column(BigIntegerType)
+    cursor: Mapped[int] = mapped_column(BigInteger)
     has_more: Mapped[bool]
     search_id: Mapped[str]
     query: Mapped[str]
