@@ -356,7 +356,6 @@ def upsert_videos(
         session.add_all((Video(**vid) for vid in video_id_to_video.values()))
 
         session.commit()
-        session.expire_all()
 
 
 class Crawl(Base):
@@ -423,7 +422,6 @@ class Crawl(Base):
                 session.merge(each)
                 self.crawl_tags.add(each)
             session.add_all(self.crawl_tags)
-
 
             if self.id:
                 session.merge(self)
