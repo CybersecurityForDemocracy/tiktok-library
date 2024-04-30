@@ -14,13 +14,13 @@ from sqlalchemy import (
     String,
     create_engine,
     func,
+    Integer,
     BigInteger,
     Table,
     ForeignKey,
     UniqueConstraint,
     select,
     MetaData,
-    Identity,
 )
 from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.orm import (
@@ -31,12 +31,21 @@ from sqlalchemy.orm import (
     synonym,
     relationship,
 )
+from sqlalchemy.dialects import postgresql, sqlite
 
 from .query import Query, QueryJSONEncoder
 
 
 # See https://amercader.net/blog/beware-of-json-fields-in-sqlalchemy/
 MUTABLE_JSON = MutableDict.as_mutable(JSON)  # type: ignore
+
+
+# Copied from https://stackoverflow.com/a/23175518
+# SQLAlchemy does not map BigInt to Int by default on the sqlite dialect. Thus primrary keys of this
+# type do not get assigned an autoincrement default new value correctly.
+BigIntegerType = BigInteger()
+BigIntegerType = BigIntegerType.with_variant(postgresql.BIGINT(), 'postgresql')
+BigIntegerType = BigIntegerType.with_variant(sqlite.INTEGER(), 'sqlite')
 
 
 class Base(DeclarativeBase):
@@ -96,7 +105,7 @@ class CrawlTag(Base):
     __table_args__ = (UniqueConstraint("name"),)
 
     def __repr__(self) -> str:
-        return f"CrawlTag (id={self.id}, name={self.name!r})"
+        return f"CrawlTag <{id(self):x}> (id={self.id}, name={self.name!r})"
 
 
 videos_to_effect_ids_association_table = Table(
@@ -130,7 +139,7 @@ videos_to_crawls_association_table = Table(
 class Video(Base):
     __tablename__ = "video"
 
-    id: Mapped[int] = mapped_column(BigInteger, autoincrement=False, primary_key=True)
+    id: Mapped[int] = mapped_column(BigIntegerType, autoincrement=False, primary_key=True)
     crawls: Mapped[Set["Crawl"]] = relationship(
         secondary=videos_to_crawls_association_table
     )
@@ -144,12 +153,12 @@ class Video(Base):
     username: Mapped[str]
     region_code: Mapped[str] = mapped_column(String(2))
     video_description: Mapped[Optional[str]]
-    music_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    music_id: Mapped[Optional[int]] = mapped_column(BigIntegerType, nullable=True)
 
-    like_count: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
-    comment_count: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
-    share_count: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
-    view_count: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    like_count: Mapped[Optional[int]] = mapped_column(BigIntegerType, nullable=True)
+    comment_count: Mapped[Optional[int]] = mapped_column(BigIntegerType, nullable=True)
+    share_count: Mapped[Optional[int]] = mapped_column(BigIntegerType, nullable=True)
+    view_count: Mapped[Optional[int]] = mapped_column(BigIntegerType, nullable=True)
 
     effects: Mapped[Set[Effect]] = relationship(
         secondary=videos_to_effect_ids_association_table
@@ -158,7 +167,7 @@ class Video(Base):
         secondary=videos_to_hashtags_association_table
     )
 
-    playlist_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    playlist_id: Mapped[Optional[int]] = mapped_column(BigIntegerType, nullable=True)
     voice_to_text: Mapped[Optional[str]]
 
     # Columns here are not returned by the API, but are added by us
@@ -354,14 +363,15 @@ class Crawl(Base):
     __tablename__ = "crawl"
 
     id: Mapped[int] = mapped_column(
-        BigInteger, Identity(), primary_key=True, autoincrement=True
+        BigIntegerType, primary_key=True, autoincrement=True
+        #  Integer, primary_key=True, autoincrement=True
     )
 
     crawl_started_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
 
-    cursor: Mapped[int] = mapped_column(BigInteger)
+    cursor: Mapped[int] = mapped_column(BigIntegerType)
     has_more: Mapped[bool]
     search_id: Mapped[str]
     query: Mapped[str]
@@ -379,7 +389,7 @@ class Crawl(Base):
 
     def __repr__(self) -> str:
         return (
-            f"Crawl id={self.id}, crawl_tags={self.crawl_tags!r}, "
+            f"Crawl <{id(self):x}> id={self.id}, crawl_tags={self.crawl_tags!r}, "
             f"started_at={self.crawl_started_at!r}, "
             f"has_more={self.has_more!r}, search_id={self.search_id!r}\n"
             f"query='{self.query!r}'"
@@ -399,9 +409,8 @@ class Crawl(Base):
 
     def upload_self_to_db(self, engine: Engine) -> None:
         """Uploads current instance to DB"""
-        with Session(engine) as session:
-            # Put new crawl tag names to DB, and pull existing tag names objects into current
-            # session.
+        with Session(engine, expire_on_commit=False) as session:
+            # Pull CrawlTag with existing names into current session, and then add all to DB
             crawl_tag_name_to_crawl_tag = {
                 crawl_tag.name: crawl_tag for crawl_tag in self.crawl_tags
             }
@@ -410,11 +419,16 @@ class Crawl(Base):
                     CrawlTag.name.in_(crawl_tag_name_to_crawl_tag.keys())
                 )
             ):
-                new_crawl_tag = crawl_tag_name_to_crawl_tag.pop(each.name)
-                new_crawl_tag.id = each.id
-                session.merge(new_crawl_tag)
+                self.crawl_tags.remove(crawl_tag_name_to_crawl_tag.pop(each.name))
+                session.merge(each)
+                self.crawl_tags.add(each)
+            session.add_all(self.crawl_tags)
 
-            session.merge(self)
+
+            if self.id:
+                session.merge(self)
+            else:
+                session.add(self)
             session.commit()
 
     def update_crawl(self, next_res_data: dict, videos: list[str], engine: Engine):

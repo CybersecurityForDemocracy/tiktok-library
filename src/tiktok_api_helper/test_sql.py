@@ -47,7 +47,6 @@ def mock_crawl_tags():
 @pytest.fixture
 def mock_crawl(mock_crawl_tags):
     return Crawl(
-        id=1,
         cursor=1,
         has_more=False,
         search_id="test",
@@ -173,6 +172,8 @@ def test_crawl_tags_inserted_via_crawl(test_database_engine, mock_crawl):
     crawl_tag_names = {crawl_tag.name for crawl_tag in mock_crawl.crawl_tags}
 
     mock_crawl.upload_self_to_db(test_database_engine)
+    assert mock_crawl.id is not None
+    initial_mock_crawl_id = mock_crawl.id
 
     with Session(test_database_engine) as session:
         assert {
@@ -184,6 +185,7 @@ def test_crawl_tags_inserted_via_crawl(test_database_engine, mock_crawl):
 
     # Confirm uploading to database again does not cause issue.
     mock_crawl.upload_self_to_db(test_database_engine)
+    assert mock_crawl.id == initial_mock_crawl_id
 
     # Now add some tags
     more_crawl_tag_names = crawl_tag_names | {"crawl_tag1", "crawl_tag2"}
@@ -192,9 +194,11 @@ def test_crawl_tags_inserted_via_crawl(test_database_engine, mock_crawl):
         query="{}",
         crawl_tags=more_crawl_tag_names,
     )
-    # have to do this because SqlAlchemy does not properly setup auto increment for BigInteger
-    new_crawl.id = 2
+    assert new_crawl.id is None
     new_crawl.upload_self_to_db(test_database_engine)
+    assert new_crawl.id is not None
+    # Want to make sure Crawl.from_request gets a new ID
+    assert new_crawl.id != initial_mock_crawl_id
     with Session(test_database_engine) as session:
         assert {
             crawl_tag.name
@@ -373,9 +377,9 @@ def test_upsert_no_prior_insert(test_database_engine, mock_videos, mock_crawl):
 def test_upsert_videos_to_crawls_association(
     test_database_engine, mock_crawl, api_response_videos
 ):
-    expected_crawl_id = mock_crawl.id
     with Session(test_database_engine) as session:
         mock_crawl.upload_self_to_db(test_database_engine)
+        expected_crawl_id = mock_crawl.id
 
     upsert_videos(
         api_response_videos,
