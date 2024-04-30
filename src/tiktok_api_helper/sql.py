@@ -46,8 +46,12 @@ MUTABLE_JSON = MutableDict.as_mutable(JSON)  # type: ignore
 # https://www.sqlite.org/autoinc.html#summary. Thus primrary keys of this type do not get assigned
 # an autoincrement default new value correctly.
 BigIntegerForPrimaryKeyType = BigInteger()
-BigIntegerForPrimaryKeyType = BigIntegerForPrimaryKeyType.with_variant(postgresql.BIGINT(), 'postgresql')
-BigIntegerForPrimaryKeyType = BigIntegerForPrimaryKeyType.with_variant(sqlite.INTEGER(), 'sqlite')
+BigIntegerForPrimaryKeyType = BigIntegerForPrimaryKeyType.with_variant(
+    postgresql.BIGINT(), "postgresql"
+)
+BigIntegerForPrimaryKeyType = BigIntegerForPrimaryKeyType.with_variant(
+    sqlite.INTEGER(), "sqlite"
+)
 
 
 class Base(DeclarativeBase):
@@ -141,16 +145,16 @@ videos_to_crawls_association_table = Table(
 class Video(Base):
     __tablename__ = "video"
 
-    id: Mapped[int] = mapped_column(BigIntegerForPrimaryKeyType, autoincrement=False, primary_key=True)
+    id: Mapped[int] = mapped_column(
+        BigIntegerForPrimaryKeyType, autoincrement=False, primary_key=True
+    )
     crawls: Mapped[Set["Crawl"]] = relationship(
         secondary=videos_to_crawls_association_table
     )
     video_id = synonym("id")
     item_id = synonym("id")
 
-    create_time: Mapped[datetime.datetime] = mapped_column(
-        DateTime(timezone=False),
-    )
+    create_time: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=False))
 
     username: Mapped[str]
     region_code: Mapped[str] = mapped_column(String(2))
