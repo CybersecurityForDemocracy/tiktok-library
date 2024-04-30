@@ -41,8 +41,11 @@ MUTABLE_JSON = MutableDict.as_mutable(JSON)  # type: ignore
 
 
 # Copied from https://stackoverflow.com/a/23175518
-# SQLAlchemy does not map BigInt to Int by default on the sqlite dialect. Thus primrary keys of this
-# type do not get assigned an autoincrement default new value correctly.
+# SQLAlchemy does not map BigInt to Int by default on the sqlite dialect (even though " a column
+# with type INTEGER PRIMARY KEY is an alias for the ROWID (except in WITHOUT ROWID tables) which is
+# always a 64-bit signed integer." according to sqlite documentation
+# https://www.sqlite.org/autoinc.html#summary. Thus primrary keys of this type do not get assigned
+# an autoincrement default new value correctly.
 BigIntegerType = BigInteger()
 BigIntegerType = BigIntegerType.with_variant(postgresql.BIGINT(), 'postgresql')
 BigIntegerType = BigIntegerType.with_variant(sqlite.INTEGER(), 'sqlite')
@@ -363,7 +366,6 @@ class Crawl(Base):
 
     id: Mapped[int] = mapped_column(
         BigIntegerType, primary_key=True, autoincrement=True
-        #  Integer, primary_key=True, autoincrement=True
     )
 
     crawl_started_at: Mapped[datetime.datetime] = mapped_column(
