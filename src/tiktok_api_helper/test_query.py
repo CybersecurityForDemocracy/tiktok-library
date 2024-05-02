@@ -1,7 +1,7 @@
 import json
 import pytest
 
-from .query import Query, Cond, Op, Fields, QueryJSONEncoder
+from .query import Query, Cond, Op, Fields, QueryJSONEncoder, generate_query, get_normalized_hashtag_set
 
 
 @pytest.fixture
@@ -159,7 +159,7 @@ def test_query_exclude_some_hashtags(mock_query_exclude_some_hashtags):
     }
 
 
-def test_invalid_query():
+def test_invalid_region_code():
     with pytest.raises(ValueError):
         Query(
             and_=[
@@ -187,3 +187,215 @@ def test_query_json_decoder_exclude_some_hashtags(mock_query_exclude_some_hashta
         json.dumps(mock_query_exclude_some_hashtags, cls=QueryJSONEncoder)
         == '{"and": [{"operation": "IN", "field_name": "hashtag_name", "field_values": ["hashtag", "lol", "yay"]}, {"operation": "IN", "field_name": "region_code", "field_values": ["US", "CA"]}], "not": [{"operation": "IN", "field_name": "hashtag_name", "field_values": ["eww", "gross"]}]}'
     )
+
+@pytest.mark.parametrize(
+    "test_input,expected",
+    [("cheese", set(["cheese"])),
+     ("cheese,cheese", set(["cheese"])),
+     ("cheese,Cheese", set(["cheese"])),
+     ("cheese,Cheese,CHEESE", set(["cheese"])),
+     ("#cheese", set(["cheese"])),
+     ("#cheese,cheese", set(["cheese"])),
+     ("this,that,other", set(["this", "that", "other"])),
+     ("#this,#that,#OTHER", set(["this", "that", "other"])),
+     ("#this,#that,#OTHER", set(["this", "that", "other"])),
+     ])
+def test_normalized_hashtag_set(test_input, expected):
+    assert get_normalized_hashtag_set(test_input) == expected
+
+
+def test_generate_query_include_any_hashatags():
+    assert generate_query(include_any_hashtags="this,that,other").as_dict() == {
+            "and": [
+                    {"field_name": "hashtag_name",
+                     "field_values": [
+                             "other", "that", "this",
+                             ],
+                     "operation": "IN"
+                     }
+                    ]
+            }
+
+def test_generate_query_include_all_hashatags():
+    assert generate_query(include_all_hashtags="this,that,other").as_dict() == {
+            "and": [
+                    {"field_name": "hashtag_name",
+                     "field_values": [
+                             "other",
+                             ],
+                     "operation": "EQ"
+                     },
+                    {"field_name": "hashtag_name",
+                     "field_values": [
+                             "that",
+                             ],
+                     "operation": "EQ"
+                     },
+                    {"field_name": "hashtag_name",
+                     "field_values": [
+                             "this",
+                             ],
+                     "operation": "EQ"
+                     },
+                    ]
+            }
+
+def test_generate_query_exclude_any_hashatags():
+    assert generate_query(exclude_any_hashtags="this,that,other").as_dict() == {
+            "not": [
+                    {"field_name": "hashtag_name",
+                     "field_values": [
+                             "other", "that", "this",
+                             ],
+                     "operation": "IN"
+                     }
+                    ]
+            }
+
+def test_generate_query_exclude_all_hashatags():
+    assert generate_query(exclude_all_hashtags="this,that,other").as_dict() == {
+            "not": [
+                    {"field_name": "hashtag_name",
+                     "field_values": [
+                             "other",
+                             ],
+                     "operation": "EQ"
+                     },
+                    {"field_name": "hashtag_name",
+                     "field_values": [
+                             "that",
+                             ],
+                     "operation": "EQ"
+                     },
+                    {"field_name": "hashtag_name",
+                     "field_values": [
+                             "this",
+                             ],
+                     "operation": "EQ"
+                     },
+                    ]
+            }
+
+def test_generate_query_include_all_hashatags_with_exclude_any_hashtags():
+    assert generate_query(include_all_hashtags="this,that,other",
+                          exclude_any_hashtags="cheese,butter").as_dict() == {
+            "and": [
+                    {"field_name": "hashtag_name",
+                     "field_values": [
+                             "other",
+                             ],
+                     "operation": "EQ"
+                     },
+                    {"field_name": "hashtag_name",
+                     "field_values": [
+                             "that",
+                             ],
+                     "operation": "EQ"
+                     },
+                    {"field_name": "hashtag_name",
+                     "field_values": [
+                             "this",
+                             ],
+                     "operation": "EQ"
+                     },
+                    ],
+            "not": [
+                    {"field_name": "hashtag_name",
+                     "field_values": [
+                             "butter", "cheese",
+                             ],
+                     "operation": "IN"
+                     }
+                    ]
+
+            }
+
+def test_generate_query_include_any_hashatags_with_exclude_all_hashtags():
+    assert generate_query(include_any_hashtags="this,that,other",
+                          exclude_all_hashtags="cheese,butter").as_dict() == {
+            "and": [
+                    {"field_name": "hashtag_name",
+                     "field_values": [
+                             "other", "that", "this",
+                             ],
+                     "operation": "IN"
+                     },
+                    ],
+            "not": [
+                    {"field_name": "hashtag_name",
+                     "field_values": [
+                             "butter"
+                             ],
+                     "operation": "EQ"
+                     },
+                    {"field_name": "hashtag_name",
+                     "field_values": [
+                             "cheese"
+                             ],
+                     "operation": "EQ"
+                     }
+                    ]
+
+            }
+
+def test_generate_query_include_any_hashatags_with_exclude_any_hashtags():
+    assert generate_query(include_any_hashtags="this,that,other",
+                          exclude_any_hashtags="cheese,butter").as_dict() == {
+            "and": [
+                    {"field_name": "hashtag_name",
+                     "field_values": [
+                             "other", "that", "this",
+                             ],
+                     "operation": "IN"
+                     },
+                    ],
+            "not": [
+                    {"field_name": "hashtag_name",
+                     "field_values": [
+                             "butter", "cheese"
+                             ],
+                     "operation": "IN"
+                     },
+                    ]
+
+            }
+
+def test_generate_query_include_all_hashatags_with_exclude_all_hashtags():
+    assert generate_query(include_all_hashtags="this,that,other",
+                          exclude_all_hashtags="cheese,butter").as_dict() == {
+            "and": [
+                    {"field_name": "hashtag_name",
+                     "field_values": [
+                             "other",
+                             ],
+                     "operation": "EQ"
+                     },
+                    {"field_name": "hashtag_name",
+                     "field_values": [
+                             "that"
+                             ],
+                     "operation": "EQ"
+                     },
+                    {"field_name": "hashtag_name",
+                     "field_values": [
+                             "this",
+                             ],
+                     "operation": "EQ"
+                     },
+                    ],
+            "not": [
+                    {"field_name": "hashtag_name",
+                     "field_values": [
+                             "butter"
+                             ],
+                     "operation": "EQ"
+                     },
+                    {"field_name": "hashtag_name",
+                     "field_values": [
+                             "cheese"
+                             ],
+                     "operation": "EQ"
+                     }
+                    ]
+
+            }
