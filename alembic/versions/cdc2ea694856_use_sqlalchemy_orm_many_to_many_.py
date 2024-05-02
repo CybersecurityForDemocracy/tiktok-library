@@ -8,9 +8,10 @@ Create Date: 2024-04-23 18:41:36.210381
 
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "cdc2ea694856"
@@ -21,37 +22,42 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     # Make timesamp columns into ones with timezone
-    op.alter_column(
-        "crawl",
-        "crawl_started_at",
-        existing_type=postgresql.TIMESTAMP(),
-        type_=sa.DateTime(timezone=True),
-        existing_nullable=False,
-        existing_server_default=sa.text("CURRENT_TIMESTAMP"),
-    )
-    op.alter_column(
-        "crawl",
-        "updated_at",
-        existing_type=postgresql.TIMESTAMP(),
-        type_=sa.DateTime(timezone=True),
-        existing_nullable=True,
-        existing_server_default=sa.text("CURRENT_TIMESTAMP"),
-    )
-    op.alter_column(
-        "video",
-        "crawled_at",
-        existing_type=postgresql.TIMESTAMP(),
-        type_=sa.DateTime(timezone=True),
-        existing_nullable=False,
-        existing_server_default=sa.text("CURRENT_TIMESTAMP"),
-    )
-    op.alter_column(
-        "video",
-        "crawled_updated_at",
-        existing_type=postgresql.TIMESTAMP(),
-        type_=sa.DateTime(timezone=True),
-        existing_nullable=True,
-    )
+    # Batch syntax is used to avoid issues with SQLite
+    # See https://alembic.sqlalchemy.org/en/latest/batch.html
+    with op.batch_alter_table("crawl", schema=None) as batch_op:
+        batch_op.alter_column(
+            column_name="crawl_started_at",
+            existing_type=postgresql.TIMESTAMP(),
+            type_=sa.DateTime(timezone=True),
+            existing_nullable=False,
+            existing_server_default=sa.text("CURRENT_TIMESTAMP"),
+        )
+
+    with op.batch_alter_table("crawl", schema=None) as batch_op:
+        batch_op.alter_column(
+            column_name="updated_at",
+            existing_type=postgresql.TIMESTAMP(),
+            type_=sa.DateTime(timezone=True),
+            existing_nullable=True,
+            existing_server_default=sa.text("CURRENT_TIMESTAMP"),
+        )
+
+    with op.batch_alter_table("video", schema=None) as batch_op:
+        batch_op.alter_column(
+            column_name="crawled_at",
+            existing_type=postgresql.TIMESTAMP(),
+            type_=sa.DateTime(timezone=True),
+            existing_nullable=False,
+            existing_server_default=sa.text("CURRENT_TIMESTAMP"),
+        )
+
+    with op.batch_alter_table("video", schema=None) as batch_op:
+        batch_op.alter_column(
+            column_name="crawled_updated_at",
+            existing_type=postgresql.TIMESTAMP(),
+            type_=sa.DateTime(timezone=True),
+            existing_nullable=True,
+        )
 
     # Rename query_tag -> crawl_tag table and all references to query_tag in columns, primary key, and unique
     # constraint
@@ -89,11 +95,12 @@ def upgrade() -> None:
     # Rename crawls_to_query_tags -> crawls_to_crawl_tags in table and all references to query_tag in columns, primary key, and unique
     # constraint
     op.rename_table("crawls_to_query_tags", "crawls_to_crawl_tags")
-    op.alter_column(
-        table_name="crawls_to_crawl_tags",
-        column_name="query_tag_id",
-        new_column_name="crawl_tag_id",
-    )
+
+    with op.batch_alter_table("crawls_to_crawl_tags", schema=None) as batch_op:
+        batch_op.alter_column(
+            column_name="query_tag_id",
+            new_column_name="crawl_tag_id",
+        )
     op.drop_constraint(
         constraint_name="crawls_to_query_tags_pkey",
         table_name="crawls_to_crawl_tags",
@@ -122,11 +129,13 @@ def upgrade() -> None:
     # Rename videod_to_query_tags -> videod_to_crawl_tags in table and all references to query_tag in columns, primary key, and unique
     # constraint
     op.rename_table("videos_to_query_tags", "videos_to_crawl_tags")
-    op.alter_column(
-        table_name="videos_to_crawl_tags",
-        column_name="query_tag_id",
-        new_column_name="crawl_tag_id",
-    )
+
+    with op.batch_alter_table("videos_to_crawl_tags", schema=None) as batch_op:
+        batch_op.alter_column(
+            column_name="query_tag_id",
+            new_column_name="crawl_tag_id",
+        )
+
     op.drop_constraint(
         constraint_name="videos_to_query_tags_pkey",
         table_name="videos_to_crawl_tags",
@@ -377,21 +386,21 @@ def downgrade() -> None:
             nullable=True,
         ),
     )
-    op.alter_column(
-        "video",
-        "crawled_updated_at",
-        existing_type=sa.DateTime(timezone=True),
-        type_=postgresql.TIMESTAMP(),
-        existing_nullable=True,
-    )
-    op.alter_column(
-        "video",
-        "crawled_at",
-        existing_type=sa.DateTime(timezone=True),
-        type_=postgresql.TIMESTAMP(),
-        existing_nullable=False,
-        existing_server_default=sa.text("CURRENT_TIMESTAMP"),
-    )
+    with op.batch_alter_table("video", schema=None) as batch_op:
+        batch_op.alter_column(
+            "crawled_updated_at",
+            existing_type=sa.DateTime(timezone=True),
+            type_=postgresql.TIMESTAMP(),
+            existing_nullable=True,
+        )
+    with op.batch_alter_table("video", schema=None) as batch_op:
+        batch_op.alter_column(
+            "crawled_at",
+            existing_type=sa.DateTime(timezone=True),
+            type_=postgresql.TIMESTAMP(),
+            existing_nullable=False,
+            existing_server_default=sa.text("CURRENT_TIMESTAMP"),
+        )
     op.drop_constraint(op.f("hashtag_name_uniq"), "hashtag", type_="unique")
     op.create_unique_constraint("hashtag_name_key", "hashtag", ["name"])
     op.drop_constraint(op.f("effect_effect_id_uniq"), "effect", type_="unique")
@@ -405,30 +414,28 @@ def downgrade() -> None:
             nullable=True,
         ),
     )
-    op.alter_column(
-        "crawl",
-        "updated_at",
-        existing_type=sa.DateTime(timezone=True),
-        type_=postgresql.TIMESTAMP(),
-        existing_nullable=True,
-        existing_server_default=sa.text("CURRENT_TIMESTAMP"),
-    )
-    op.alter_column(
-        "crawl",
-        "crawl_started_at",
-        existing_type=sa.DateTime(timezone=True),
-        type_=postgresql.TIMESTAMP(),
-        existing_nullable=False,
-        existing_server_default=sa.text("CURRENT_TIMESTAMP"),
-    )
-    op.alter_column(
-        "crawl",
-        "id",
-        existing_type=sa.Integer(),
-        type_=sa.BIGINT(),
-        existing_nullable=False,
-        autoincrement=True,
-    )
+    with op.batch_alter_table("crawl", schema=None) as batch_op:
+        batch_op.alter_column(
+            "updated_at",
+            existing_type=sa.DateTime(timezone=True),
+            type_=postgresql.TIMESTAMP(),
+            existing_nullable=True,
+            existing_server_default=sa.text("CURRENT_TIMESTAMP"),
+        )
+        batch_op.alter_column(
+            "crawl_started_at",
+            existing_type=sa.DateTime(timezone=True),
+            type_=postgresql.TIMESTAMP(),
+            existing_nullable=False,
+            existing_server_default=sa.text("CURRENT_TIMESTAMP"),
+        )
+        batch_op.alter_column(
+            "id",
+            existing_type=sa.Integer(),
+            type_=sa.BIGINT(),
+            existing_nullable=False,
+            autoincrement=True,
+        )
     # Drop FK references so the primary keys they rely on can be dropped/added back.
     op.drop_constraint(
         constraint_name="crawls_to_crawl_tags_crawl_id_crawl_fkey",
@@ -464,11 +471,11 @@ def downgrade() -> None:
     # Rename crawls_to_crawl_tags -> crawls_to_query_tags in table and all references to crawl_tag in columns, primary key, and unique
     # constraint
     op.rename_table("crawls_to_crawl_tags", "crawls_to_query_tags")
-    op.alter_column(
-        table_name="crawls_to_query_tags",
-        column_name="crawl_tag_id",
-        new_column_name="query_tag_id",
-    )
+    with op.batch_alter_table("crawls_to_query_tags", schema=None) as batch_op:
+        batch_op.alter_column(
+            column_name="crawl_tag_id",
+            new_column_name="query_tag_id",
+        )
     op.drop_constraint(
         constraint_name="crawls_to_crawl_tags_pkey",
         table_name="crawls_to_query_tags",
@@ -497,11 +504,11 @@ def downgrade() -> None:
     # Rename videod_to_crawl_tags -> videod_to_query_tags in table and all references to crawl_tag in columns, primary key, and unique
     # constraint
     op.rename_table("videos_to_crawl_tags", "videos_to_query_tags")
-    op.alter_column(
-        table_name="videos_to_query_tags",
-        column_name="crawl_tag_id",
-        new_column_name="query_tag_id",
-    )
+    with op.batch_alter_table("videos_to_query_tags", schema=None) as batch_op:
+        batch_op.alter_column(
+            column_name="crawl_tag_id",
+            new_column_name="query_tag_id",
+        )
     op.drop_constraint(
         constraint_name="videos_to_crawl_tags_pkey",
         table_name="videos_to_query_tags",
