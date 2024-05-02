@@ -2,7 +2,8 @@ import logging
 from copy import copy
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Mapping, Any
+import json
 
 import numpy as np
 import typer
@@ -18,9 +19,15 @@ from .custom_types import (
     TikTokStartDateFormat,
     TikTokEndDateFormat,
     RawResponsesOutputDir,
-    QueryFileType,
+    YamlPytonExecQueryFileType,
     ApiCredentialsFileType,
     ApiRateLimitWaitStrategyType,
+    JsonQueryFileType,
+    RegionCodeListType,
+    IncludeAnyHashtagListType,
+    ExcludeAnyHashtagListType,
+    IncludeAllHashtagListType,
+    ExcludeAllHashtagListType,
 )
 from .sql import (
     Crawl,
@@ -39,7 +46,10 @@ from .query import (
     Fields,
     Op,
     Query,
+    generate_query,
+    QueryJSONEncoder,
 )
+from .region_codes import SupportedRegions
 
 APP = typer.Typer(rich_markup_mode="markdown")
 
@@ -225,7 +235,7 @@ def test(
     driver_single_day(config)
 
 
-def get_query(query_file: Path):
+def get_query_from_yaml_exec(query_file: Path):
     with query_file.open("r") as f:
         yaml_file = yaml.load(f, Loader=yaml.FullLoader)
     _temp = {}
@@ -233,6 +243,43 @@ def get_query(query_file: Path):
     query = _temp["return_query"]()
     return query
 
+def get_query_file_json(query_file: Path):
+    with query_file.open("r") as f:
+        file_contents = f.read()
+    try:
+        return json.loads(file_contents)
+    except json.JSONDecodeError as e:
+        raise typer.BadParameter(f"Unable to parse {query_file} as JSON: {e}")
+
+def validate_mutually_exclusive_flags(flags_names_to_values: Mapping[str, Any],
+                                      at_least_one_required=False):
+    """Takes a dict of flag names -> flag values, and raises an exception if more than one or none
+    specified."""
+
+    num_values_not_none = len(list(filter(lambda x: x is not None, flags_names_to_values.values())))
+    flag_names_str = ", ".join(flags_names_to_values.keys())
+
+    if num_values_not_none > 1:
+        raise typer.BadParameter(
+            f"{flag_names_str} are mutually exclusive. Please use only one."
+        )
+
+    if at_least_one_required and num_values_not_none == 0:
+        raise typer.BadParameter(f"Must specify one of {flag_names_str}")
+
+@APP.command()
+def print_query(
+    region_code: RegionCodeListType = None,
+    include_any_hashtags: IncludeAnyHashtagListType = None,
+    exclude_any_hashtags: ExcludeAnyHashtagListType = None,
+    include_all_hashtags: IncludeAllHashtagListType = None,
+    exclude_all_hashtags: ExcludeAllHashtagListType = None,
+) -> None:
+    query = generate_query(region_code, include_any_hashtags, include_all_hashtags,
+                           exclude_any_hashtags, exclude_all_hashtags)
+
+    print(query)
+    print(json.dumps(query, cls=QueryJSONEncoder, indent=2))
 
 @APP.command()
 def run(
@@ -258,9 +305,15 @@ def run(
         ),
     ] = -1,
     raw_responses_output_dir: RawResponsesOutputDir = None,
-    query_file: QueryFileType = Path("query.yaml"),
+    query_file_exec: YamlPytonExecQueryFileType = None,
+    query_file_json: JsonQueryFileType = None,
     api_credentials_file: ApiCredentialsFileType = _DEFAULT_CREDENTIALS_FILE_PATH,
     rate_limit_wait_strategy: ApiRateLimitWaitStrategyType = ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS,
+    region_code: RegionCodeListType = None,
+    include_any_hashtags: IncludeAnyHashtagListType = None,
+    exclude_any_hashtags: ExcludeAnyHashtagListType = None,
+    include_all_hashtags: IncludeAllHashtagListType = None,
+    exclude_all_hashtags: ExcludeAllHashtagListType = None,
 ) -> None:
     """
 
@@ -279,20 +332,36 @@ def run(
     start_date_datetime = datetime.strptime(start_date_str, "%Y%m%d")
     end_date_datetime = datetime.strptime(end_date_str, "%Y%m%d")
 
-    query = get_query(query_file)
+
+    validate_mutually_exclusive_flags({"--query-file-exec": query_file_exec, "--query-file-json":
+                                       query_file_json})
+    validate_mutually_exclusive_flags({'--db-url': db_url, '--db-file': db_file},
+                                      at_least_one_required=True)
+
+    validate_mutually_exclusive_flags({"--include-any-hashtags": include_any_hashtags,
+                                       "--include-all-hashtags": include_all_hashtags})
+    validate_mutually_exclusive_flags({"--exclude-any-hashtags": exclude_any_hashtags,
+                                       "--exclude-all-hashtags": exclude_all_hashtags})
+    if region_code and any((code not in {region.value for region in SupportedRegions} for code in region_code)):
+        raise typer.BadParameter(f"provide region code \"{region_code}\" invalid.")
+
+
+    # TODO(macpd): reject --query-file-json along any(--include-any-hashtags,
+    # --include-all-hashtags, --exclude-any-hashtags, --exclude-all-hashtags)
+    # TODO(macpd): use default query file path if no other query value provided 
+    if query_file_exec:
+        query = get_query_from_yaml_exec(query_file)
+    elif query_file_json:
+        query = get_query_file_json(query_file_json)
+    else:
+        query = generate_query(region_code, include_any_hashtags, include_all_hashtags,
+                               exclude_any_hashtags, exclude_all_hashtags)
 
     logging.log(logging.INFO, f"Query: {query}")
 
-    if db_url and db_file:
-        raise typer.BadParameter(
-            "--db_url and --db_file are mutually exclusive. Please use only one."
-        )
-    if not (db_url or db_file):
-        raise typer.BadParameter("Must specify one of --db_url or --db_file")
-
     if db_url:
         engine = get_engine_and_create_tables(db_url)
-    if db_file:
+    elif db_file:
         engine = get_sqlite_engine_and_create_tables(db_file)
 
     config = AcquitionConfig(
