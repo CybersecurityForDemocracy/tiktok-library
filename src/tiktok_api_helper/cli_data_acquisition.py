@@ -275,10 +275,11 @@ def print_query(
     include_all_hashtags: IncludeAllHashtagListType = None,
     exclude_all_hashtags: ExcludeAllHashtagListType = None,
 ) -> None:
+    """Prints to stdout the query generated from flags. Useful for creating a base from which to
+    build more complex custom JSON queries."""
     query = generate_query(region_code, include_any_hashtags, include_all_hashtags,
                            exclude_any_hashtags, exclude_all_hashtags)
 
-    print(query)
     print(json.dumps(query, cls=QueryJSONEncoder, indent=2))
 
 @APP.command()
@@ -348,7 +349,6 @@ def run(
 
     # TODO(macpd): reject --query-file-json along any(--include-any-hashtags,
     # --include-all-hashtags, --exclude-any-hashtags, --exclude-all-hashtags)
-    # TODO(macpd): use default query file path if no other query value provided 
     if query_file_exec:
         query = get_query_from_yaml_exec(query_file)
     elif query_file_json:
