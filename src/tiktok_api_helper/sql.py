@@ -111,7 +111,7 @@ class CrawlTag(Base):
     __table_args__ = (UniqueConstraint("name"),)
 
     def __repr__(self) -> str:
-        return f"CrawlTag <{id(self):x}> (id={self.id}, name={self.name!r})"
+        return f"CrawlTag (id={self.id}, name={self.name!r})"
 
 
 videos_to_effect_ids_association_table = Table(
@@ -395,7 +395,7 @@ class Crawl(Base):
 
     def __repr__(self) -> str:
         return (
-            f"Crawl <{id(self):x}> id={self.id}, crawl_tags={self.crawl_tags!r}, "
+            f"Crawl id={self.id}, crawl_tags={self.crawl_tags!r}, "
             f"started_at={self.crawl_started_at!r}, "
             f"has_more={self.has_more!r}, search_id={self.search_id!r}\n"
             f"query='{self.query!r}'"
