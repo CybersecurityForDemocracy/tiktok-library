@@ -1,4 +1,4 @@
-"""use SqlAlchemy ORM many-to-many relationships of videos to hashtags, effect IDs, and crawl tags.  add many-to-one for video -> crawl_id. rename query_tags -> crawl_tags. Migraate data from existing columns (which used MyJsonList type) into new schema.
+"""use SqlAlchemy ORM many-to-many relationships of videos to hashtags, effect IDs, and crawl tags.  add many-to-one for video -> crawl_id. Migraate data from existing columns (which used MyJsonList type) into new schema.
 
 Revision ID: cdc2ea694856
 Revises: 
@@ -15,12 +15,19 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "cdc2ea694856"
-down_revision: Union[str, None] = None
+down_revision: Union[str, None] = "992d4d3bf349"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    conn = op.get_bind()
+    dialect_name = conn.dialect.name
+    print("conn.dialect:", conn.dialect)
+    print("conn.dialect.name:", conn.dialect.name)
+    if not dialect_name.startswith('postgresql') and not dialect_name.startswith('sqlite'):
+        raise NotImplementedError(f"{dialect_name} not supported!")
+
     # Make timesamp columns into ones with timezone
     # Batch syntax is used to avoid issues with SQLite
     # See https://alembic.sqlalchemy.org/en/latest/batch.html
@@ -59,114 +66,84 @@ def upgrade() -> None:
             existing_nullable=True,
         )
 
-    # Rename query_tag -> crawl_tag table and all references to query_tag in columns, primary key, and unique
-    # constraint
-    op.rename_table("query_tag", "crawl_tag")
+    # create crawl_tag, crawls_to_crawl_tags, videos_to_crawl_tags
+    op.create_table(
+        "crawl_tag",
+        sa.Column(
+            "id", sa.Integer, primary_key=True, autoincrement=True
+        ),
+        sa.Column(
+            "name", sa.String, nullable=False
+        ),
+    )
+    with op.batch_alter_table("crawl_tag", schema=None) as batch_op:
+        batch_op.create_unique_constraint(None, ["name"])
 
-    # Drop foreign key refs that rely on primary key we want to rename
-    op.drop_constraint(
-        constraint_name="crawls_to_query_tags_crawl_id_fkey",
-        table_name="crawls_to_query_tags",
-        type_="foreignkey",
+    op.create_table(
+        "crawls_to_crawl_tags",
+        sa.Column(
+            "crawl_id", sa.BigInteger, sa.ForeignKey("crawl.id"), primary_key=True
+        ),
+        sa.Column(
+            "crawl_tag_id", sa.Integer, sa.ForeignKey("crawl_tag.id"), primary_key=True
+        ),
     )
-    op.drop_constraint(
-        constraint_name="crawls_to_query_tags_query_tag_id_fkey",
-        table_name="crawls_to_query_tags",
-        type_="foreignkey",
-    )
-    op.drop_constraint(
-        constraint_name="videos_to_query_tags_query_tag_id_fkey",
-        table_name="videos_to_query_tags",
-        type_="foreignkey",
-    )
-    op.drop_constraint(
-        constraint_name="videos_to_query_tags_video_id_fkey",
-        table_name="videos_to_query_tags",
-        type_="foreignkey",
-    )
-
-    op.drop_constraint("query_tag_pkey", "crawl_tag", type_="primary")
-    op.drop_constraint("query_tag_name_key", "crawl_tag", type_="unique")
-    op.create_primary_key(constraint_name=None, table_name="crawl_tag", columns=["id"])
-    op.create_unique_constraint(
-        constraint_name=None, table_name="crawl_tag", columns=["name"]
-    )
-
-    # Rename crawls_to_query_tags -> crawls_to_crawl_tags in table and all references to query_tag in columns, primary key, and unique
-    # constraint
-    op.rename_table("crawls_to_query_tags", "crawls_to_crawl_tags")
-
-    with op.batch_alter_table("crawls_to_crawl_tags", schema=None) as batch_op:
-        batch_op.alter_column(
-            column_name="query_tag_id",
-            new_column_name="crawl_tag_id",
-        )
-    op.drop_constraint(
-        constraint_name="crawls_to_query_tags_pkey",
-        table_name="crawls_to_crawl_tags",
-        type_="primary",
-    )
-    op.create_primary_key(
-        constraint_name=None,
-        table_name="crawls_to_crawl_tags",
-        columns=["crawl_id", "crawl_tag_id"],
-    )
-    op.create_foreign_key(
-        constraint_name=None,
-        source_table="crawls_to_crawl_tags",
-        referent_table="crawl",
-        local_cols=["crawl_id"],
-        remote_cols=["id"],
-    )
-    op.create_foreign_key(
-        constraint_name=None,
-        source_table="crawls_to_crawl_tags",
-        referent_table="crawl_tag",
-        local_cols=["crawl_tag_id"],
-        remote_cols=["id"],
+    op.create_table(
+        "videos_to_crawl_tags",
+        sa.Column(
+            "video_id", sa.BigInteger, sa.ForeignKey("video.id"), primary_key=True
+        ),
+        sa.Column(
+            "crawl_tag_id", sa.Integer, sa.ForeignKey("crawl_tag.id"), primary_key=True
+        ),
     )
 
-    # Rename videod_to_query_tags -> videod_to_crawl_tags in table and all references to query_tag in columns, primary key, and unique
-    # constraint
-    op.rename_table("videos_to_query_tags", "videos_to_crawl_tags")
-
-    with op.batch_alter_table("videos_to_crawl_tags", schema=None) as batch_op:
-        batch_op.alter_column(
-            column_name="query_tag_id",
-            new_column_name="crawl_tag_id",
-        )
-
-    op.drop_constraint(
-        constraint_name="videos_to_query_tags_pkey",
-        table_name="videos_to_crawl_tags",
-        type_="primary",
+    op.create_table(
+        "effect",
+        sa.Column(
+            "id", sa.Integer, primary_key=True, autoincrement=True
+        ),
+        sa.Column(
+            "effect_id", sa.String, nullable=False
+        ),
     )
-    op.create_primary_key(
-        constraint_name=None,
-        table_name="videos_to_crawl_tags",
-        columns=["video_id", "crawl_tag_id"],
-    )
-    op.create_foreign_key(
-        constraint_name=None,
-        source_table="videos_to_crawl_tags",
-        referent_table="video",
-        local_cols=["video_id"],
-        remote_cols=["id"],
-    )
-    op.create_foreign_key(
-        constraint_name=None,
-        source_table="videos_to_crawl_tags",
-        referent_table="crawl_tag",
-        local_cols=["crawl_tag_id"],
-        remote_cols=["id"],
+    with op.batch_alter_table("effect", schema=None) as batch_op:
+        batch_op.create_unique_constraint(None, ["effect_id"])
+    op.create_table(
+        "videos_to_effect_ids",
+        sa.Column(
+            "video_id", sa.BigInteger, sa.ForeignKey("video.id"), primary_key=True
+        ),
+        sa.Column(
+            "effect_id", sa.Integer, sa.ForeignKey("effect.id"), primary_key=True
+        ),
     )
 
-    # Use new naming convention for constraints
-    op.drop_constraint("effect_effect_id_key", "effect", type_="unique")
-    op.create_unique_constraint(op.f("effect_effect_id_uniq"), "effect", ["effect_id"])
+    op.create_table(
+        "hashtag",
+        sa.Column(
+            "id", sa.Integer, primary_key=True, autoincrement=True
+        ),
+        sa.Column(
+            "name", sa.String, nullable=False
+        ),
+    )
 
-    op.drop_constraint("hashtag_name_key", "hashtag", type_="unique")
-    op.create_unique_constraint(op.f("hashtag_name_uniq"), "hashtag", ["name"])
+    op.create_table(
+        "videos_to_hashtags",
+        sa.Column(
+            "video_id", sa.BigInteger, sa.ForeignKey("video.id"), primary_key=True
+        ),
+        sa.Column(
+            "hashtag_id", sa.BigInteger, sa.ForeignKey("hashtag.id"), primary_key=True
+        ),
+    )
+
+
+    with op.batch_alter_table("hashtag", schema=None) as batch_op:
+        # Use new naming convention for constraints
+        #  batch_op.drop_constraint("hashtag_name_key", type_="unique")
+        batch_op.create_unique_constraint(None, ["name"])
 
     op.create_table(
         "videos_to_crawls",
@@ -192,7 +169,6 @@ def upgrade() -> None:
     op.drop_column("video", "hashtag_names")
     op.drop_column("video", "effect_ids")
 
-
 def migrate_source_column_data_to_association_table(
     association_table_name,
     association_table_source_id_column,
@@ -204,10 +180,34 @@ def migrate_source_column_data_to_association_table(
     source_table_id_column,
     source_table_value_column,
 ):
+    conn = op.get_bind()
+    dialect_name = conn.dialect.name
+    if dialect_name.startswith('postgresql'):
+        source_values_json_unnest_statment = (
+                f"SELECT DISTINCT json_array_elements_text({source_table_value_column}->'list') "
+                f"FROM {source_table_name}")
+        association_table_source_id_column_and_source_values_json_unnest_statment = (
+                f"SELECT {source_table_name}.{source_table_id_column} AS {association_table_source_id_column}, "
+                f"json_array_elements_text({source_table_value_column}->'list') AS value "
+                f"FROM {source_table_name}"
+                )
+    elif dialect_name.startswith('sqlite'):
+        source_values_json_unnest_statment = (
+                f"SELECT DISTINCT j.value FROM {source_table_name}, "
+                f"json_each({source_table_name}.{source_table_value_column}->'list') AS j "
+                f"WHERE j.value IS NOT NULL AND j.value != ''")
+        association_table_source_id_column_and_source_values_json_unnest_statment = (
+                f"SELECT {source_table_name}.{source_table_id_column} AS {association_table_source_id_column}, "
+                f"j.value FROM {source_table_name}, "
+                f"json_each({source_table_name}.{source_table_value_column}->'list') AS j "
+                )
+
+
     # Make sure new table has all existing values
     op.execute(
         f"INSERT INTO {new_value_table_name} ({new_value_table_value_column}) "
-        f"SELECT DISTINCT json_array_elements_text({source_table_value_column}->'list') FROM {source_table_name} "
+        f"{source_values_json_unnest_statment} "
+        #  f"SELECT DISTINCT json_array_elements_text({source_table_value_column}->'list') FROM {source_table_name} "
         f"ON CONFLICT ({new_value_table_value_column}) DO NOTHING;"
     )
     # Get list of association_table_source_id_column with values (extracted from
@@ -217,10 +217,11 @@ def migrate_source_column_data_to_association_table(
     op.execute(
         f"INSERT INTO {association_table_name} ({association_table_source_id_column}, {association_table_value_id_column}) "
         f"SELECT source_id_to_value.{association_table_source_id_column}, {new_value_table_name}.{new_value_table_id_column} FROM "
-        f"    (SELECT {source_table_id_column} AS {association_table_source_id_column}, json_array_elements_text({source_table_value_column}->'list') as value"
-        f"     FROM {source_table_name}) AS source_id_to_value "
+        f"({association_table_source_id_column_and_source_values_json_unnest_statment}) AS source_id_to_value "
+        #  f"    (SELECT {source_table_id_column} AS {association_table_source_id_column}, json_array_elements_text({source_table_value_column}->'list') as value"
+        #  f"     FROM {source_table_name}) AS source_id_to_value "
         f"JOIN {new_value_table_name} ON (source_id_to_value.value = {new_value_table_name}.{new_value_table_value_column}) "
-        f"ON CONFLICT ({association_table_source_id_column}, {association_table_value_id_column}) DO NOTHING"
+        f"ON CONFLICT ({association_table_source_id_column}, {association_table_value_id_column}) DO NOTHING;"
     )
 
 
@@ -302,12 +303,12 @@ def revert_association_table_data_to_json_list_type(
     )
 
 
-def revert_crawl_source_column_data_from_crawls_to_query_tags():
+def revert_crawl_source_column_data_from_crawls_to_crawl_tags():
     revert_association_table_data_to_json_list_type(
-        association_table_name="crawls_to_query_tags",
+        association_table_name="crawls_to_crawl_tags",
         association_table_source_id_column="crawl_id",
-        association_table_value_id_column="query_tag_id",
-        new_value_table_name="query_tag",
+        association_table_value_id_column="crawl_tag_id",
+        new_value_table_name="crawl_tag",
         new_value_table_id_column="id",
         new_value_table_value_column="name",
         source_table_name="crawl",
@@ -316,12 +317,12 @@ def revert_crawl_source_column_data_from_crawls_to_query_tags():
     )
 
 
-def revert_video_source_column_data_from_videos_to_query_tags():
+def revert_video_source_column_data_from_videos_to_crawl_tags():
     revert_association_table_data_to_json_list_type(
-        association_table_name="videos_to_query_tags",
+        association_table_name="videos_to_crawl_tags",
         association_table_source_id_column="video_id",
-        association_table_value_id_column="query_tag_id",
-        new_value_table_name="query_tag",
+        association_table_value_id_column="crawl_tag_id",
+        new_value_table_name="crawl_tag",
         new_value_table_id_column="id",
         new_value_table_value_column="name",
         source_table_name="video",
@@ -436,107 +437,15 @@ def downgrade() -> None:
             existing_nullable=False,
             autoincrement=True,
         )
-    # Drop FK references so the primary keys they rely on can be dropped/added back.
-    op.drop_constraint(
-        constraint_name="crawls_to_crawl_tags_crawl_id_crawl_fkey",
-        table_name="crawls_to_crawl_tags",
-        type_="foreignkey",
-    )
-    op.drop_constraint(
-        constraint_name="crawls_to_crawl_tags_crawl_tag_id_crawl_tag_fkey",
-        table_name="crawls_to_crawl_tags",
-        type_="foreignkey",
-    )
-    op.drop_constraint(
-        constraint_name="videos_to_crawl_tags_video_id_video_fkey",
-        table_name="videos_to_crawl_tags",
-        type_="foreignkey",
-    )
-    op.drop_constraint(
-        constraint_name="videos_to_crawl_tags_crawl_tag_id_crawl_tag_fkey",
-        table_name="videos_to_crawl_tags",
-        type_="foreignkey",
-    )
 
-    # Rename crawl_tag -> query_tag table and all references to crawl_tag in columns, primary key, and unique
-    # constraint
-    op.rename_table("crawl_tag", "query_tag")
-    op.drop_constraint("crawl_tag_pkey", "query_tag", type_="primary")
-    op.drop_constraint("crawl_tag_name_uniq", "query_tag", type_="unique")
-    op.create_primary_key(constraint_name=None, table_name="query_tag", columns=["id"])
-    op.create_unique_constraint(
-        constraint_name="query_tag_name_key", table_name="query_tag", columns=["name"]
-    )
-
-    # Rename crawls_to_crawl_tags -> crawls_to_query_tags in table and all references to crawl_tag in columns, primary key, and unique
-    # constraint
-    op.rename_table("crawls_to_crawl_tags", "crawls_to_query_tags")
-    with op.batch_alter_table("crawls_to_query_tags", schema=None) as batch_op:
-        batch_op.alter_column(
-            column_name="crawl_tag_id",
-            new_column_name="query_tag_id",
-        )
-    op.drop_constraint(
-        constraint_name="crawls_to_crawl_tags_pkey",
-        table_name="crawls_to_query_tags",
-        type_="primary",
-    )
-    op.create_primary_key(
-        constraint_name=None,
-        table_name="crawls_to_query_tags",
-        columns=["crawl_id", "query_tag_id"],
-    )
-    op.create_foreign_key(
-        constraint_name="crawls_to_query_tags_crawl_id_fkey",
-        source_table="crawls_to_query_tags",
-        referent_table="crawl",
-        local_cols=["crawl_id"],
-        remote_cols=["id"],
-    )
-    op.create_foreign_key(
-        constraint_name="crawls_to_query_tags_query_tag_id_fkey",
-        source_table="crawls_to_query_tags",
-        referent_table="query_tag",
-        local_cols=["query_tag_id"],
-        remote_cols=["id"],
-    )
-
-    # Rename videod_to_crawl_tags -> videod_to_query_tags in table and all references to crawl_tag in columns, primary key, and unique
-    # constraint
-    op.rename_table("videos_to_crawl_tags", "videos_to_query_tags")
-    with op.batch_alter_table("videos_to_query_tags", schema=None) as batch_op:
-        batch_op.alter_column(
-            column_name="crawl_tag_id",
-            new_column_name="query_tag_id",
-        )
-    op.drop_constraint(
-        constraint_name="videos_to_crawl_tags_pkey",
-        table_name="videos_to_query_tags",
-        type_="primary",
-    )
-    op.create_primary_key(
-        constraint_name=None,
-        table_name="videos_to_query_tags",
-        columns=["video_id", "query_tag_id"],
-    )
-    op.create_foreign_key(
-        constraint_name="videos_to_query_tags_video_id_fkey",
-        source_table="videos_to_query_tags",
-        referent_table="video",
-        local_cols=["video_id"],
-        remote_cols=["id"],
-    )
-    op.create_foreign_key(
-        constraint_name="videos_to_query_tags_query_tag_id_fkey",
-        source_table="videos_to_query_tags",
-        referent_table="query_tag",
-        local_cols=["query_tag_id"],
-        remote_cols=["id"],
-    )
-
-    revert_crawl_source_column_data_from_crawls_to_query_tags()
-    revert_video_source_column_data_from_videos_to_query_tags()
+    revert_crawl_source_column_data_from_crawls_to_crawl_tags()
+    revert_video_source_column_data_from_videos_to_crawl_tags()
     revert_video_hashtag_names_column_data_from_videos_to_hashtags()
     revert_video_effect_ids_column_data_from_videos_to_effect_ids()
 
+    op.drop_table("hashtag")
+    op.drop_table("videos_to_hashtags")
     op.drop_table("videos_to_crawls")
+    op.drop_table("crawls_to_crawl_tags")
+    op.drop_table("videos_to_crawl_tags")
+    op.drop_table("crawl_tag")
