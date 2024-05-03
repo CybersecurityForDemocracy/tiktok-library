@@ -23,8 +23,6 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     conn = op.get_bind()
     dialect_name = conn.dialect.name
-    print("conn.dialect:", conn.dialect)
-    print("conn.dialect.name:", conn.dialect.name)
     if not dialect_name.startswith('postgresql') and not dialect_name.startswith('sqlite'):
         raise NotImplementedError(f"{dialect_name} not supported!")
 
@@ -407,14 +405,6 @@ def downgrade() -> None:
             existing_server_default=sa.text("CURRENT_TIMESTAMP"),
         )
 
-    with op.batch_alter_table("hashtag", schema=None) as batch_op:
-        batch_op.drop_constraint(op.f("hashtag_name_uniq"), type_="unique")
-        batch_op.create_unique_constraint("hashtag_name_key", ["name"])
-
-    with op.batch_alter_table("effect", schema=None) as batch_op:
-        batch_op.drop_constraint(op.f("effect_effect_id_uniq"), type_="unique")
-        batch_op.create_unique_constraint("effect_effect_id_key", ["effect_id"])
-
     op.add_column(
         "crawl",
         sa.Column(
@@ -452,9 +442,11 @@ def downgrade() -> None:
     revert_video_hashtag_names_column_data_from_videos_to_hashtags()
     revert_video_effect_ids_column_data_from_videos_to_effect_ids()
 
-    op.drop_table("hashtag")
     op.drop_table("videos_to_hashtags")
     op.drop_table("videos_to_crawls")
     op.drop_table("crawls_to_crawl_tags")
     op.drop_table("videos_to_crawl_tags")
+    op.drop_table("videos_to_effect_ids")
+    op.drop_table("hashtag")
+    op.drop_table("effect")
     op.drop_table("crawl_tag")

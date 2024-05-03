@@ -34,5 +34,9 @@ def upgrade() -> None:
         op.drop_table("videos_to_effect_ids")
         op.drop_table("effect")
 
+    if "hashtag" in tables:
+        op.drop_table("hashtag")
+        op.drop_table("videos_to_hashtags")
+
 def downgrade() -> None:
     pass
