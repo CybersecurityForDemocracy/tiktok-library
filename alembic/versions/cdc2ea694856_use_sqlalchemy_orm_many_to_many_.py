@@ -207,7 +207,6 @@ def migrate_source_column_data_to_association_table(
     op.execute(
         f"INSERT INTO {new_value_table_name} ({new_value_table_value_column}) "
         f"{source_values_json_unnest_statment} "
-        #  f"SELECT DISTINCT json_array_elements_text({source_table_value_column}->'list') FROM {source_table_name} "
         f"ON CONFLICT ({new_value_table_value_column}) DO NOTHING;"
     )
     # Get list of association_table_source_id_column with values (extracted from
@@ -218,8 +217,6 @@ def migrate_source_column_data_to_association_table(
         f"INSERT INTO {association_table_name} ({association_table_source_id_column}, {association_table_value_id_column}) "
         f"SELECT source_id_to_value.{association_table_source_id_column}, {new_value_table_name}.{new_value_table_id_column} FROM "
         f"({association_table_source_id_column_and_source_values_json_unnest_statment}) AS source_id_to_value "
-        #  f"    (SELECT {source_table_id_column} AS {association_table_source_id_column}, json_array_elements_text({source_table_value_column}->'list') as value"
-        #  f"     FROM {source_table_name}) AS source_id_to_value "
         f"JOIN {new_value_table_name} ON (source_id_to_value.value = {new_value_table_name}.{new_value_table_value_column}) "
         f"ON CONFLICT ({association_table_source_id_column}, {association_table_value_id_column}) DO NOTHING;"
     )
@@ -292,12 +289,19 @@ def revert_association_table_data_to_json_list_type(
     source_table_id_column,
     source_table_value_column,
 ):
+    conn = op.get_bind()
+    dialect_name = conn.dialect.name
+    if dialect_name.startswith('postgresql'):
+        json_list_aggregate_statement = f"json_build_object('list', json_agg(value_to_aggregate))"
+    elif dialect_name.startswith('sqlite'):
+        json_list_aggregate_statement = f"json_object('list', json_group_array(a.value_to_aggregate))"
     op.execute(
         f"WITH source_id_to_json_list AS ( "
-        f"SELECT {association_table_source_id_column}, json_build_object('list', json_agg(value_to_aggregate)) AS json_list FROM "
-        f"( "
-        f"    SELECT {association_table_source_id_column}, {new_value_table_name}.{new_value_table_value_column} AS value_to_aggregate FROM {association_table_name} JOIN {new_value_table_name} ON({association_table_name}.{association_table_value_id_column} = {new_value_table_name}.{new_value_table_id_column}) "
-        f") AS a GROUP BY {association_table_source_id_column} "
+        f"  SELECT a.{association_table_source_id_column}, {json_list_aggregate_statement} AS json_list FROM "
+        f"  ( "
+        f"      SELECT {association_table_name}.{association_table_source_id_column}, {new_value_table_name}.{new_value_table_value_column} AS value_to_aggregate "
+        f"      FROM {association_table_name} JOIN {new_value_table_name} ON({association_table_name}.{association_table_value_id_column} = {new_value_table_name}.{new_value_table_id_column}) "
+        f"  ) as a GROUP BY a.{association_table_source_id_column} "
         f") "
         f"UPDATE {source_table_name} SET {source_table_value_column} = source_id_to_json_list.json_list FROM source_id_to_json_list WHERE {source_table_name}.{source_table_id_column} = source_id_to_json_list.{association_table_source_id_column}"
     )
@@ -402,10 +406,15 @@ def downgrade() -> None:
             existing_nullable=False,
             existing_server_default=sa.text("CURRENT_TIMESTAMP"),
         )
-    op.drop_constraint(op.f("hashtag_name_uniq"), "hashtag", type_="unique")
-    op.create_unique_constraint("hashtag_name_key", "hashtag", ["name"])
-    op.drop_constraint(op.f("effect_effect_id_uniq"), "effect", type_="unique")
-    op.create_unique_constraint("effect_effect_id_key", "effect", ["effect_id"])
+
+    with op.batch_alter_table("hashtag", schema=None) as batch_op:
+        batch_op.drop_constraint(op.f("hashtag_name_uniq"), type_="unique")
+        batch_op.create_unique_constraint("hashtag_name_key", ["name"])
+
+    with op.batch_alter_table("effect", schema=None) as batch_op:
+        batch_op.drop_constraint(op.f("effect_effect_id_uniq"), type_="unique")
+        batch_op.create_unique_constraint("effect_effect_id_key", ["effect_id"])
+
     op.add_column(
         "crawl",
         sa.Column(
