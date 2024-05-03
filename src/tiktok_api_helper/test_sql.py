@@ -207,6 +207,7 @@ def test_crawl_tags_inserted_via_crawl(test_database_engine, mock_crawl):
             ).crawl_tags
         } == more_crawl_tag_names
 
+
 def test_none_crawl_tags(test_database_engine, mock_crawl):
     initial_mock_crawl_id = mock_crawl.id
     crawl = Crawl.from_request(
@@ -224,7 +225,7 @@ def test_none_crawl_tags(test_database_engine, mock_crawl):
             for crawl_tag in session.scalar(
                 select(Crawl).where(Crawl.id == crawl.id)
             ).crawl_tags
-        } == set() 
+        } == set()
 
 
 def test_upsert(test_database_engine, mock_videos, mock_crawl):

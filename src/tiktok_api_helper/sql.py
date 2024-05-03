@@ -319,7 +319,9 @@ def upsert_videos(
         )
 
         # Get all crawl_tag names references in this list of videos
-        crawl_tags_set = _get_crawl_tag_name_to_crawl_tag_object_map(session, crawl_tags)
+        crawl_tags_set = _get_crawl_tag_name_to_crawl_tag_object_map(
+            session, crawl_tags
+        )
 
         # Get all effect ids references in this list of videos
         effect_id_to_effect = _get_effect_id_to_effect_object_map(session, video_data)
@@ -408,7 +410,9 @@ class Crawl(Base):
             has_more=res_data["has_more"],
             search_id=res_data["search_id"],
             query=json.dumps(query, cls=QueryJSONEncoder),
-            crawl_tags={CrawlTag(name=name) for name in crawl_tags} if crawl_tags else set(),
+            crawl_tags=(
+                {CrawlTag(name=name) for name in crawl_tags} if crawl_tags else set()
+            ),
         )
 
     def upload_self_to_db(self, engine: Engine) -> None:
