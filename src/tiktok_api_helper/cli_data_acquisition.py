@@ -19,7 +19,6 @@ from .custom_types import (
     TikTokStartDateFormat,
     TikTokEndDateFormat,
     RawResponsesOutputDir,
-    YamlPytonExecQueryFileType,
     ApiCredentialsFileType,
     ApiRateLimitWaitStrategyType,
     JsonQueryFileType,
@@ -239,14 +238,6 @@ def test(
     driver_single_day(config)
 
 
-def get_query_from_yaml_exec(query_file: Path):
-    with query_file.open("r") as f:
-        yaml_file = yaml.load(f, Loader=yaml.FullLoader)
-    _temp = {}
-    exec(yaml_file["query"], globals(), _temp)
-    query = _temp["return_query"]()
-    return query
-
 def get_query_file_json(query_file: Path):
     with query_file.open("r") as f:
         file_contents = f.read()
@@ -347,7 +338,6 @@ def run(
         ),
     ] = -1,
     raw_responses_output_dir: RawResponsesOutputDir = None,
-    query_file_exec: YamlPytonExecQueryFileType = None,
     query_file_json: JsonQueryFileType = None,
     api_credentials_file: ApiCredentialsFileType = _DEFAULT_CREDENTIALS_FILE_PATH,
     rate_limit_wait_strategy: ApiRateLimitWaitStrategyType = ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS,
@@ -363,7 +353,6 @@ def run(
 ) -> None:
     """
 
-    This CLI reads a **YAML file called `query.yaml`** with a query string and the API key defined in **`secrets.yaml`** in the **local directory**.
     It executes it and stores the results from the TikTok API in a local SQLite database.
 
     If the optional est_nreps parameter is provided, it'll be used for the first iteration of a progress bar.
@@ -379,8 +368,6 @@ def run(
     end_date_datetime = datetime.strptime(end_date_str, "%Y%m%d")
 
 
-    validate_mutually_exclusive_flags({"--query-file-exec": query_file_exec, "--query-file-json":
-                                       query_file_json})
     validate_mutually_exclusive_flags({'--db-url': db_url, '--db-file': db_file},
                                       at_least_one_required=True)
 
@@ -398,9 +385,7 @@ def run(
 
     # TODO(macpd): reject --query-file-json along any(--include-any-hashtags,
     # --include-all-hashtags, --exclude-any-hashtags, --exclude-all-hashtags)
-    if query_file_exec:
-        query = get_query_from_yaml_exec(query_file)
-    elif query_file_json:
+    if query_file_json:
         query = get_query_file_json(query_file_json)
     else:
         query = generate_query(region,

@@ -30,16 +30,6 @@ DBFileType = Annotated[
 
 DBUrlType = Annotated[str, typer.Option(help="database URL for storing API results")]
 
-YamlPytonExecQueryFileType = Annotated[
-    Path,
-    typer.Option(
-        exists=True,
-        file_okay=True,
-        dir_okay=False,
-        help="Path to yaml file containing python code to exec.",
-    ),
-]
-
 JsonQueryFileType = Annotated[
     Path,
     typer.Option(
