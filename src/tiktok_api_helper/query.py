@@ -5,7 +5,7 @@ import enum
 
 import attrs
 
-from  .region_codes import SupportedRegions
+from .region_codes import SupportedRegions
 
 
 class Operations(enum.StrEnum):
@@ -52,7 +52,8 @@ class Fields:
     effect_id = _Field("effect_id", validator=attrs.validators.instance_of(str))
 
     region_code = _Field(
-        "region_code", validator=attrs.validators.in_({region.value for region in SupportedRegions})
+        "region_code",
+        validator=attrs.validators.in_({region.value for region in SupportedRegions}),
     )
     video_length = _Field("video_length", validator=attrs.validators.in_(VideoLength))
 
@@ -157,38 +158,55 @@ class QueryJSONEncoder(json.JSONEncoder):
             return o.as_dict()
         return super().default(o)
 
+
 def get_normalized_hashtag_set(comma_separated_hashtags: str) -> Set[str]:
     """Takes a string of comma separated hashtag names and returns a set of hashtag names all
     lowercase and stripped of leading "#" if present."""
-    return {hashtag.lstrip("#").lower() for hashtag in comma_separated_hashtags.split(',')}
+    return {
+        hashtag.lstrip("#").lower() for hashtag in comma_separated_hashtags.split(",")
+    }
+
 
 def get_normalized_keyword_set(comma_separated_keywords: str) -> Set[str]:
     """Takes a string of comma separated keywords and returns a set of keywords all lowercase"""
-    return {keyword.lower() for keyword in comma_separated_keywords.split(',')}
+    return {keyword.lower() for keyword in comma_separated_keywords.split(",")}
+
 
 def any_hashtags_condition(hashtags):
-        return Cond(Fields.hashtag_name, sorted(get_normalized_hashtag_set(hashtags)), Op.IN)
+    return Cond(
+        Fields.hashtag_name, sorted(get_normalized_hashtag_set(hashtags)), Op.IN
+    )
+
 
 def all_hashtags_condition_list(hashtags):
-            return [Cond(Fields.hashtag_name, hashtag_name, Op.EQ) for hashtag_name in
-                    sorted(get_normalized_hashtag_set(hashtags))]
+    return [
+        Cond(Fields.hashtag_name, hashtag_name, Op.EQ)
+        for hashtag_name in sorted(get_normalized_hashtag_set(hashtags))
+    ]
+
 
 def any_keywords_condition(keywords):
-        return Cond(Fields.keyword, sorted(get_normalized_keyword_set(keywords)), Op.IN)
+    return Cond(Fields.keyword, sorted(get_normalized_keyword_set(keywords)), Op.IN)
+
 
 def all_keywords_condition_list(keywords):
-            return [Cond(Fields.keyword, keyword, Op.EQ) for keyword in sorted(get_normalized_hashtag_set(keywords))]
+    return [
+        Cond(Fields.keyword, keyword, Op.EQ)
+        for keyword in sorted(get_normalized_hashtag_set(keywords))
+    ]
 
-def generate_query(region_codes: Optional[List[SupportedRegions]] = None,
-                   include_any_hashtags: Optional[str] = None,
-                   include_all_hashtags: Optional[str] = None,
-                   exclude_any_hashtags: Optional[str] = None,
-                   exclude_all_hashtags: Optional[str] = None,
-                   include_any_keywords: Optional[str] = None,
-                   include_all_keywords: Optional[str] = None,
-                   exclude_any_keywords: Optional[str] = None,
-                   exclude_all_keywords: Optional[str] = None,
-                   ) -> Query:
+
+def generate_query(
+    region_codes: Optional[List[SupportedRegions]] = None,
+    include_any_hashtags: Optional[str] = None,
+    include_all_hashtags: Optional[str] = None,
+    exclude_any_hashtags: Optional[str] = None,
+    exclude_all_hashtags: Optional[str] = None,
+    include_any_keywords: Optional[str] = None,
+    include_all_keywords: Optional[str] = None,
+    exclude_any_keywords: Optional[str] = None,
+    exclude_all_keywords: Optional[str] = None,
+) -> Query:
     query_args = {"and_": [], "not_": []}
 
     if include_any_hashtags:
@@ -201,7 +219,6 @@ def generate_query(region_codes: Optional[List[SupportedRegions]] = None,
     elif exclude_all_hashtags:
         query_args["not_"].extend(all_hashtags_condition_list(exclude_all_hashtags))
 
-
     # TODO(macpd): test keyword include/exclude
     if include_any_keywords:
         query_args["and_"].append(any_keywords_condition(include_any_keywords))
@@ -213,12 +230,10 @@ def generate_query(region_codes: Optional[List[SupportedRegions]] = None,
     elif exclude_all_keywords:
         query_args["not_"].extend(all_keywords_condition_list(exclude_all_keywords))
 
-
     if region_codes:
         query_args["and_"].append(Cond(Fields.region_code, sorted(region_codes), Op.IN))
 
     return Query(**query_args)
-
 
 
 Cond = Condition
