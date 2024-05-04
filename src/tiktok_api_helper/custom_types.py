@@ -46,8 +46,10 @@ JsonQueryFileType = Annotated[
         exists=True,
         file_okay=True,
         dir_okay=False,
-        help=("Path to file query as JSON. File contents will be parsed as JSON and used directly "
-        "in query of API requests."),
+        help=(
+            "Path to file query as JSON. File contents will be parsed as JSON and used directly "
+            "in query of API requests."
+        ),
     ),
 ]
 
@@ -78,74 +80,84 @@ ApiRateLimitWaitStrategyType = Annotated[
     ),
 ]
 
-RegionCodeListType = Annotated[Optional[List[SupportedRegions]],
-    typer.Option()
-]
+RegionCodeListType = Annotated[Optional[List[SupportedRegions]], typer.Option()]
 
 IncludeAnyHashtagListType = Annotated[
     str,
     typer.Option(
-            help=("A comma separated list of hashtag names. Will query API for videos that have "
-                  "any of these hashtag names."
-                  )
-    )
+        help=(
+            "A comma separated list of hashtag names. Will query API for videos that have "
+            "any of these hashtag names."
+        )
+    ),
 ]
 
 ExcludeAnyHashtagListType = Annotated[
     str,
     typer.Option(
-            help=("A comma separated list of hashtag names. Will query API for videos that DO NOT "
-                  "have any of these hashtag names."
-                  )
-    )
+        help=(
+            "A comma separated list of hashtag names. Will query API for videos that DO NOT "
+            "have any of these hashtag names."
+        )
+    ),
 ]
 
 IncludeAllHashtagListType = Annotated[
     str,
     typer.Option(
-            help=("A comma separated list of hashtag names. Will query API for videos that have "
-                  "all of these hashtag names.")
-    )
+        help=(
+            "A comma separated list of hashtag names. Will query API for videos that have "
+            "all of these hashtag names."
+        )
+    ),
 ]
 
 ExcludeAllHashtagListType = Annotated[
     str,
     typer.Option(
-            help=("A comma separated list of hashtag names. Will query API for videos that DO NOT "
-                  "have all of these hashtag names.")
-    )
+        help=(
+            "A comma separated list of hashtag names. Will query API for videos that DO NOT "
+            "have all of these hashtag names."
+        )
+    ),
 ]
 
 IncludeAnyKeywordListType = Annotated[
     str,
     typer.Option(
-            help=("A comma separated list of keywords. Will query API for videos that have "
-                  "any of these keywords."
-                  )
-    )
+        help=(
+            "A comma separated list of keywords. Will query API for videos that have "
+            "any of these keywords."
+        )
+    ),
 ]
 
 ExcludeAnyKeywordListType = Annotated[
     str,
     typer.Option(
-            help=("A comma separated list of keywords. Will query API for videos that DO NOT "
-                  "have any of these keywords."
-                  )
-    )
+        help=(
+            "A comma separated list of keywords. Will query API for videos that DO NOT "
+            "have any of these keywords."
+        )
+    ),
 ]
 
 IncludeAllKeywordListType = Annotated[
     str,
     typer.Option(
-            help=("A comma separated list of keywords. Will query API for videos that have "
-                  "all of these keywords.")
-    )
+        help=(
+            "A comma separated list of keywords. Will query API for videos that have "
+            "all of these keywords."
+        )
+    ),
 ]
 
 ExcludeAllKeywordListType = Annotated[
     str,
     typer.Option(
-            help=("A comma separated list of keywords. Will query API for videos that DO NOT "
-                  "have all of these keywords.")
-    )
+        help=(
+            "A comma separated list of keywords. Will query API for videos that DO NOT "
+            "have all of these keywords."
+        )
+    ),
 ]
