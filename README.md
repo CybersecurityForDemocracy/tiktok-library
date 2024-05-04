@@ -18,7 +18,7 @@ OR you can install `hatch` (see https://hatch.pypa.io/latest/install/) and run c
 git clone <this repo>
 cd tiktok-library
 hatch --env test run run # run unit tests
-hatch hatch run tiktok-lib run --db-url ... # query API
+hatch run tiktok-lib run --db-url ... # query API
 
 
 > [!CAUTION]
@@ -56,6 +56,11 @@ specify the connection string.
     - Hashtags are stored in a separate table (with an internal ID, NOT from the
       API) `hashtag`, and the mapping of hashtags <-> videos is stored in
       `videos_to_hashtags`
+    - Effect IDs are stored simimarly to Hashtags with an associtation table
+      `videos_to_effect_ids`. The naming in `effect` table can be little
+      confusing because `id` is the internal database ID, and `effect_id` is the
+      value from the API (which is a string, but this author has only ever seen
+      ints (as strings) from API).
     - Data is written to DB after every TikTokRequest, by default containing up to 100 instances.
     - If a query tag (via the `--query-tag` flag) is provided, crawls and videos
       are associated to the query tag in `crawls_to_query_tags` and

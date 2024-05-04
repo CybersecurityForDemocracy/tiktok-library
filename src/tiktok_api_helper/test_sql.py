@@ -208,6 +208,26 @@ def test_crawl_tags_inserted_via_crawl(test_database_engine, mock_crawl):
         } == more_crawl_tag_names
 
 
+def test_none_crawl_tags(test_database_engine, mock_crawl):
+    initial_mock_crawl_id = mock_crawl.id
+    crawl = Crawl.from_request(
+        res_data={"cursor": mock_crawl.cursor, "has_more": True, "search_id": 1},
+        query="{}",
+        crawl_tags=None,
+    )
+    crawl.upload_self_to_db(test_database_engine)
+    assert crawl.id is not None
+    # Want to make sure Crawl.from_request gets a new ID
+    assert crawl.id != initial_mock_crawl_id
+    with Session(test_database_engine) as session:
+        assert {
+            crawl_tag.name
+            for crawl_tag in session.scalar(
+                select(Crawl).where(Crawl.id == crawl.id)
+            ).crawl_tags
+        } == set()
+
+
 def test_upsert(test_database_engine, mock_videos, mock_crawl):
     with Session(test_database_engine) as session:
         session.add_all(mock_videos)

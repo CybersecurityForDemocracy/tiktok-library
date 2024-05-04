@@ -111,7 +111,7 @@ class CrawlTag(Base):
     __table_args__ = (UniqueConstraint("name"),)
 
     def __repr__(self) -> str:
-        return f"CrawlTag <{id(self):x}> (id={self.id}, name={self.name!r})"
+        return f"CrawlTag (id={self.id}, name={self.name!r})"
 
 
 videos_to_effect_ids_association_table = Table(
@@ -250,7 +250,7 @@ def _get_crawl_tag_name_to_crawl_tag_object_map(
     creating new CrawlTag objects for new crawl_tag names.
     """
     if not crawl_tags:
-        return []
+        return {}
     # Get all crawl_tag names references in this list of videos
     crawl_tag_names_referenced = set(crawl_tags)
     # Of all the referenced crawl_tag names get those which exist in the database
@@ -319,7 +319,9 @@ def upsert_videos(
         )
 
         # Get all crawl_tag names references in this list of videos
-        crawl_tags = _get_crawl_tag_name_to_crawl_tag_object_map(session, crawl_tags)
+        crawl_tags_set = _get_crawl_tag_name_to_crawl_tag_object_map(
+            session, crawl_tags
+        )
 
         # Get all effect ids references in this list of videos
         effect_id_to_effect = _get_effect_id_to_effect_object_map(session, video_data)
@@ -343,8 +345,8 @@ def upsert_videos(
                     for hashtag_name in vid["hashtag_names"]
                 }
                 del new_vid["hashtag_names"]
-            if crawl_tags:
-                new_vid["crawl_tags"] = crawl_tags
+            if crawl_tags_set:
+                new_vid["crawl_tags"] = crawl_tags_set
 
             video_id_to_video[vid["id"]] = new_vid
 
@@ -393,7 +395,7 @@ class Crawl(Base):
 
     def __repr__(self) -> str:
         return (
-            f"Crawl <{id(self):x}> id={self.id}, crawl_tags={self.crawl_tags!r}, "
+            f"Crawl id={self.id}, crawl_tags={self.crawl_tags!r}, "
             f"started_at={self.crawl_started_at!r}, "
             f"has_more={self.has_more!r}, search_id={self.search_id!r}\n"
             f"query='{self.query!r}'"
@@ -401,14 +403,16 @@ class Crawl(Base):
 
     @classmethod
     def from_request(
-        cls, res_data: dict, query: Query, crawl_tags: Optional[list[str]] = None
+        cls, res_data: dict, query: Query, crawl_tags: Optional[Sequence[str]] = None
     ) -> "Crawl":
         return cls(
             cursor=res_data["cursor"],
             has_more=res_data["has_more"],
             search_id=res_data["search_id"],
             query=json.dumps(query, cls=QueryJSONEncoder),
-            crawl_tags={CrawlTag(name=name) for name in crawl_tags},
+            crawl_tags=(
+                {CrawlTag(name=name) for name in crawl_tags} if crawl_tags else set()
+            ),
         )
 
     def upload_self_to_db(self, engine: Engine) -> None:
