@@ -1,5 +1,8 @@
 import enum
 
+def is_supported(region_code: str) -> bool:
+    return region_code in _supported_region_values
+
 
 @enum.verify(enum.UNIQUE)
 class SupportedRegions(enum.StrEnum):
@@ -248,3 +251,5 @@ class SupportedRegions(enum.StrEnum):
     PN = "PN"
     TF = "TF"
     RU = "RU"
+
+_supported_region_values = {region.value for region in SupportedRegions}
