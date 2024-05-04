@@ -115,3 +115,37 @@ ExcludeAllHashtagListType = Annotated[
                   "have all of these hashtag names.")
     )
 ]
+
+IncludeAnyKeywordListType = Annotated[
+    str,
+    typer.Option(
+            help=("A comma separated list of keywords. Will query API for videos that have "
+                  "any of these keywords."
+                  )
+    )
+]
+
+ExcludeAnyKeywordListType = Annotated[
+    str,
+    typer.Option(
+            help=("A comma separated list of keywords. Will query API for videos that DO NOT "
+                  "have any of these keywords."
+                  )
+    )
+]
+
+IncludeAllKeywordListType = Annotated[
+    str,
+    typer.Option(
+            help=("A comma separated list of keywords. Will query API for videos that have "
+                  "all of these keywords.")
+    )
+]
+
+ExcludeAllKeywordListType = Annotated[
+    str,
+    typer.Option(
+            help=("A comma separated list of keywords. Will query API for videos that DO NOT "
+                  "have all of these keywords.")
+    )
+]
