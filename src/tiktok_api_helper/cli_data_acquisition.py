@@ -2,7 +2,7 @@ import logging
 from copy import copy
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Mapping, Any
+from typing import Optional, Mapping, Any, Sequence
 import json
 
 import numpy as np
@@ -53,7 +53,7 @@ from .query import (
     generate_query,
     QueryJSONEncoder,
 )
-from .region_codes import SupportedRegions
+from . import region_codes
 
 APP = typer.Typer(rich_markup_mode="markdown")
 
@@ -247,7 +247,6 @@ def get_query_from_yaml_exec(query_file: Path):
     query = _temp["return_query"]()
     return query
 
-
 def get_query_file_json(query_file: Path):
     with query_file.open("r") as f:
         file_contents = f.read()
@@ -256,16 +255,12 @@ def get_query_file_json(query_file: Path):
     except json.JSONDecodeError as e:
         raise typer.BadParameter(f"Unable to parse {query_file} as JSON: {e}")
 
-
-def validate_mutually_exclusive_flags(
-    flags_names_to_values: Mapping[str, Any], at_least_one_required=False
-):
+def validate_mutually_exclusive_flags(flags_names_to_values: Mapping[str, Any],
+                                      at_least_one_required=False):
     """Takes a dict of flag names -> flag values, and raises an exception if more than one or none
     specified."""
 
-    num_values_not_none = len(
-        list(filter(lambda x: x is not None, flags_names_to_values.values()))
-    )
+    num_values_not_none = len(list(filter(lambda x: x is not None, flags_names_to_values.values())))
     flag_names_str = ", ".join(flags_names_to_values.keys())
 
     if num_values_not_none > 1:
@@ -276,10 +271,17 @@ def validate_mutually_exclusive_flags(
     if at_least_one_required and num_values_not_none == 0:
         raise typer.BadParameter(f"Must specify one of {flag_names_str}")
 
+def validate_region_code_flag_value(region_code_list: Sequence[str]):
+    if not region_code_list:
+        return
+
+    for region_code in region_code_list:
+        if not region_codes.is_supported(region_code):
+            raise typer.BadParameter(f"provide region code \"{region_code}\" invalid.")
 
 @APP.command()
 def print_query(
-    region_code: RegionCodeListType = None,
+    region: RegionCodeListType = None,
     include_any_hashtags: IncludeAnyHashtagListType = None,
     exclude_any_hashtags: ExcludeAnyHashtagListType = None,
     include_all_hashtags: IncludeAllHashtagListType = None,
@@ -291,69 +293,35 @@ def print_query(
 ) -> None:
     """Prints to stdout the query generated from flags. Useful for creating a base from which to
     build more complex custom JSON queries."""
-    if not any(
-        [
-            include_any_hashtags,
-            exclude_any_hashtags,
-            include_all_hashtags,
-            exclude_all_hashtags,
-            include_any_keywords,
-            exclude_any_keywords,
-            include_all_keywords,
-            exclude_all_keywords,
-        ]
-    ):
+    if not any([include_any_hashtags, exclude_any_hashtags, include_all_hashtags,
+               exclude_all_hashtags, include_any_keywords, exclude_any_keywords,
+                include_all_keywords, exclude_all_keywords]):
         raise typer.BadParameter(
             "must specify at least one of [--include-any-hashtags, --exclude-any-hashtags, "
             "--include-all-hashtags, --exclude-all-hashtags, --include-any-keywords, "
-            "--include-all-keywords, --exclude-any-keywords, --exclude-all-keywords]"
-        )
-    validate_mutually_exclusive_flags(
-        {
-            "--include-any-hashtags": include_any_hashtags,
-            "--include-all-hashtags": include_all_hashtags,
-        }
-    )
-    validate_mutually_exclusive_flags(
-        {
-            "--exclude-any-hashtags": exclude_any_hashtags,
-            "--exclude-all-hashtags": exclude_all_hashtags,
-        }
-    )
-    validate_mutually_exclusive_flags(
-        {
-            "--include-any-keywords": include_any_keywords,
-            "--include-all-keywords": include_all_keywords,
-        }
-    )
-    validate_mutually_exclusive_flags(
-        {
-            "--exclude-any-keywords": exclude_any_keywords,
-            "--exclude-all-keywords": exclude_all_keywords,
-        }
-    )
-    if region_code and any(
-        (
-            code not in {region.value for region in SupportedRegions}
-            for code in region_code
-        )
-    ):
-        raise typer.BadParameter(f'provide region code "{region_code}" invalid.')
+            "--include-all-keywords, --exclude-any-keywords, --exclude-all-keywords]")
+    validate_mutually_exclusive_flags({"--include-any-hashtags": include_any_hashtags,
+                                       "--include-all-hashtags": include_all_hashtags})
+    validate_mutually_exclusive_flags({"--exclude-any-hashtags": exclude_any_hashtags,
+                                       "--exclude-all-hashtags": exclude_all_hashtags})
+    validate_mutually_exclusive_flags({"--include-any-keywords": include_any_keywords,
+                                       "--include-all-keywords": include_all_keywords})
+    validate_mutually_exclusive_flags({"--exclude-any-keywords": exclude_any_keywords,
+                                       "--exclude-all-keywords": exclude_all_keywords})
+    validate_region_code_flag_value(region)
 
-    query = generate_query(
-        region_code,
-        include_any_hashtags,
-        include_all_hashtags,
-        exclude_any_hashtags,
-        exclude_all_hashtags,
-        include_any_keywords,
-        include_all_keywords,
-        exclude_any_keywords,
-        exclude_all_keywords,
-    )
+    query = generate_query(region,
+                           include_any_hashtags,
+                           include_all_hashtags,
+                           exclude_any_hashtags,
+                           exclude_all_hashtags,
+                           include_any_keywords,
+                           include_all_keywords,
+                           exclude_any_keywords,
+                           exclude_all_keywords,
+                           )
 
     print(json.dumps(query, cls=QueryJSONEncoder, indent=2))
-
 
 @APP.command()
 def run(
@@ -383,7 +351,7 @@ def run(
     query_file_json: JsonQueryFileType = None,
     api_credentials_file: ApiCredentialsFileType = _DEFAULT_CREDENTIALS_FILE_PATH,
     rate_limit_wait_strategy: ApiRateLimitWaitStrategyType = ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS,
-    region_code: RegionCodeListType = None,
+    region: RegionCodeListType = None,
     include_any_hashtags: IncludeAnyHashtagListType = None,
     exclude_any_hashtags: ExcludeAnyHashtagListType = None,
     include_all_hashtags: IncludeAllHashtagListType = None,
@@ -410,44 +378,23 @@ def run(
     start_date_datetime = datetime.strptime(start_date_str, "%Y%m%d")
     end_date_datetime = datetime.strptime(end_date_str, "%Y%m%d")
 
-    validate_mutually_exclusive_flags(
-        {"--query-file-exec": query_file_exec, "--query-file-json": query_file_json}
-    )
-    validate_mutually_exclusive_flags(
-        {"--db-url": db_url, "--db-file": db_file}, at_least_one_required=True
-    )
 
-    validate_mutually_exclusive_flags(
-        {
-            "--include-any-hashtags": include_any_hashtags,
-            "--include-all-hashtags": include_all_hashtags,
-        }
-    )
-    validate_mutually_exclusive_flags(
-        {
-            "--exclude-any-hashtags": exclude_any_hashtags,
-            "--exclude-all-hashtags": exclude_all_hashtags,
-        }
-    )
-    validate_mutually_exclusive_flags(
-        {
-            "--include-any-keywords": include_any_keywords,
-            "--include-all-keywords": include_all_keywords,
-        }
-    )
-    validate_mutually_exclusive_flags(
-        {
-            "--exclude-any-keywords": exclude_any_keywords,
-            "--exclude-all-keywords": exclude_all_keywords,
-        }
-    )
-    if region_code and any(
-        (
-            code not in {region.value for region in SupportedRegions}
-            for code in region_code
-        )
-    ):
-        raise typer.BadParameter(f'provide region code "{region_code}" invalid.')
+    validate_mutually_exclusive_flags({"--query-file-exec": query_file_exec, "--query-file-json":
+                                       query_file_json})
+    validate_mutually_exclusive_flags({'--db-url': db_url, '--db-file': db_file},
+                                      at_least_one_required=True)
+
+    validate_mutually_exclusive_flags({"--include-any-hashtags": include_any_hashtags,
+                                       "--include-all-hashtags": include_all_hashtags})
+    validate_mutually_exclusive_flags({"--exclude-any-hashtags": exclude_any_hashtags,
+                                       "--exclude-all-hashtags": exclude_all_hashtags})
+    validate_mutually_exclusive_flags({"--include-any-keywords": include_any_keywords,
+                                       "--include-all-keywords": include_all_keywords})
+    validate_mutually_exclusive_flags({"--exclude-any-keywords": exclude_any_keywords,
+                                       "--exclude-all-keywords": exclude_all_keywords})
+
+    validate_region_code_flag_value(region)
+
 
     # TODO(macpd): reject --query-file-json along any(--include-any-hashtags,
     # --include-all-hashtags, --exclude-any-hashtags, --exclude-all-hashtags)
@@ -456,17 +403,17 @@ def run(
     elif query_file_json:
         query = get_query_file_json(query_file_json)
     else:
-        query = generate_query(
-            region_code,
-            include_any_hashtags,
-            include_all_hashtags,
-            exclude_any_hashtags,
-            exclude_all_hashtags,
-            include_any_keywords,
-            include_all_keywords,
-            exclude_any_keywords,
-            exclude_all_keywords,
-        )
+        query = generate_query(region,
+                               include_any_hashtags,
+                               include_all_hashtags,
+                               exclude_any_hashtags,
+                               exclude_all_hashtags,
+                               include_any_keywords,
+                               include_all_keywords,
+                               exclude_any_keywords,
+                               exclude_all_keywords,
+                               )
+
 
     logging.log(logging.INFO, f"Query: {query}")
 

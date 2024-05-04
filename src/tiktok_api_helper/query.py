@@ -219,7 +219,6 @@ def generate_query(
     elif exclude_all_hashtags:
         query_args["not_"].extend(all_hashtags_condition_list(exclude_all_hashtags))
 
-    # TODO(macpd): test keyword include/exclude
     if include_any_keywords:
         query_args["and_"].append(any_keywords_condition(include_any_keywords))
     elif include_all_keywords:
