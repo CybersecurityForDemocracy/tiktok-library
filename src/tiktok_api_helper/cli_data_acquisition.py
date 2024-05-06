@@ -383,9 +383,15 @@ def run(
     validate_region_code_flag_value(region)
 
 
-    # TODO(macpd): reject --query-file-json along any(--include-any-hashtags,
-    # --include-all-hashtags, --exclude-any-hashtags, --exclude-all-hashtags)
     if query_file_json:
+        if any([include_any_hashtags, exclude_any_hashtags, include_all_hashtags,
+               exclude_all_hashtags, include_any_keywords, exclude_any_keywords,
+               include_all_keywords, exclude_all_keywords]):
+            raise typer.BadParameter(
+                "--query-file-json cannot be used with any other flags that specify query "
+                "conditions/parameters (such as --region, --include-any-hashtags, "
+                "--include-any-keywords, etc")
+
         query = get_query_file_json(query_file_json)
     else:
         query = generate_query(region,
