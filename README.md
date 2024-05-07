@@ -19,6 +19,7 @@ git clone <this repo>
 cd tiktok-library
 hatch --env test run run # run unit tests
 hatch run tiktok-lib run --db-url ... # query API
+```
 
 
 ## Basic usage
