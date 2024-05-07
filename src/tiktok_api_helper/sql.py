@@ -246,8 +246,8 @@ def _get_hashtag_name_to_hashtag_object_map(
 def _get_crawl_tag_name_to_crawl_tag_object_map(
     session: Session, crawl_tags: Optional[Sequence[str]]
 ) -> Set[CrawlTag]:
-    """Gets crawl_tag name -> CrawlTag object map, pulling existing CrawlTag objects from database and
-    creating new CrawlTag objects for new crawl_tag names.
+    """Gets crawl_tag name -> CrawlTag object map, pulling existing CrawlTag objects from database
+    and creating new CrawlTag objects for new crawl_tag names.
     """
     if not crawl_tags:
         return {}
@@ -350,7 +350,7 @@ def upsert_videos(
 
             video_id_to_video[vid["id"]] = new_vid
 
-        # Taken from https://stackoverflow.com/questions/25955200/sqlalchemy-performing-a-bulk-upsert-if-exists-update-else-insert-in-postgr
+        # Taken from https://stackoverflow.com/questions/25955200/sqlalchemy-performing-a-bulk-upsert-if-exists-update-else-insert-in-postgr  # noqa: E501
 
         # Merge all the videos that already exist
         for each in session.scalars(

@@ -180,21 +180,29 @@ def test_invalid_region_code():
 def test_query_json_decoder_us(mock_query_us):
     assert (
         json.dumps(mock_query_us, cls=QueryJSONEncoder)
-        == '{"and": [{"operation": "IN", "field_name": "hashtag_name", "field_values": ["hashtag", "lol", "yay"]}, {"operation": "EQ", "field_name": "region_code", "field_values": ["US"]}]}'
+        == ('{"and": [{"operation": "IN", "field_name": "hashtag_name", '
+            '"field_values": ["hashtag", "lol", "yay"]}, '
+            '{"operation": "EQ", "field_name": "region_code", "field_values": ["US"]}]}')
     )
 
 
 def test_query_json_decoder_us_ca(mock_query_us_ca):
     assert (
         json.dumps(mock_query_us_ca, cls=QueryJSONEncoder)
-        == '{"and": [{"operation": "IN", "field_name": "hashtag_name", "field_values": ["hashtag", "lol", "yay"]}, {"operation": "IN", "field_name": "region_code", "field_values": ["US", "CA"]}]}'
+        == ('{"and": [{"operation": "IN", "field_name": "hashtag_name", '
+            '"field_values": ["hashtag", "lol", "yay"]}, '
+            '{"operation": "IN", "field_name": "region_code", "field_values": ["US", "CA"]}]}')
     )
 
 
 def test_query_json_decoder_exclude_some_hashtags(mock_query_exclude_some_hashtags):
     assert (
         json.dumps(mock_query_exclude_some_hashtags, cls=QueryJSONEncoder)
-        == '{"and": [{"operation": "IN", "field_name": "hashtag_name", "field_values": ["hashtag", "lol", "yay"]}, {"operation": "IN", "field_name": "region_code", "field_values": ["US", "CA"]}], "not": [{"operation": "IN", "field_name": "hashtag_name", "field_values": ["eww", "gross"]}]}'
+        == ('{"and": [{"operation": "IN", "field_name": "hashtag_name", '
+            '"field_values": ["hashtag", "lol", "yay"]}, '
+            '{"operation": "IN", "field_name": "region_code", "field_values": ["US", "CA"]}], '
+            '"not": [{"operation": "IN", "field_name": "hashtag_name", '
+            '"field_values": ["eww", "gross"]}]}')
     )
 
 

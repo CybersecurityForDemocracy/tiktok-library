@@ -77,7 +77,8 @@ def insert_videos_from_response(
 def run_long_query(config: AcquitionConfig):
     """Runs a "long" query, defined as one that may need multiple requests to get all the data.
 
-    Unless you have a good reason to believe otherwise, queries should default to be considered "long".
+    Unless you have a good reason to believe otherwise, queries should default to be considered
+    "long".
     """
     request = TiktokRequest.from_config(config, max_count=100)
     logging.warning("request.as_json: %s", request.as_json())
@@ -136,7 +137,8 @@ def run_long_query(config: AcquitionConfig):
         if not res.videos and crawl.has_more:
             logging.log(
                 logging.ERROR,
-                f"No videos in response but there's still data to Crawl - Query: {config.query} \n res.request_data: {res.request_data}",
+                (f"No videos in response but there's still data to Crawl - Query: {config.query} \n"
+                 "res.request_data: {res.request_data}"),
             )
         if config.stop_after_one_request:
             logging.log(logging.WARN, "Stopping after one request")
@@ -361,7 +363,8 @@ def run(
     crawl_tag: Annotated[
         str,
         typer.Option(
-            help="Extra metadata for tagging the crawl of the data with a name (e.g. `Experiment_1_test_acquisition`)"
+            help="Extra metadata for tagging the crawl of the data with a name (e.g. "
+                 "`Experiment_1_test_acquisition`)"
         ),
     ] = "",
     est_nreps: Annotated[
@@ -373,7 +376,7 @@ def run(
     raw_responses_output_dir: RawResponsesOutputDir = None,
     query_file_json: JsonQueryFileType = None,
     api_credentials_file: ApiCredentialsFileType = _DEFAULT_CREDENTIALS_FILE_PATH,
-    rate_limit_wait_strategy: ApiRateLimitWaitStrategyType = ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS,
+    rate_limit_wait_strategy: ApiRateLimitWaitStrategyType = ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS,  # noqa: E501
     region: RegionCodeListType = None,
     include_any_hashtags: IncludeAnyHashtagListType = None,
     exclude_any_hashtags: ExcludeAnyHashtagListType = None,
@@ -385,11 +388,10 @@ def run(
     exclude_all_keywords: ExcludeAllKeywordListType = None,
 ) -> None:
     """
-
     It executes it and stores the results from the TikTok API in a local SQLite database.
 
-    If the optional est_nreps parameter is provided, it'll be used for the first iteration of a progress bar.
-    If not, the progress bar will not have a end estimation.
+    If the optional est_nreps parameter is provided, it'll be used for the first iteration of a
+    progress bar.  If not, the progress bar will not have a end estimation.
     """
     utils.setup_logging(file_level=logging.INFO, rich_level=logging.WARN)
 

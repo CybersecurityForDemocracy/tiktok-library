@@ -18,7 +18,7 @@ import pendulum
 from .query import Query, QueryJSONEncoder
 
 
-ALL_VIDEO_DATA_URL = "https://open.tiktokapis.com/v2/research/video/query/?fields=id,video_description,create_time,region_code,share_count,view_count,like_count,comment_count,music_id,hashtag_names,username,effect_ids,voice_to_text,playlist_id"
+ALL_VIDEO_DATA_URL = "https://open.tiktokapis.com/v2/research/video/query/?fields=id,video_description,create_time,region_code,share_count,view_count,like_count,comment_count,music_id,hashtag_names,username,effect_ids,voice_to_text,playlist_id"  # noqa: E501
 
 
 class ApiRateLimitError(Exception):
@@ -150,7 +150,8 @@ def json_decoding_error_retry_immediately_or_api_rate_limi_wait_until_next_utc_m
     if isinstance(exception, ApiRateLimitError):
         next_utc_midnight = pendulum.tomorrow("UTC")
         logging.warning(
-            "Response indicates rate limit exceeded: %r\nSleeping until next UTC midnight: %s (local time %s). Will resume in approx %s",
+            ("Response indicates rate limit exceeded: %r\nSleeping until next UTC midnight: %s "
+             "(local time %s). Will resume in approx %s"),
             exception,
             next_utc_midnight,
             next_utc_midnight.in_tz("local"),
@@ -270,7 +271,7 @@ class TikTokApiRequestClient:
         self._api_request_session.verify = certifi.where()
 
     def _refresh_token(self, r, *unused_args, **unused_kwargs) -> rq.Response | None:
-        # Adapted from https://stackoverflow.com/questions/37094419/python-requests-retry-request-after-re-authentication
+        # Adapted from  https://stackoverflow.com/questions/37094419/python-requests-retry-request-after-re-authentication  # noqa: E501
         if r.status_code == 401:
             logging.info("Fetching new token as the previous token expired")
 
@@ -313,7 +314,7 @@ class TikTokApiRequestClient:
             self._api_rate_limit_wait_strategy
             == ApiRateLimitWaitStrategy.WAIT_NEXT_UTC_MIDNIGHT
         ):
-            wait_strategy = json_decoding_error_retry_immediately_or_api_rate_limi_wait_until_next_utc_midnight
+            wait_strategy = json_decoding_error_retry_immediately_or_api_rate_limi_wait_until_next_utc_midnight  # noqa: E501
         return tenacity.Retrying(
             retry=retry_once_if_json_decoding_error_or_retry_indefintely_if_api_rate_limit_error,
             wait=wait_strategy,
