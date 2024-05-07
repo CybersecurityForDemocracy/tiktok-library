@@ -54,8 +54,6 @@ extra-dependencies = [
 
 [tool.hatch.envs.alembic]
 extra-dependencies = [
-  "pytest",
-  "black",
   "alembic"
 ]
 
@@ -63,14 +61,22 @@ extra-dependencies = [
 run = "pytest ./src -vv"
 
 [tool.hatch.envs.style]
-detached = true
-dependencies = [
+extra-dependencies = [
   "black",
+  "pytest",
+  "pylint",
+  "flake8",
 ]
 [tool.hatch.envs.style.scripts]
-check = [
+fmt-check = [
   "black --check --diff src/",
 ]
 fmt = [
   "black src/",
+]
+lint = [
+  "pylint --disable=C0301,C0112,C0114,C0115,C0116,R0903,W1203,duplicate-code src/tiktok_api_helper/",
+]
+flake = [
+  "flake8 --max-line-length 100 src/tiktok_api_helper/",
 ]

@@ -65,7 +65,7 @@ If you would like to preview the query that would be sent to the API (without
 actually sending a request to the API) you can use the subcommand `print-query`
 like so:
 ```
-$ tiktok-lib print-query --include-all-keywords cheese,butter --exclude-any-hashtags pasta,tomato --region US --region FR 
+$ un tiktok-lib print-query --include-all-keywords cheese,butter --exclude-any-hashtags pasta,tomato --region US --region FR 
 ```
 This prints the JSON query to stdout.
 
@@ -84,8 +84,9 @@ $ tiktok-lib print-query --include-any-keywords shoe,shoes,sneakers,pumps,heels,
 ```
 then edit `shoes-query.json` as desired, and use it with
 ```
-$ tiktok-lib run --query-json-file shoes-query.json ...
+$
 ```
+
 
 
 ## Large scale and database usage
@@ -149,6 +150,9 @@ To check if black would change code (but not actually make changes):
 `hatch run style:check`
 To apply changes from black
 `hatch run style:fmt`
+
+# Run flake8
+`hatch run style:flake`
 
 ## Alembic database schema migrations
 Alembic is a tool/framework for database schema migrations. For instructions on
