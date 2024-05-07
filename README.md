@@ -21,10 +21,6 @@ hatch --env test run run # run unit tests
 hatch run tiktok-lib run --db-url ... # query API
 
 
-> [!CAUTION]
-> This library directly loads and executes the python code in the `query.yaml` file. Do not run this library with untrusted code or users.
-
-
 ## Basic usage
 
 1. This library requires TikTok Research API access. It does not provide any access by itself.
