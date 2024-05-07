@@ -1,7 +1,7 @@
 import copy
 import datetime
 import logging
-from typing import Any, Optional, List, Mapping
+from typing import Any, Optional, Set, Mapping, Sequence
 import json
 from pathlib import Path
 import itertools
@@ -12,7 +12,6 @@ from sqlalchemy import (
     DateTime,
     Engine,
     String,
-    TypeDecorator,
     create_engine,
     func,
     BigInteger,
@@ -20,10 +19,9 @@ from sqlalchemy import (
     ForeignKey,
     UniqueConstraint,
     select,
-    SQLColumnExpression,
+    MetaData,
 )
 from sqlalchemy.ext.mutable import MutableDict
-from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import (
     DeclarativeBase,
     Mapped,
@@ -32,6 +30,7 @@ from sqlalchemy.orm import (
     synonym,
     relationship,
 )
+from sqlalchemy.dialects import postgresql, sqlite
 
 from .query import Query, QueryJSONEncoder
 
@@ -40,44 +39,34 @@ from .query import Query, QueryJSONEncoder
 MUTABLE_JSON = MutableDict.as_mutable(JSON)  # type: ignore
 
 
-class MyJsonList(TypeDecorator):
-    """We override the JSON type to natively support lists better.
-    This is because SQLite doesn't support lists natively, so we need to convert them to JSON
-    """
-
-    impl = MUTABLE_JSON
-
-    cache_ok = True
-
-    def coerce_compared_value(self, op, value):
-        """Needed - See the warning section in the docs
-        https://docs.sqlalchemy.org/en/20/core/custom_types.html
-        """
-        return self.impl.coerce_compared_value(op, value)  # type: ignore
-
-    def process_bind_param(
-        self, value: Optional[list], dialect
-    ) -> dict[str, list] | None:
-        if value is None:
-            return None
-
-        return convert_to_json(value)
-
-    def process_result_value(self, value: Optional[dict[str, list]], dialect) -> list:
-        if value is None:
-            return []
-
-        if not isinstance(value, dict):
-            raise ValueError("value must be a dict!")
-
-        return value.get("list", [])
+# Copied from https://stackoverflow.com/a/23175518
+# SQLAlchemy does not map BigInt to Int by default on the sqlite dialect (even though " a column
+# with type INTEGER PRIMARY KEY is an alias for the ROWID (except in WITHOUT ROWID tables) which is
+# always a 64-bit signed integer." according to sqlite documentation
+# https://www.sqlite.org/autoinc.html#summary. Thus primrary keys of this type do not get assigned
+# an autoincrement default new value correctly.
+BigIntegerForPrimaryKeyType = BigInteger()
+BigIntegerForPrimaryKeyType = BigIntegerForPrimaryKeyType.with_variant(
+    postgresql.BIGINT(), "postgresql"
+)
+BigIntegerForPrimaryKeyType = BigIntegerForPrimaryKeyType.with_variant(
+    sqlite.INTEGER(), "sqlite"
+)
 
 
 class Base(DeclarativeBase):
-    pass
+    metadata = MetaData(
+        naming_convention={
+            "ix": "%(column_0_label)s_idx",
+            "uq": "%(table_name)s_%(column_0_name)s_uniq",
+            "ck": "%(table_name)s_%(constraint_name)s_check",
+            "fk": "%(table_name)s_%(column_0_name)s_%(referred_table_name)s_fkey",
+            "pk": "%(table_name)s_pkey",
+        }
+    )
 
 
-video_hashtag_association_table = Table(
+videos_to_hashtags_association_table = Table(
     "videos_to_hashtags",
     Base.metadata,
     Column("video_id", ForeignKey("video.id"), primary_key=True),
@@ -94,19 +83,78 @@ class Hashtag(Base):
     __table_args__ = (UniqueConstraint("name"),)
 
     def __repr__(self) -> str:
-        return f"Hashtag (id={self.id}, name={self.name})"
+        return f"Hashtag (id={self.id}, name={self.name!r})"
+
+
+videos_to_crawl_tags_association_table = Table(
+    "videos_to_crawl_tags",
+    Base.metadata,
+    Column("video_id", ForeignKey("video.id"), primary_key=True),
+    Column("crawl_tag_id", ForeignKey("crawl_tag.id"), primary_key=True),
+)
+
+
+crawls_to_crawl_tags_association_table = Table(
+    "crawls_to_crawl_tags",
+    Base.metadata,
+    Column("crawl_id", ForeignKey("crawl.id"), primary_key=True),
+    Column("crawl_tag_id", ForeignKey("crawl_tag.id"), primary_key=True),
+)
+
+
+class CrawlTag(Base):
+    __tablename__ = "crawl_tag"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String)
+
+    __table_args__ = (UniqueConstraint("name"),)
+
+    def __repr__(self) -> str:
+        return f"CrawlTag (id={self.id}, name={self.name!r})"
+
+
+videos_to_effect_ids_association_table = Table(
+    "videos_to_effect_ids",
+    Base.metadata,
+    Column("video_id", ForeignKey("video.id"), primary_key=True),
+    Column("effect_id", ForeignKey("effect.id"), primary_key=True),
+)
+
+
+class Effect(Base):
+    __tablename__ = "effect"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    effect_id: Mapped[str] = mapped_column(String)
+
+    __table_args__ = (UniqueConstraint("effect_id"),)
+
+    def __repr__(self) -> str:
+        return f"Effect (id={self.id}, effect_id={self.effect_id!r})"
+
+
+videos_to_crawls_association_table = Table(
+    "videos_to_crawls",
+    Base.metadata,
+    Column("video_id", ForeignKey("video.id"), primary_key=True),
+    Column("crawl_id", ForeignKey("crawl.id"), primary_key=True),
+)
 
 
 class Video(Base):
     __tablename__ = "video"
 
-    id: Mapped[int] = mapped_column(BigInteger, autoincrement=False, primary_key=True)
+    id: Mapped[int] = mapped_column(
+        BigIntegerForPrimaryKeyType, autoincrement=False, primary_key=True
+    )
+    crawls: Mapped[Set["Crawl"]] = relationship(
+        secondary=videos_to_crawls_association_table
+    )
     video_id = synonym("id")
     item_id = synonym("id")
 
-    create_time: Mapped[datetime.datetime] = mapped_column(
-        DateTime(timezone=False),
-    )
+    create_time: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=False))
 
     username: Mapped[str]
     region_code: Mapped[str] = mapped_column(String(2))
@@ -118,11 +166,11 @@ class Video(Base):
     share_count: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
     view_count: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
 
-    # We use Json here just to have list support in SQLite
-    # While postgres has array support, sqlite doesn't and we want to keep it agnositc
-    effect_ids = mapped_column(MyJsonList, nullable=True)
-    hashtags: Mapped[List[Hashtag]] = relationship(
-        secondary=video_hashtag_association_table
+    effects: Mapped[Set[Effect]] = relationship(
+        secondary=videos_to_effect_ids_association_table
+    )
+    hashtags: Mapped[Set[Hashtag]] = relationship(
+        secondary=videos_to_hashtags_association_table
     )
 
     playlist_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
@@ -138,19 +186,34 @@ class Video(Base):
         onupdate=func.now(),
     )
 
-    source = mapped_column(MyJsonList, nullable=True)
+    crawl_tags: Mapped[Set[CrawlTag]] = relationship(
+        secondary=videos_to_crawl_tags_association_table
+    )
     extra_data = Column(
         MUTABLE_JSON, nullable=True
     )  # For future data I haven't thought of yet
 
     def __repr__(self) -> str:
-        return f"Video (id={self.id!r}, username={self.username!r}, source={self.source!r})"
+        return (
+            f"Video (id={self.id!r}, username={self.username!r}, "
+            f"hashtags={self.hashtags!r}, "
+            f"crawl_tags={self.crawl_tags!r}, crawls={self.crawls!r}"
+        )
 
     @property
     def hashtag_names(self):
-        return [hashtag.name for hashtag in self.hashtags]
+        return {hashtag.name for hashtag in self.hashtags}
+
+    @property
+    def crawl_tag_names(self):
+        return {crawl_tag.name for crawl_tag in self.crawl_tags}
+
+    @property
+    def effect_ids(self):
+        return {effect.effect_id for effect in self.effects}
 
 
+# TODO(macpd): make generic method for this and use for all many-to-many objects inserted with video
 def _get_hashtag_name_to_hashtag_object_map(
     session: Session, video_data: list[dict[str, Any]]
 ) -> Mapping[str, Hashtag]:
@@ -167,7 +230,7 @@ def _get_hashtag_name_to_hashtag_object_map(
     hashtag_name_to_hashtag = {
         row.name: row
         for row in session.scalars(
-            select(Hashtag).filter(Hashtag.name.in_(hashtag_names_referenced))
+            select(Hashtag).where(Hashtag.name.in_(hashtag_names_referenced))
         )
     }
     # Make new hashtag objects for hashtag names not yet in the database
@@ -180,10 +243,65 @@ def _get_hashtag_name_to_hashtag_object_map(
     return hashtag_name_to_hashtag
 
 
+def _get_crawl_tag_name_to_crawl_tag_object_map(
+    session: Session, crawl_tags: Optional[Sequence[str]]
+) -> Set[CrawlTag]:
+    """Gets crawl_tag name -> CrawlTag object map, pulling existing CrawlTag objects from database and
+    creating new CrawlTag objects for new crawl_tag names.
+    """
+    if not crawl_tags:
+        return {}
+    # Get all crawl_tag names references in this list of videos
+    crawl_tag_names_referenced = set(crawl_tags)
+    # Of all the referenced crawl_tag names get those which exist in the database
+    crawl_tag_name_to_crawl_tag = {
+        row.name: row
+        for row in session.scalars(
+            select(CrawlTag).where(CrawlTag.name.in_(crawl_tag_names_referenced))
+        )
+    }
+    # Make new crawl_tag objects for crawl_tag names not yet in the database
+    existing_crawl_tag_names = set(crawl_tag_name_to_crawl_tag.keys())
+    new_crawl_tag_names = crawl_tag_names_referenced - existing_crawl_tag_names
+    for crawl_tag_name in new_crawl_tag_names:
+        crawl_tag_name_to_crawl_tag[crawl_tag_name] = CrawlTag(name=crawl_tag_name)
+    session.add_all(crawl_tag_name_to_crawl_tag.values())
+    return set(crawl_tag_name_to_crawl_tag.values())
+
+
+def _get_effect_id_to_effect_object_map(
+    session: Session, video_data: list[dict[str, Any]]
+) -> Mapping[str, Effect]:
+    """Gets effect id -> Effect object map, pulling existing Effect objects from database and
+    creating new Effect objects for new effect ids.
+    """
+    # Get all effect ids references in this list of videos
+    effect_ids_referenced = set(
+        itertools.chain.from_iterable(
+            [video.get("effect_ids", []) for video in video_data]
+        )
+    )
+    # Of all the referenced effect ids get those which exist in the database
+    effect_id_to_effect = {
+        row.effect_id: row
+        for row in session.scalars(
+            select(Effect).where(Effect.effect_id.in_(effect_ids_referenced))
+        )
+    }
+    # Make new effect objects for effect ids not yet in the database
+    existing_effect_ids = set(effect_id_to_effect.keys())
+    new_effect_ids = effect_ids_referenced - existing_effect_ids
+    for effect_id in new_effect_ids:
+        effect_id_to_effect[effect_id] = Effect(effect_id=effect_id)
+    session.add_all(effect_id_to_effect.values())
+    return effect_id_to_effect
+
+
 def upsert_videos(
     video_data: list[dict[str, Any]],
+    crawl_id: int,
     engine: Engine,
-    source: Optional[list[str]] = None,
+    crawl_tags: Optional[Sequence[str]] = None,
 ):
     """
     Columns must be the same when doing a upsert which is annoying since we have
@@ -200,19 +318,35 @@ def upsert_videos(
             session, video_data
         )
 
+        # Get all crawl_tag names references in this list of videos
+        crawl_tags_set = _get_crawl_tag_name_to_crawl_tag_object_map(
+            session, crawl_tags
+        )
+
+        # Get all effect ids references in this list of videos
+        effect_id_to_effect = _get_effect_id_to_effect_object_map(session, video_data)
+
         video_id_to_video = {}
+        crawl = set(session.scalars(select(Crawl).where(Crawl.id == crawl_id)).all())
 
         for vid in video_data:
             # manually add the source, keeping the original dict intact
             new_vid = copy.deepcopy(vid)
-            new_vid["source"] = source
+            new_vid["crawls"] = crawl
             new_vid["create_time"] = datetime.datetime.fromtimestamp(vid["create_time"])
+            if "effect_ids" in vid:
+                new_vid["effects"] = {
+                    effect_id_to_effect[effect_id] for effect_id in vid["effect_ids"]
+                }
+                del new_vid["effect_ids"]
             if "hashtag_names" in vid:
-                new_vid["hashtags"] = [
+                new_vid["hashtags"] = {
                     hashtag_name_to_hashtag[hashtag_name]
                     for hashtag_name in vid["hashtag_names"]
-                ]
+                }
                 del new_vid["hashtag_names"]
+            if crawl_tags_set:
+                new_vid["crawl_tags"] = crawl_tags_set
 
             video_id_to_video[vid["id"]] = new_vid
 
@@ -223,7 +357,8 @@ def upsert_videos(
             select(Video).where(Video.id.in_(video_id_to_video.keys()))
         ):
             new_vid = Video(**video_id_to_video.pop(each.id))
-            new_vid.source = each.source + new_vid.source
+            new_vid.crawl_tags.update(each.crawl_tags)
+            new_vid.crawls.update(each.crawls)
             session.merge(new_vid)
 
         session.add_all((Video(**vid) for vid in video_id_to_video.values()))
@@ -234,13 +369,15 @@ def upsert_videos(
 class Crawl(Base):
     __tablename__ = "crawl"
 
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(
+        BigIntegerForPrimaryKeyType, primary_key=True, autoincrement=True
+    )
 
     crawl_started_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
 
-    cursor: Mapped[int]
+    cursor: Mapped[int] = mapped_column(BigInteger)
     has_more: Mapped[bool]
     search_id: Mapped[str]
     query: Mapped[str]
@@ -249,37 +386,56 @@ class Crawl(Base):
         DateTime(timezone=True), onupdate=func.now(), server_default=func.now()
     )
 
-    source = mapped_column(MyJsonList, nullable=True)
+    crawl_tags: Mapped[Set[CrawlTag]] = relationship(
+        secondary=crawls_to_crawl_tags_association_table
+    )
     extra_data = Column(
         MUTABLE_JSON, nullable=True
     )  # For future data I haven't thought of yet
 
     def __repr__(self) -> str:
         return (
-            f"Query source={self.source!r}, started_at={self.crawl_started_at!r},"
+            f"Crawl id={self.id}, crawl_tags={self.crawl_tags!r}, "
+            f"started_at={self.crawl_started_at!r}, "
             f"has_more={self.has_more!r}, search_id={self.search_id!r}\n"
             f"query='{self.query!r}'"
         )
 
     @classmethod
     def from_request(
-        cls, res_data: dict, query: Query, source: Optional[list[str]] = None
+        cls, res_data: dict, query: Query, crawl_tags: Optional[Sequence[str]] = None
     ) -> "Crawl":
         return cls(
             cursor=res_data["cursor"],
             has_more=res_data["has_more"],
             search_id=res_data["search_id"],
             query=json.dumps(query, cls=QueryJSONEncoder),
-            source=source,
+            crawl_tags=(
+                {CrawlTag(name=name) for name in crawl_tags} if crawl_tags else set()
+            ),
         )
 
     def upload_self_to_db(self, engine: Engine) -> None:
         """Uploads current instance to DB"""
-        with Session(engine) as session:
-            # Reconcile self with an instance of the same primary key in the session.
-            # Otherwise loads the object from the database based on primary key,
-            #   and if none can be located, creates a new instance.
-            session.merge(self)
+        with Session(engine, expire_on_commit=False) as session:
+            # Pull CrawlTag with existing names into current session, and then add all to DB
+            crawl_tag_name_to_crawl_tag = {
+                crawl_tag.name: crawl_tag for crawl_tag in self.crawl_tags
+            }
+            for each in session.scalars(
+                select(CrawlTag).where(
+                    CrawlTag.name.in_(crawl_tag_name_to_crawl_tag.keys())
+                )
+            ):
+                self.crawl_tags.remove(crawl_tag_name_to_crawl_tag.pop(each.name))
+                session.merge(each)
+                self.crawl_tags.add(each)
+            session.add_all(self.crawl_tags)
+
+            if self.id:
+                session.merge(self)
+            else:
+                session.add(self)
             session.commit()
 
     def update_crawl(self, next_res_data: dict, videos: list[str], engine: Engine):

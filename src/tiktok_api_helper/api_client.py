@@ -64,7 +64,7 @@ class AcquitionConfig:
     engine: Engine
     api_credentials_file: Path
     stop_after_one_request: bool = False
-    source: Optional[list[str]] = None
+    crawl_tags: Optional[list[str]] = None
     raw_responses_output_dir: Optional[Path] = None
     api_rate_limit_wait_strategy: ApiRateLimitWaitStrategy = attrs.field(
         default=ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS,

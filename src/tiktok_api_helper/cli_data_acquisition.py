@@ -51,11 +51,12 @@ _DEFAULT_CREDENTIALS_FILE_PATH = Path("./secrets.yaml")
 
 def insert_videos_from_response(
     videos: list,
+    crawl_id: int,
     engine: Engine,
-    source: Optional[list] = None,
+    crawl_tags: Optional[list] = None,
 ) -> None:
     try:
-        upsert_videos(videos, source=source, engine=engine)
+        upsert_videos(videos, crawl_id=crawl_id, crawl_tags=crawl_tags, engine=engine)
     except Exception as e:
         logging.log(logging.ERROR, f"Error with upsert! Videos: {videos}\n Error: {e}")
         logging.log(logging.ERROR, "Skipping Upsert")
@@ -80,10 +81,17 @@ def run_long_query(config: AcquitionConfig):
         )
         return
 
-    crawl = Crawl.from_request(res.request_data, config.query, source=config.source)
+    crawl = Crawl.from_request(
+        res.request_data, config.query, crawl_tags=config.crawl_tags
+    )
     crawl.upload_self_to_db(config.engine)
 
-    insert_videos_from_response(res.videos, engine=config.engine, source=config.source)
+    insert_videos_from_response(
+        res.videos,
+        crawl_id=crawl.id,
+        engine=config.engine,
+        crawl_tags=config.crawl_tags,
+    )
 
     # manual tqdm maintance
     count = 1
@@ -104,7 +112,10 @@ def run_long_query(config: AcquitionConfig):
             next_res_data=res.request_data, videos=res.videos, engine=config.engine
         )
         insert_videos_from_response(
-            res.videos, source=config.source, engine=config.engine
+            res.videos,
+            crawl_id=crawl.id,
+            crawl_tags=config.crawl_tags,
+            engine=config.engine,
         )
 
         pbar.update(1)
@@ -154,7 +165,7 @@ def main_driver(config: AcquitionConfig):
                 final_date=local_end_date,
                 engine=config.engine,
                 stop_after_one_request=config.stop_after_one_request,
-                source=config.source,
+                crawl_tags=config.crawl_tags,
                 raw_responses_output_dir=config.raw_responses_output_dir,
                 api_credentials_file=config.api_credentials_file,
                 api_rate_limit_wait_strategy=config.api_rate_limit_wait_strategy,
@@ -204,7 +215,7 @@ def test(
         final_date=end_date_datetime,
         engine=engine,
         stop_after_one_request=True,
-        source=["Testing"],
+        crawl_tags=["Testing"],
         raw_responses_output_dir=None,
         api_credentials_file=api_credentials_file,
     )
@@ -234,10 +245,10 @@ def run(
     stop_after_one_request: Annotated[
         bool, typer.Option(help="Stop after the first request - Useful for testing")
     ] = False,
-    source: Annotated[
+    crawl_tag: Annotated[
         str,
         typer.Option(
-            help="Extra metadata for logging the source of the data (e.g. `Experiment_1_test_acquisition`)"
+            help="Extra metadata for tagging the crawl of the data with a name (e.g. `Experiment_1_test_acquisition`)"
         ),
     ] = "",
     est_nreps: Annotated[
@@ -290,7 +301,7 @@ def run(
         final_date=end_date_datetime,
         engine=engine,
         stop_after_one_request=stop_after_one_request,
-        source=[source],
+        crawl_tags=[crawl_tag],
         raw_responses_output_dir=raw_responses_output_dir,
         api_credentials_file=api_credentials_file,
         api_rate_limit_wait_strategy=rate_limit_wait_strategy,
