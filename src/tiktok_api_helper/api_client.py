@@ -24,6 +24,7 @@ ALL_VIDEO_DATA_URL = "https://open.tiktokapis.com/v2/research/video/query/?field
 class ApiRateLimitError(Exception):
     pass
 
+
 class InvalidRequestError(Exception):
     pass
 
