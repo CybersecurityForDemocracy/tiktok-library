@@ -7,7 +7,6 @@ import json
 
 import numpy as np
 import typer
-import yaml
 from sqlalchemy import Engine
 from tqdm.auto import tqdm
 from typing_extensions import Annotated
