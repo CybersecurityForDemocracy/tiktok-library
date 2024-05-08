@@ -284,7 +284,9 @@ class TikTokApiRequestClient:
 
         return None
 
-    def _store_response(self, response: rq.Request) -> None:
+    def _store_response(self, response: rq.Response) -> None:
+        assert self._raw_responses_output_dir is not None
+
         output_filename = self._raw_responses_output_dir / Path(
             str(pendulum.now("local").timestamp()) + ".json"
         )
@@ -366,7 +368,10 @@ class TikTokApiRequestClient:
         return None
 
     @staticmethod
-    def _parse_response(response: rq.Response) -> TikTokResponse:
+    def _parse_response(response: Optional[rq.Response]) -> TikTokResponse:
+        if response is None:
+            raise ValueError("Response is None")
+
         try:
             req_data = response.json().get("data", {})
         except rq.exceptions.JSONDecodeError as e:
