@@ -437,7 +437,9 @@ class Crawl(Base):
                 session.add(self)
             session.commit()
 
-    def update_crawl(self, next_res_data: Mapping, videos: Sequence[str], engine: Engine):
+    def update_crawl(
+        self, next_res_data: Mapping, videos: Sequence[str], engine: Engine
+    ):
         self.cursor = next_res_data["cursor"]
         self.has_more = next_res_data["has_more"]
 
