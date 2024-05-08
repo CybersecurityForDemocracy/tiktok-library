@@ -314,6 +314,11 @@ class TikTokApiRequestClient:
             == ApiRateLimitWaitStrategy.WAIT_NEXT_UTC_MIDNIGHT
         ):
             wait_strategy = json_decoding_error_retry_immediately_or_api_rate_limi_wait_until_next_utc_midnight
+        else:
+            raise ValueError(
+                f"Unsupported wait strategy: {self._api_rate_limit_wait_strategy}"
+            )
+
         return tenacity.Retrying(
             retry=retry_once_if_json_decoding_error_or_retry_indefintely_if_api_rate_limit_error,
             wait=wait_strategy,
