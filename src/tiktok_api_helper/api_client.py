@@ -180,7 +180,8 @@ def json_decoding_error_retry_immediately_or_api_rate_limi_wait_four_hours(
 @attrs.define
 class TikTokApiRequestClient:
     _credentials: TiktokCredentials = attrs.field(
-        validator=[attrs.validators.instance_of(TiktokCredentials), field_is_not_empty]
+        validator=[attrs.validators.instance_of(TiktokCredentials), field_is_not_empty],
+        alias="_credentials",  # Alias since attrs removes underscores in __init__
     )
     _access_token_fetcher_session: rq.Session = attrs.field()
     _api_request_session: rq.Session = attrs.field()
@@ -198,7 +199,7 @@ class TikTokApiRequestClient:
             dict_credentials = yaml.load(f, Loader=yaml.FullLoader)
 
         return cls(
-            credentials=TiktokCredentials(**dict_credentials),
+            _credentials=TiktokCredentials(**dict_credentials),
             *args,
             **kwargs,
         )
