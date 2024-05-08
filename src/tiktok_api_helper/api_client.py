@@ -1,19 +1,19 @@
 from __future__ import annotations
 
+import enum
+import json
 import logging
 from datetime import datetime, timedelta
-from typing import Optional, Sequence, Mapping, Any
 from pathlib import Path
-import json
-import enum
+from typing import Any, Mapping, Optional, Sequence
 
 import attrs
-import requests as rq
-import yaml
 import certifi
-from sqlalchemy import Engine
-import tenacity
 import pendulum
+import requests as rq
+import tenacity
+import yaml
+from sqlalchemy import Engine
 
 from .query import Query, QueryJSONEncoder
 

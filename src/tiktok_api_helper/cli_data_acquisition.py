@@ -12,33 +12,28 @@ from tqdm.auto import tqdm
 from typing_extensions import Annotated
 
 from . import utils
-from .custom_types import (
-    DBFileType,
-    DBUrlType,
-    TikTokStartDateFormat,
-    TikTokEndDateFormat,
-    RawResponsesOutputDir,
-    QueryFileType,
-    ApiCredentialsFileType,
-    ApiRateLimitWaitStrategyType,
-)
-from .sql import (
-    Crawl,
-    get_sqlite_engine_and_create_tables,
-    get_engine_and_create_tables,
-    upsert_videos,
-)
 from .api_client import (
     AcquitionConfig,
     ApiRateLimitWaitStrategy,
-    TiktokRequest,
     TikTokApiRequestClient,
+    TiktokRequest,
 )
-from .query import (
-    Cond,
-    Fields,
-    Op,
-    Query,
+from .custom_types import (
+    ApiCredentialsFileType,
+    ApiRateLimitWaitStrategyType,
+    DBFileType,
+    DBUrlType,
+    QueryFileType,
+    RawResponsesOutputDir,
+    TikTokEndDateFormat,
+    TikTokStartDateFormat,
+)
+from .query import Cond, Fields, Op, Query
+from .sql import (
+    Crawl,
+    get_engine_and_create_tables,
+    get_sqlite_engine_and_create_tables,
+    upsert_videos,
 )
 
 APP = typer.Typer(rich_markup_mode="markdown")
@@ -257,7 +252,7 @@ def run(
             help="Used for estimating # acquisitions on long running queries for progress bar"
         ),
     ] = -1,
-    raw_responses_output_dir: RawResponsesOutputDir = None,
+    raw_responses_output_dir: Optional[RawResponsesOutputDir] = None,
     query_file: QueryFileType = Path("query.yaml"),
     api_credentials_file: ApiCredentialsFileType = _DEFAULT_CREDENTIALS_FILE_PATH,
     rate_limit_wait_strategy: ApiRateLimitWaitStrategyType = ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS,
