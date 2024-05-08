@@ -85,10 +85,10 @@ def test_tiktok_credentials_any_value_missing_raises_value_error():
 
 def test_tiktok_api_request_client_empty_credentials_raises_value_error():
     with pytest.raises(TypeError):
-        api_client.TikTokApiRequestClient(credentials=None)
+        api_client.TikTokApiRequestClient(_credentials=None)
 
     with pytest.raises(TypeError):
-        api_client.TikTokApiRequestClient(credentials={})
+        api_client.TikTokApiRequestClient(_credentials={})
 
 
 def test_tiktok_api_request_client_from_credentials_file_factory(
