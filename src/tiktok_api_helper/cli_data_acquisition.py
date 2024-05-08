@@ -57,7 +57,6 @@ APP = typer.Typer(rich_markup_mode="markdown")
 
 _DAYS_PER_ITER = 28
 _COUNT_PREVIOUS_ITERATION_REPS = -1
-_DEFAULT_QUERY_FILE_PATH = Path("./query.yaml")
 _DEFAULT_CREDENTIALS_FILE_PATH = Path("./secrets.yaml")
 
 
