@@ -1,9 +1,9 @@
+import json
 import logging
 from copy import copy
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Mapping, Any, Sequence
-import json
+from typing import Any, Mapping, Optional, Sequence
 
 import numpy as np
 import typer
@@ -11,49 +11,42 @@ from sqlalchemy import Engine
 from tqdm.auto import tqdm
 from typing_extensions import Annotated
 
-from . import utils
-from .custom_types import (
-    DBFileType,
-    DBUrlType,
-    TikTokStartDateFormat,
-    TikTokEndDateFormat,
-    RawResponsesOutputDir,
-    ApiCredentialsFileType,
-    ApiRateLimitWaitStrategyType,
-    JsonQueryFileType,
-    RegionCodeListType,
-    IncludeAnyHashtagListType,
-    ExcludeAnyHashtagListType,
-    IncludeAllHashtagListType,
-    ExcludeAllHashtagListType,
-    IncludeAnyKeywordListType,
-    ExcludeAnyKeywordListType,
-    IncludeAllKeywordListType,
-    ExcludeAllKeywordListType,
-    OnlyUsernamesListType,
-    ExcludeUsernamesListType,
-)
-from .sql import (
-    Crawl,
-    get_sqlite_engine_and_create_tables,
-    get_engine_and_create_tables,
-    upsert_videos,
-)
+from . import region_codes, utils
 from .api_client import (
     AcquitionConfig,
     ApiRateLimitWaitStrategy,
-    TiktokRequest,
     TikTokApiRequestClient,
+    TiktokRequest,
 )
-from .query import (
-    Cond,
-    Fields,
-    Op,
-    Query,
-    generate_query,
-    QueryJSONEncoder,
+from .custom_types import (
+    ApiCredentialsFileType,
+    ApiRateLimitWaitStrategyType,
+    DBFileType,
+    DBUrlType,
+    ExcludeAllHashtagListType,
+    ExcludeAllKeywordListType,
+    ExcludeAnyHashtagListType,
+    ExcludeAnyKeywordListType,
+    ExcludeUsernamesListType,
+    IncludeAllHashtagListType,
+    IncludeAllKeywordListType,
+    IncludeAnyHashtagListType,
+    IncludeAnyKeywordListType,
+    JsonQueryFileType,
+    OnlyUsernamesListType,
+    QueryFileType,
+    RawResponsesOutputDir,
+    RegionCodeListType,
+    TikTokEndDateFormat,
+    TikTokStartDateFormat,
 )
-from . import region_codes
+from .query import Cond, Fields, Op, Query, QueryJSONEncoder, generate_query
+from .sql import (
+    Crawl,
+    get_engine_and_create_tables,
+    get_sqlite_engine_and_create_tables,
+    upsert_videos,
+)
 
 APP = typer.Typer(rich_markup_mode="markdown")
 

@@ -1,39 +1,38 @@
 import copy
 import datetime
-import logging
-from typing import Any, Optional, Set, Mapping, Sequence
-import json
-from pathlib import Path
 import itertools
+import json
+import logging
+from pathlib import Path
+from typing import Any, Mapping, Optional, Sequence, Set
 
 from sqlalchemy import (
     JSON,
+    BigInteger,
     Column,
     DateTime,
     Engine,
+    ForeignKey,
+    MetaData,
     String,
+    Table,
+    UniqueConstraint,
     create_engine,
     func,
-    BigInteger,
-    Table,
-    ForeignKey,
-    UniqueConstraint,
     select,
-    MetaData,
 )
+from sqlalchemy.dialects import postgresql, sqlite
 from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.orm import (
     DeclarativeBase,
     Mapped,
     Session,
     mapped_column,
-    synonym,
     relationship,
+    synonym,
 )
-from sqlalchemy.dialects import postgresql, sqlite
 
 from .query import Query, QueryJSONEncoder
-
 
 # See https://amercader.net/blog/beware-of-json-fields-in-sqlalchemy/
 MUTABLE_JSON = MutableDict.as_mutable(JSON)  # type: ignore
@@ -250,7 +249,7 @@ def _get_crawl_tag_name_to_crawl_tag_object_map(
     creating new CrawlTag objects for new crawl_tag names.
     """
     if not crawl_tags:
-        return {}
+        return set()
     # Get all crawl_tag names references in this list of videos
     crawl_tag_names_referenced = set(crawl_tags)
     # Of all the referenced crawl_tag names get those which exist in the database
