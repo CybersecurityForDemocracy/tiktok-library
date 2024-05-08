@@ -22,20 +22,22 @@ hatch run tiktok-lib run --db-url ... # query API
 ```
 
 
-## Basic usage
+# Basic usage
 
 1. This library requires TikTok Research API access. It does not provide any access by itself.
 2. Create a new file `secrets.yaml` in the root folder you are running code from (you can specify a different file with `--api-credentials-file`). View the `sample_secrets.yaml` file for formatting. The client_id, client_secret and client_key are required. The library automatically manages the access token and refreshes it when needed.
 3. View the `ExampleInterface.ipynb` for a quick example of interfacing with it for small queries.
 
-## Specifying query
+## Querying
 You can query the API for videos that include and/or exclude hashtags and/or
 keywords with the following flags:
+
 for hashtags:
 - `--include-any-hashtags`
 - `--include-all-hashtags`
 - `--exclude-any-hashtags`
 - `--exclude-all-hashtags`
+
 for keywords:
 - `--include-any-keywords`
 - `--include-all-keywords`
@@ -44,23 +46,24 @@ for keywords:
 
 These flags take a comma separated list of values (eg `--inlude-all-hashtags butter,cheese`)
 
-flags with `any` will query the API for videos that have one or more of the
-provided values. for example `--inlude-any-hashtags butter,cheese` would match
-videos with hashtags `#butter`, `#cheese`, and/or `#butter #cheese`. The same
-applies for keyword variants of these flags
+flags with `any` in the name will query the API for videos that have one or more
+of the provided values. for example `--inlude-any-hashtags butter,cheese` would
+match videos with hashtags `#butter`, `#cheese`, and/or `#butter #cheese`. The
+same applies for keyword variants of these flags
 
-flags with `all` will query the API for videos that have all the provided
-values, and would not match videos which only a subset of the provided values.
-for example `--inlude-all-hashtags butter,cheese` would match
-videos with hashtags `#butter #cheese`, but would not match videos with only
-`#butter` but not `#cheese` and vice versa. The same applies for keyword
-variants of these flags
+flags with `all` in the name will query the API for videos that have all the
+provided values, and would not match videos which only a subset of the provided
+values.  for example `--inlude-all-hashtags butter,cheese` would match videos
+with hashtags `#butter #cheese`, but would not match videos with only `#butter`
+but not `#cheese` and vice versa. The same applies for keyword variants of these
+flags
 
 You can also limit the videos by the region in which the use registered their
-account with `--region` (this flag can be provided multiple times to query for
-multiple regions). See tiktok API documentation for more info about this field https://developers.tiktok.com/doc/research-api-specs-query-videos/
+account with `--region` (this flag can be provided multiple times include
+multiple regions). See tiktok API documentation for more info about this field
+https://developers.tiktok.com/doc/research-api-specs-query-videos/
 
-## Printing query without sending requests to API
+## Print query without sending requests to API
 If you would like to preview the query that would be sent to the API (without
 actually sending a request to the API) you can use the subcommand `print-query`
 like so:
