@@ -7,6 +7,9 @@ import attrs
 
 from .region_codes import SupportedRegions
 
+_QUERY_AND_ARG_NAME = "and_"
+_QUERY_NOT_ARG_NAME = "not_"
+
 
 class Operations(enum.StrEnum):
     EQ = "EQ"
@@ -207,30 +210,48 @@ def generate_query(
     exclude_any_keywords: Optional[str] = None,
     exclude_all_keywords: Optional[str] = None,
 ) -> Query:
-    query_args = {"and_": [], "not_": []}
+    query_args = {_QUERY_AND_ARG_NAME: [], _QUERY_NOT_ARG_NAME: []}
 
     if include_any_hashtags:
-        query_args["and_"].append(any_hashtags_condition(include_any_hashtags))
+        query_args[_QUERY_AND_ARG_NAME].append(
+            any_hashtags_condition(include_any_hashtags)
+        )
     elif include_all_hashtags:
-        query_args["and_"].extend(all_hashtags_condition_list(include_all_hashtags))
+        query_args[_QUERY_AND_ARG_NAME].extend(
+            all_hashtags_condition_list(include_all_hashtags)
+        )
 
     if exclude_any_hashtags:
-        query_args["not_"].append(any_hashtags_condition(exclude_any_hashtags))
+        query_args[_QUERY_NOT_ARG_NAME].append(
+            any_hashtags_condition(exclude_any_hashtags)
+        )
     elif exclude_all_hashtags:
-        query_args["not_"].extend(all_hashtags_condition_list(exclude_all_hashtags))
+        query_args[_QUERY_NOT_ARG_NAME].extend(
+            all_hashtags_condition_list(exclude_all_hashtags)
+        )
 
     if include_any_keywords:
-        query_args["and_"].append(any_keywords_condition(include_any_keywords))
+        query_args[_QUERY_AND_ARG_NAME].append(
+            any_keywords_condition(include_any_keywords)
+        )
     elif include_all_keywords:
-        query_args["and_"].extend(all_keywords_condition_list(include_all_keywords))
+        query_args[_QUERY_AND_ARG_NAME].extend(
+            all_keywords_condition_list(include_all_keywords)
+        )
 
     if exclude_any_keywords:
-        query_args["not_"].append(any_keywords_condition(exclude_any_keywords))
+        query_args[_QUERY_NOT_ARG_NAME].append(
+            any_keywords_condition(exclude_any_keywords)
+        )
     elif exclude_all_keywords:
-        query_args["not_"].extend(all_keywords_condition_list(exclude_all_keywords))
+        query_args[_QUERY_NOT_ARG_NAME].extend(
+            all_keywords_condition_list(exclude_all_keywords)
+        )
 
     if region_codes:
-        query_args["and_"].append(Cond(Fields.region_code, sorted(region_codes), Op.IN))
+        query_args[_QUERY_AND_ARG_NAME].append(
+            Cond(Fields.region_code, sorted(region_codes), Op.IN)
+        )
 
     return Query(**query_args)
 
