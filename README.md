@@ -44,16 +44,16 @@ for keywords:
 - `--exclude-any-keywords`
 - `--exclude-all-keywords`
 
-These flags take a comma separated list of values (eg `--inlude-all-hashtags butter,cheese`)
+These flags take a comma separated list of values (eg `--include-all-hashtags butter,cheese`)
 
 flags with `any` in the name will query the API for videos that have one or more
-of the provided values. for example `--inlude-any-hashtags butter,cheese` would
-match videos with hashtags `#butter`, `#cheese`, and/or `#butter #cheese`. The
-same applies for keyword variants of these flags
+of the provided values. for example `--include-any-hashtags butter,cheese` would
+match videos with hashtags `#butter`, `#cheese`, and/or `#butter #cheese` (ie
+both). The same applies for keyword variants of these flags
 
 flags with `all` in the name will query the API for videos that have all the
 provided values, and would not match videos which only a subset of the provided
-values.  for example `--inlude-all-hashtags butter,cheese` would match videos
+values.  for example `--include-all-hashtags butter,cheese` would match videos
 with hashtags `#butter #cheese`, but would not match videos with only `#butter`
 but not `#cheese` and vice versa. The same applies for keyword variants of these
 flags
@@ -65,7 +65,7 @@ https://developers.tiktok.com/doc/research-api-specs-query-videos/
 
 ## Print query without sending requests to API
 If you would like to preview the query that would be sent to the API (without
-actually sending a request to the API) you can use the subcommand `print-query`
+actually sending a request to the API) you can use the command `print-query`
 like so:
 ```
 $ tiktok-lib print-query --include-all-keywords cheese,butter --exclude-any-hashtags pasta,tomato --region US --region FR 
@@ -79,7 +79,7 @@ JSON file that will be used as the query for requests to the API. NOTE: the
 provided file is NOT checked for validity.
 See tiktok documentation for more info about crafting queries https://developers.tiktok.com/doc/research-api-get-started/
 
-You can use the `print-query` to create a starting point. For example if you
+You can use the `print-query` command to create a starting point. For example if you
 wanted to match videos about shoes with more specific search criteria you could
 create a base onto which you would build with something like:
 ```
@@ -128,7 +128,6 @@ specify the connection string.
 ## Roadmpap
 - Fix warning when retrying - Only show if the retry is unsuccessful
 - Add code docs
-- Add query parsing directly from CLI?
 - Allow for continuing a query directly from the last run.
 - Support for other data types (e.g. "Query Users")
 
@@ -138,7 +137,7 @@ specify the connection string.
 - Not [tiktok-research-client](https://github.com/AndersGiovanni/tiktok-research-client/tree/main)?
     - At the time of creation, the library was not available.
 
-## Development
+# Development
 
 ## Testing
 To run unit tests locally (requires pytest installed):
