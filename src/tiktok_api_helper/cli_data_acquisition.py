@@ -235,8 +235,8 @@ def run(
     # breaks the documentation of CLI Arguments for some reason
     start_date_str: TikTokStartDateFormat,
     end_date_str: TikTokEndDateFormat,
-    db_file: DBFileType = None,
-    db_url: DBUrlType = None,
+    db_file: Optional[DBFileType] = None,
+    db_url: Optional[DBUrlType] = None,
     stop_after_one_request: Annotated[
         bool, typer.Option(help="Stop after the first request - Useful for testing")
     ] = False,

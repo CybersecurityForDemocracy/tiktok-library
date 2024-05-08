@@ -344,7 +344,7 @@ class TikTokApiRequestClient:
         retry=tenacity.retry_if_exception_type(rq.RequestException),
         reraise=True,
     )
-    def _post(self, request: TiktokRequest) -> rq.Response:
+    def _post(self, request: TiktokRequest) -> rq.Response | None:
         data = request.as_json()
         logging.log(logging.INFO, f"Sending request with data: {data}")
 
