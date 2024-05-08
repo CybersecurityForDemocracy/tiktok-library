@@ -56,7 +56,7 @@ _DEFAULT_CREDENTIALS_FILE_PATH = Path("./secrets.yaml")
 
 
 def insert_videos_from_response(
-    videos: list,
+    videos: Sequence,
     crawl_id: int,
     engine: Engine,
     crawl_tags: Optional[list] = None,
@@ -495,7 +495,7 @@ def run(
         query=query,
         start_date=start_date_datetime,
         final_date=end_date_datetime,
-        engine=engine,
+        engine=engine, # type: ignore - it doesn't catch the if statement above
         stop_after_one_request=stop_after_one_request,
         crawl_tags=[crawl_tag],
         raw_responses_output_dir=raw_responses_output_dir,
