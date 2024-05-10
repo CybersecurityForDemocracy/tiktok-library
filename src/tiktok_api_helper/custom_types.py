@@ -151,3 +151,23 @@ ExcludeAllKeywordListType = Annotated[
         )
     ),
 ]
+
+OnlyUsernamesListType = Annotated[
+    str,
+    typer.Option(
+        help=(
+            "A comma separated list of usernames. Will query API for videos that have "
+            "any of these usernames."
+        )
+    ),
+]
+
+ExcludeUsernamesListType = Annotated[
+    str,
+    typer.Option(
+        help=(
+            "A comma separated list of usernames. Will query API for videos that DO NOT "
+            "have any of these usernames."
+        )
+    ),
+]

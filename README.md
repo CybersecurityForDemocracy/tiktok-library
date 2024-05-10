@@ -44,7 +44,7 @@ for keywords:
 - `--exclude-any-keywords`
 - `--exclude-all-keywords`
 
-These flags take a comma separated list of values (eg `--include-all-hashtags butter,cheese`)
+These flags take a comma separated list of values (eg `--include-all-hashtags butter,cheese`, `--only-from-usernames amuro,roux`)
 
 flags with `any` in the name will query the API for videos that have one or more
 of the provided values. for example `--include-any-hashtags butter,cheese` would
@@ -58,6 +58,13 @@ with hashtags `#butter #cheese`, but would not match videos with only `#butter`
 but not `#cheese` and vice versa. The same applies for keyword variants of these
 flags
 
+You can also limit results by username. Either querying for videos only from
+specific usernames or excluding videos from specific usernames. NOTE: these
+flags are mutually exclusive:
+- `--only-from-usernames`
+- `--exclude-from-usernames`
+
+
 You can also limit the videos by the region in which the use registered their
 account with `--region` (this flag can be provided multiple times include
 multiple regions). See tiktok API documentation for more info about this field
@@ -68,7 +75,7 @@ If you would like to preview the query that would be sent to the API (without
 actually sending a request to the API) you can use the command `print-query`
 like so:
 ```
-$ tiktok-lib print-query --include-all-keywords cheese,butter --exclude-any-hashtags pasta,tomato --region US --region FR 
+$ tiktok-lib print-query --include-all-keywords cheese,butter --exclude-any-hashtags pasta,tomato --region US --region FR --exclude-from-usernames carb_hater,only-vegetables
 ```
 This prints the JSON query to stdout.
 

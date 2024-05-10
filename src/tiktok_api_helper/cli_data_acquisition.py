@@ -30,6 +30,8 @@ from .custom_types import (
     ExcludeAnyKeywordListType,
     IncludeAllKeywordListType,
     ExcludeAllKeywordListType,
+    OnlyUsernamesListType,
+    ExcludeUsernamesListType,
 )
 from .sql import (
     Crawl,
@@ -285,6 +287,8 @@ def print_query(
     exclude_any_keywords: ExcludeAnyKeywordListType = None,
     include_all_keywords: IncludeAllKeywordListType = None,
     exclude_all_keywords: ExcludeAllKeywordListType = None,
+    only_from_usernames: OnlyUsernamesListType = None,
+    exclude_from_usernames: ExcludeUsernamesListType = None,
 ) -> None:
     """Prints to stdout the query generated from flags. Useful for creating a base from which to
     build more complex custom JSON queries."""
@@ -298,12 +302,16 @@ def print_query(
             exclude_any_keywords,
             include_all_keywords,
             exclude_all_keywords,
+            only_from_usernames,
+            exclude_from_usernames,
         ]
     ):
         raise typer.BadParameter(
             "must specify at least one of [--include-any-hashtags, --exclude-any-hashtags, "
             "--include-all-hashtags, --exclude-all-hashtags, --include-any-keywords, "
-            "--include-all-keywords, --exclude-any-keywords, --exclude-all-keywords]"
+            "--include-all-keywords, --exclude-any-keywords, --exclude-all-keywords, "
+            "--include-any-usernames, --include-all-usernames, --exclude-any-usernames, "
+            "--exclude-all-usernames]"
         )
     validate_mutually_exclusive_flags(
         {
@@ -329,18 +337,26 @@ def print_query(
             "--exclude-all-keywords": exclude_all_keywords,
         }
     )
+    validate_mutually_exclusive_flags(
+        {
+            "--only-from-usernames": only_from_usernames,
+            "--exclude-from-usernames": exclude_from_usernames,
+        }
+    )
     validate_region_code_flag_value(region)
 
     query = generate_query(
-        region,
-        include_any_hashtags,
-        include_all_hashtags,
-        exclude_any_hashtags,
-        exclude_all_hashtags,
-        include_any_keywords,
-        include_all_keywords,
-        exclude_any_keywords,
-        exclude_all_keywords,
+        region_codes=region,
+        include_any_hashtags=include_any_hashtags,
+        include_all_hashtags=include_all_hashtags,
+        exclude_any_hashtags=exclude_any_hashtags,
+        exclude_all_hashtags=exclude_all_hashtags,
+        include_any_keywords=include_any_keywords,
+        include_all_keywords=include_all_keywords,
+        exclude_any_keywords=exclude_any_keywords,
+        exclude_all_keywords=exclude_all_keywords,
+        only_from_usernames=only_from_usernames,
+        exclude_from_usernames=exclude_from_usernames,
     )
 
     print(json.dumps(query, cls=QueryJSONEncoder, indent=2))
@@ -382,6 +398,8 @@ def run(
     exclude_any_keywords: ExcludeAnyKeywordListType = None,
     include_all_keywords: IncludeAllKeywordListType = None,
     exclude_all_keywords: ExcludeAllKeywordListType = None,
+    only_from_usernames: OnlyUsernamesListType = None,
+    exclude_from_usernames: ExcludeUsernamesListType = None,
 ) -> None:
     """
 
@@ -427,6 +445,12 @@ def run(
             "--exclude-all-keywords": exclude_all_keywords,
         }
     )
+    validate_mutually_exclusive_flags(
+        {
+            "--only-from-usernames": only_from_usernames,
+            "--exclude-from-usernames": exclude_from_usernames,
+        }
+    )
 
     validate_region_code_flag_value(region)
 
@@ -441,6 +465,8 @@ def run(
                 exclude_any_keywords,
                 include_all_keywords,
                 exclude_all_keywords,
+                only_from_usernames,
+                exclude_from_usernames,
             ]
         ):
             raise typer.BadParameter(
@@ -452,15 +478,17 @@ def run(
         query = get_query_file_json(query_file_json)
     else:
         query = generate_query(
-            region,
-            include_any_hashtags,
-            include_all_hashtags,
-            exclude_any_hashtags,
-            exclude_all_hashtags,
-            include_any_keywords,
-            include_all_keywords,
-            exclude_any_keywords,
-            exclude_all_keywords,
+            region_codes=region,
+            include_any_hashtags=include_any_hashtags,
+            include_all_hashtags=include_all_hashtags,
+            exclude_any_hashtags=exclude_any_hashtags,
+            exclude_all_hashtags=exclude_all_hashtags,
+            include_any_keywords=include_any_keywords,
+            include_all_keywords=include_all_keywords,
+            exclude_any_keywords=exclude_any_keywords,
+            exclude_all_keywords=exclude_all_keywords,
+            only_from_usernames=only_from_usernames,
+            exclude_from_usernames=exclude_from_usernames,
         )
 
     logging.log(logging.INFO, f"Query: {query}")

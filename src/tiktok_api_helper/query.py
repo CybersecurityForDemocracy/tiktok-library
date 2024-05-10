@@ -175,6 +175,14 @@ def get_normalized_keyword_set(comma_separated_keywords: str) -> Set[str]:
     return {keyword.lower() for keyword in comma_separated_keywords.split(",")}
 
 
+def get_normalized_username_set(comma_separated_usernames: str) -> Set[str]:
+    """Takes a string of comma separated usernames and returns a set of usernames all lowercase with
+    any @ symbols remove"""
+    return {
+        username.strip("@").lower() for username in comma_separated_usernames.split(",")
+    }
+
+
 def any_hashtags_condition(hashtags):
     return Cond(
         Fields.hashtag_name, sorted(get_normalized_hashtag_set(hashtags)), Op.IN
@@ -195,8 +203,12 @@ def any_keywords_condition(keywords):
 def all_keywords_condition_list(keywords):
     return [
         Cond(Fields.keyword, keyword, Op.EQ)
-        for keyword in sorted(get_normalized_hashtag_set(keywords))
+        for keyword in sorted(get_normalized_keyword_set(keywords))
     ]
+
+
+def any_usernames_condition(usernames):
+    return Cond(Fields.username, sorted(get_normalized_username_set(usernames)), Op.IN)
 
 
 def generate_query(
@@ -209,6 +221,8 @@ def generate_query(
     include_all_keywords: Optional[str] = None,
     exclude_any_keywords: Optional[str] = None,
     exclude_all_keywords: Optional[str] = None,
+    only_from_usernames: Optional[str] = None,
+    exclude_from_usernames: Optional[str] = None,
 ) -> Query:
     query_args = {_QUERY_AND_ARG_NAME: [], _QUERY_NOT_ARG_NAME: []}
 
@@ -246,6 +260,16 @@ def generate_query(
     elif exclude_all_keywords:
         query_args[_QUERY_NOT_ARG_NAME].extend(
             all_keywords_condition_list(exclude_all_keywords)
+        )
+
+    if only_from_usernames:
+        query_args[_QUERY_AND_ARG_NAME].append(
+            any_usernames_condition(only_from_usernames)
+        )
+
+    if exclude_from_usernames:
+        query_args[_QUERY_NOT_ARG_NAME].append(
+            any_usernames_condition(exclude_from_usernames)
         )
 
     if region_codes:
