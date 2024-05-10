@@ -88,6 +88,8 @@ To run unit tests locally (requires pytest installed):
 To run postgresql integration test (requires docker installed, may have to run
 as sudo):
 `docker compose build && docker compose run postgres-integration-test && docker compose down`
+OR run with hatch:
+`hatch run test:postgres-integration-test-docker-as-sudo`
 
 ## Automatic formatting with black
 To check if black would change code (but not actually make changes):
