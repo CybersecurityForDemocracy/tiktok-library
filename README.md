@@ -32,13 +32,13 @@ hatch run tiktok-lib run --db-url ... # query API
 You can query the API for videos that include and/or exclude hashtags and/or
 keywords with the following flags:
 
-for hashtags:
+### hashtags:
 - `--include-any-hashtags`
 - `--include-all-hashtags`
 - `--exclude-any-hashtags`
 - `--exclude-all-hashtags`
 
-for keywords:
+### keywords:
 - `--include-any-keywords`
 - `--include-all-keywords`
 - `--exclude-any-keywords`
@@ -58,6 +58,7 @@ with hashtags `#butter #cheese`, but would not match videos with only `#butter`
 but not `#cheese` and vice versa. The same applies for keyword variants of these
 flags
 
+### usernames
 You can also limit results by username. Either querying for videos only from
 specific usernames or excluding videos from specific usernames. NOTE: these
 flags are mutually exclusive:
@@ -65,6 +66,7 @@ flags are mutually exclusive:
 - `--exclude-from-usernames`
 
 
+### regions
 You can also limit the videos by the region in which the use registered their
 account with `--region` (this flag can be provided multiple times include
 multiple regions). See tiktok API documentation for more info about this field
