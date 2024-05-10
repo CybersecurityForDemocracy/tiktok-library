@@ -32,13 +32,13 @@ hatch run tiktok-lib run --db-url ... # query API
 You can query the API for videos that include and/or exclude hashtags and/or
 keywords with the following flags:
 
-### hashtags:
+### hashtags
 - `--include-any-hashtags`
 - `--include-all-hashtags`
 - `--exclude-any-hashtags`
 - `--exclude-all-hashtags`
 
-### keywords:
+### keywords
 - `--include-any-keywords`
 - `--include-all-keywords`
 - `--exclude-any-keywords`
