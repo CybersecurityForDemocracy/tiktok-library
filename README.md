@@ -91,7 +91,7 @@ as sudo):
 ```
 docker compose build && docker compose run postgres-integration-test && docker compose down
 ```
-OR run with hatch:
+OR run with hatch (this runs above docker commands as sudo):
 ```
 hatch run test:postgres-integration-test-docker-as-sudo
 ```
