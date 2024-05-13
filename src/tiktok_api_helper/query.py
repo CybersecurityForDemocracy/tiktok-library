@@ -99,7 +99,7 @@ class Condition:
 
 def make_conditions_dict(
     conditions: Optional[Union[Sequence[Condition], Condition]],
-) -> Mapping[str, Any]:
+) -> Sequence[Mapping[str, Any]] | None | str:
     if conditions is None:
         return None
 

@@ -259,8 +259,8 @@ def validate_mutually_exclusive_flags(
         raise typer.BadParameter(f"Must specify one of {flag_names_str}")
 
 
-def validate_region_code_flag_value(region_code_list: Sequence[str]):
-    if not region_code_list:
+def validate_region_code_flag_value(region_code_list: Optional[Sequence[str]]):
+    if region_code_list is None or not region_code_list:
         return
 
     for region_code in region_code_list:
@@ -271,16 +271,16 @@ def validate_region_code_flag_value(region_code_list: Sequence[str]):
 @APP.command()
 def print_query(
     region: RegionCodeListType = None,
-    include_any_hashtags: IncludeAnyHashtagListType = None,
-    exclude_any_hashtags: ExcludeAnyHashtagListType = None,
-    include_all_hashtags: IncludeAllHashtagListType = None,
-    exclude_all_hashtags: ExcludeAllHashtagListType = None,
-    include_any_keywords: IncludeAnyKeywordListType = None,
-    exclude_any_keywords: ExcludeAnyKeywordListType = None,
-    include_all_keywords: IncludeAllKeywordListType = None,
-    exclude_all_keywords: ExcludeAllKeywordListType = None,
-    only_from_usernames: OnlyUsernamesListType = None,
-    exclude_from_usernames: ExcludeUsernamesListType = None,
+    include_any_hashtags: Optional[IncludeAnyHashtagListType] = None,
+    exclude_any_hashtags: Optional[ExcludeAnyHashtagListType] = None,
+    include_all_hashtags: Optional[IncludeAllHashtagListType] = None,
+    exclude_all_hashtags: Optional[ExcludeAllHashtagListType] = None,
+    include_any_keywords: Optional[IncludeAnyKeywordListType] = None,
+    exclude_any_keywords: Optional[ExcludeAnyKeywordListType] = None,
+    include_all_keywords: Optional[IncludeAllKeywordListType] = None,
+    exclude_all_keywords: Optional[ExcludeAllKeywordListType] = None,
+    only_from_usernames: Optional[OnlyUsernamesListType] = None,
+    exclude_from_usernames: Optional[ExcludeUsernamesListType] = None,
 ) -> None:
     """Prints to stdout the query generated from flags. Useful for creating a base from which to
     build more complex custom JSON queries."""
@@ -377,21 +377,21 @@ def run(
             help="Used for estimating # acquisitions on long running queries for progress bar"
         ),
     ] = -1,
-    raw_responses_output_dir: RawResponsesOutputDir = None,
-    query_file_json: JsonQueryFileType = None,
+    raw_responses_output_dir: Optional[RawResponsesOutputDir] = None,
+    query_file_json: Optional[JsonQueryFileType] = None,
     api_credentials_file: ApiCredentialsFileType = _DEFAULT_CREDENTIALS_FILE_PATH,
     rate_limit_wait_strategy: ApiRateLimitWaitStrategyType = ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS,
     region: RegionCodeListType = None,
-    include_any_hashtags: IncludeAnyHashtagListType = None,
-    exclude_any_hashtags: ExcludeAnyHashtagListType = None,
-    include_all_hashtags: IncludeAllHashtagListType = None,
-    exclude_all_hashtags: ExcludeAllHashtagListType = None,
-    include_any_keywords: IncludeAnyKeywordListType = None,
-    exclude_any_keywords: ExcludeAnyKeywordListType = None,
-    include_all_keywords: IncludeAllKeywordListType = None,
-    exclude_all_keywords: ExcludeAllKeywordListType = None,
-    only_from_usernames: OnlyUsernamesListType = None,
-    exclude_from_usernames: ExcludeUsernamesListType = None,
+    include_any_hashtags: Optional[IncludeAnyHashtagListType] = None,
+    exclude_any_hashtags: Optional[ExcludeAnyHashtagListType] = None,
+    include_all_hashtags: Optional[IncludeAllHashtagListType] = None,
+    exclude_all_hashtags: Optional[ExcludeAllHashtagListType] = None,
+    include_any_keywords: Optional[IncludeAnyKeywordListType] = None,
+    exclude_any_keywords: Optional[ExcludeAnyKeywordListType] = None,
+    include_all_keywords: Optional[IncludeAllKeywordListType] = None,
+    exclude_all_keywords: Optional[ExcludeAllKeywordListType] = None,
+    only_from_usernames: Optional[OnlyUsernamesListType] = None,
+    exclude_from_usernames: Optional[ExcludeUsernamesListType] = None,
 ) -> None:
     """
 
