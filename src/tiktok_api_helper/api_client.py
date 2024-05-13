@@ -269,7 +269,7 @@ class TikTokApiRequestClient:
         self._api_request_session.hooks["response"].append(self._refresh_token)
         self._api_request_session.verify = certifi.where()
 
-    def _refresh_token(self, r, *unused_args, **unused_kwargs) -> rq.Response | None:
+    def _refresh_token(self, r) -> rq.Response | None:
         # Adapted from https://stackoverflow.com/questions/37094419/python-requests-retry-request-after-re-authentication
         if r.status_code == 401:
             logging.info("Fetching new token as the previous token expired")
@@ -287,7 +287,9 @@ class TikTokApiRequestClient:
 
         return None
 
-    def _store_response(self, response: rq.Request) -> None:
+    def _store_response(self, response: rq.Response) -> None:
+        assert self._raw_responses_output_dir is not None, "No output directory set"
+
         output_filename = self._raw_responses_output_dir / Path(
             str(pendulum.now("local").timestamp()) + ".json"
         )
@@ -340,7 +342,7 @@ class TikTokApiRequestClient:
         retry=tenacity.retry_if_exception_type(rq.RequestException),
         reraise=True,
     )
-    def _post(self, request: TiktokRequest) -> rq.Response:
+    def _post(self, request: TiktokRequest) -> rq.Response | None:
         data = request.as_json()
         logging.log(logging.INFO, f"Sending request with data: {data}")
 
@@ -367,7 +369,10 @@ class TikTokApiRequestClient:
         return None
 
     @staticmethod
-    def _parse_response(response: rq.Response) -> TikTokResponse:
+    def _parse_response(response: Optional[rq.Response]) -> TikTokResponse:
+        if response is None:
+            raise ValueError("Response is None")
+
         try:
             req_data = response.json().get("data", {})
         except rq.exceptions.JSONDecodeError as e:
