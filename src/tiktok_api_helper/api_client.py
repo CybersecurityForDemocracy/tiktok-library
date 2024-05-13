@@ -25,6 +25,10 @@ class ApiRateLimitError(Exception):
     pass
 
 
+class InvalidRequestError(Exception):
+    pass
+
+
 def field_is_not_empty(instance, attribute, value):
     if not value:
         raise ValueError(
@@ -350,6 +354,9 @@ class TikTokApiRequestClient:
 
         if req.status_code == 429:
             raise ApiRateLimitError(repr(req))
+
+        if req.status_code == 400:
+            raise InvalidRequestError(f"{req!r} {req.text}")
 
         logging.log(
             logging.ERROR,

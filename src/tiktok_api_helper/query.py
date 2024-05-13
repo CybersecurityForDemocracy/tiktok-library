@@ -1,14 +1,14 @@
 from datetime import datetime
-from typing import Callable, Optional, Sequence, Union, Mapping, Any
+from typing import Callable, Optional, Sequence, Union, Mapping, Any, List, Set
 import json
 import enum
 
 import attrs
 
+from .region_codes import SupportedRegions
 
-# fmt: off
-SUPPORTED_REGION_CODES = [ 'FR', 'TH', 'MM', 'BD', 'IT', 'NP', 'IQ', 'BR', 'US', 'KW', 'VN', 'AR', 'KZ', 'GB', 'UA', 'TR', 'ID', 'PK', 'NG', 'KH', 'PH', 'EG', 'QA', 'MY', 'ES', 'JO', 'MA', 'SA', 'TW', 'AF', 'EC', 'MX', 'BW', 'JP', 'LT', 'TN', 'RO', 'LY', 'IL', 'DZ', 'CG', 'GH', 'DE', 'BJ', 'SN', 'SK', 'BY', 'NL', 'LA', 'BE', 'DO', 'TZ', 'LK', 'NI', 'LB', 'IE', 'RS', 'HU', 'PT', 'GP', 'CM', 'HN', 'FI', 'GA', 'BN', 'SG', 'BO', 'GM', 'BG', 'SD', 'TT', 'OM', 'FO', 'MZ', 'ML', 'UG', 'RE', 'PY', 'GT', 'CI', 'SR', 'AO', 'AZ', 'LR', 'CD', 'HR', 'SV', 'MV', 'GY', 'BH', 'TG', 'SL', 'MK', 'KE', 'MT', 'MG', 'MR', 'PA', 'IS', 'LU', 'HT', 'TM', 'ZM', 'CR', 'NO', 'AL', 'ET', 'GW', 'AU', 'KR', 'UY', 'JM', 'DK', 'AE', 'MD', 'SE', 'MU', 'SO', 'CO', 'AT', 'GR', 'UZ', 'CL', 'GE', 'PL', 'CA', 'CZ', 'ZA', 'AI', 'VE', 'KG', 'PE', 'CH', 'LV', 'PR', 'NZ', 'TL', 'BT', 'MN', 'FJ', 'SZ', 'VU', 'BF', 'TJ', 'BA', 'AM', 'TD', 'SI', 'CY', 'MW', 'EE', 'XK', 'ME', 'KY', 'YE', 'LS', 'ZW', 'MC', 'GN', 'BS', 'PF', 'NA', 'VI', 'BB', 'BZ', 'CW', 'PS', 'FM', 'PG', 'BI', 'AD', 'TV', 'GL', 'KM', 'AW', 'TC', 'CV', 'MO', 'VC', 'NE', 'WS', 'MP', 'DJ', 'RW', 'AG', 'GI', 'GQ', 'AS', 'AX', 'TO', 'KN', 'LC', 'NC', 'LI', 'SS', 'IR', 'SY', 'IM', 'SC', 'VG', 'SB', 'DM', 'KI', 'UM', 'SX', 'GD', 'MH', 'BQ', 'YT', 'ST', 'CF', 'BM', 'SM', 'PW', 'GU', 'HK', 'IN', 'CK', 'AQ', 'WF', 'JE', 'MQ', 'CN', 'GF', 'MS', 'GG', 'TK', 'FK', 'PM', 'NU', 'MF', 'ER', 'NF', 'VA', 'IO', 'SH', 'BL', 'CU', 'NR', 'TP', 'BV', 'EH', 'PN', 'TF', 'RU']
-# fmt: on
+_QUERY_AND_ARG_NAME = "and_"
+_QUERY_NOT_ARG_NAME = "not_"
 
 
 class Operations(enum.StrEnum):
@@ -55,7 +55,8 @@ class Fields:
     effect_id = _Field("effect_id", validator=attrs.validators.instance_of(str))
 
     region_code = _Field(
-        "region_code", validator=attrs.validators.in_(SUPPORTED_REGION_CODES)
+        "region_code",
+        validator=attrs.validators.in_({region.value for region in SupportedRegions}),
     )
     video_length = _Field("video_length", validator=attrs.validators.in_(VideoLength))
 
@@ -159,6 +160,124 @@ class QueryJSONEncoder(json.JSONEncoder):
         if isinstance(o, Query):
             return o.as_dict()
         return super().default(o)
+
+
+def get_normalized_hashtag_set(comma_separated_hashtags: str) -> Set[str]:
+    """Takes a string of comma separated hashtag names and returns a set of hashtag names all
+    lowercase and stripped of leading "#" if present."""
+    return {
+        hashtag.lstrip("#").lower() for hashtag in comma_separated_hashtags.split(",")
+    }
+
+
+def get_normalized_keyword_set(comma_separated_keywords: str) -> Set[str]:
+    """Takes a string of comma separated keywords and returns a set of keywords all lowercase"""
+    return {keyword.lower() for keyword in comma_separated_keywords.split(",")}
+
+
+def get_normalized_username_set(comma_separated_usernames: str) -> Set[str]:
+    """Takes a string of comma separated usernames and returns a set of usernames all lowercase with
+    any @ symbols remove"""
+    return {
+        username.strip("@").lower() for username in comma_separated_usernames.split(",")
+    }
+
+
+def any_hashtags_condition(hashtags):
+    return Cond(
+        Fields.hashtag_name, sorted(get_normalized_hashtag_set(hashtags)), Op.IN
+    )
+
+
+def all_hashtags_condition_list(hashtags):
+    return [
+        Cond(Fields.hashtag_name, hashtag_name, Op.EQ)
+        for hashtag_name in sorted(get_normalized_hashtag_set(hashtags))
+    ]
+
+
+def any_keywords_condition(keywords):
+    return Cond(Fields.keyword, sorted(get_normalized_keyword_set(keywords)), Op.IN)
+
+
+def all_keywords_condition_list(keywords):
+    return [
+        Cond(Fields.keyword, keyword, Op.EQ)
+        for keyword in sorted(get_normalized_keyword_set(keywords))
+    ]
+
+
+def any_usernames_condition(usernames):
+    return Cond(Fields.username, sorted(get_normalized_username_set(usernames)), Op.IN)
+
+
+def generate_query(
+    region_codes: Optional[List[SupportedRegions]] = None,
+    include_any_hashtags: Optional[str] = None,
+    include_all_hashtags: Optional[str] = None,
+    exclude_any_hashtags: Optional[str] = None,
+    exclude_all_hashtags: Optional[str] = None,
+    include_any_keywords: Optional[str] = None,
+    include_all_keywords: Optional[str] = None,
+    exclude_any_keywords: Optional[str] = None,
+    exclude_all_keywords: Optional[str] = None,
+    only_from_usernames: Optional[str] = None,
+    exclude_from_usernames: Optional[str] = None,
+) -> Query:
+    query_args = {_QUERY_AND_ARG_NAME: [], _QUERY_NOT_ARG_NAME: []}
+
+    if include_any_hashtags:
+        query_args[_QUERY_AND_ARG_NAME].append(
+            any_hashtags_condition(include_any_hashtags)
+        )
+    elif include_all_hashtags:
+        query_args[_QUERY_AND_ARG_NAME].extend(
+            all_hashtags_condition_list(include_all_hashtags)
+        )
+
+    if exclude_any_hashtags:
+        query_args[_QUERY_NOT_ARG_NAME].append(
+            any_hashtags_condition(exclude_any_hashtags)
+        )
+    elif exclude_all_hashtags:
+        query_args[_QUERY_NOT_ARG_NAME].extend(
+            all_hashtags_condition_list(exclude_all_hashtags)
+        )
+
+    if include_any_keywords:
+        query_args[_QUERY_AND_ARG_NAME].append(
+            any_keywords_condition(include_any_keywords)
+        )
+    elif include_all_keywords:
+        query_args[_QUERY_AND_ARG_NAME].extend(
+            all_keywords_condition_list(include_all_keywords)
+        )
+
+    if exclude_any_keywords:
+        query_args[_QUERY_NOT_ARG_NAME].append(
+            any_keywords_condition(exclude_any_keywords)
+        )
+    elif exclude_all_keywords:
+        query_args[_QUERY_NOT_ARG_NAME].extend(
+            all_keywords_condition_list(exclude_all_keywords)
+        )
+
+    if only_from_usernames:
+        query_args[_QUERY_AND_ARG_NAME].append(
+            any_usernames_condition(only_from_usernames)
+        )
+
+    if exclude_from_usernames:
+        query_args[_QUERY_NOT_ARG_NAME].append(
+            any_usernames_condition(exclude_from_usernames)
+        )
+
+    if region_codes:
+        query_args[_QUERY_AND_ARG_NAME].append(
+            Cond(Fields.region_code, sorted(region_codes), Op.IN)
+        )
+
+    return Query(**query_args)
 
 
 Cond = Condition

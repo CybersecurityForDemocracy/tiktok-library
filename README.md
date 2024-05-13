@@ -22,15 +22,82 @@ hatch run tiktok-lib run --db-url ... # query API
 ```
 
 
-> [!CAUTION]
-> This library directly loads and executes the python code in the `query.yaml` file. Do not run this library with untrusted code or users.
-
-
-## Basic usage
+# Basic usage
 
 1. This library requires TikTok Research API access. It does not provide any access by itself.
 2. Create a new file `secrets.yaml` in the root folder you are running code from (you can specify a different file with `--api-credentials-file`). View the `sample_secrets.yaml` file for formatting. The client_id, client_secret and client_key are required. The library automatically manages the access token and refreshes it when needed.
 3. View the `ExampleInterface.ipynb` for a quick example of interfacing with it for small queries.
+
+## Querying
+You can query the API for videos that include and/or exclude hashtags and/or
+keywords with the following flags:
+
+### hashtags
+- `--include-any-hashtags`
+- `--include-all-hashtags`
+- `--exclude-any-hashtags`
+- `--exclude-all-hashtags`
+
+### keywords
+- `--include-any-keywords`
+- `--include-all-keywords`
+- `--exclude-any-keywords`
+- `--exclude-all-keywords`
+
+These flags take a comma separated list of values (eg `--include-all-hashtags butter,cheese`, `--only-from-usernames amuro,roux`)
+
+flags with `any` in the name will query the API for videos that have one or more
+of the provided values. for example `--include-any-hashtags butter,cheese` would
+match videos with hashtags `#butter`, `#cheese`, and/or `#butter #cheese` (ie
+both). The same applies for keyword variants of these flags
+
+flags with `all` in the name will query the API for videos that have all the
+provided values, and would not match videos which only a subset of the provided
+values.  for example `--include-all-hashtags butter,cheese` would match videos
+with hashtags `#butter #cheese`, but would not match videos with only `#butter`
+but not `#cheese` and vice versa. The same applies for keyword variants of these
+flags
+
+### usernames
+You can also limit results by username. Either querying for videos only from
+specific usernames or excluding videos from specific usernames. NOTE: these
+flags are mutually exclusive:
+- `--only-from-usernames`
+- `--exclude-from-usernames`
+
+
+### regions
+You can also limit the videos by the region in which the use registered their
+account with `--region` (this flag can be provided multiple times include
+multiple regions). See tiktok API documentation for more info about this field
+https://developers.tiktok.com/doc/research-api-specs-query-videos/
+
+## Print query without sending requests to API
+If you would like to preview the query that would be sent to the API (without
+actually sending a request to the API) you can use the command `print-query`
+like so:
+```
+$ tiktok-lib print-query --include-all-keywords cheese,butter --exclude-any-hashtags pasta,tomato --region US --region FR --exclude-from-usernames carb_hater,only-vegetables
+```
+This prints the JSON query to stdout.
+
+## Advanced queries
+If the provided querying functionality does not meet your needs or you want to
+provide your own query use the `--query-file-json` flag. This takes a path to a
+JSON file that will be used as the query for requests to the API. NOTE: the
+provided file is NOT checked for validity.
+See tiktok documentation for more info about crafting queries https://developers.tiktok.com/doc/research-api-get-started/
+
+You can use the `print-query` command to create a starting point. For example if you
+wanted to match videos about shoes with more specific search criteria you could
+create a base onto which you would build with something like:
+```
+$ tiktok-lib print-query --include-any-keywords shoe,shoes,sneakers,pumps,heels,boots > shoes-query.json
+```
+then edit `shoes-query.json` as desired, and use it with
+```
+$ tiktok-lib run --query-json-file shoes-query.json ...
+```
 
 
 ## Large scale and database usage
@@ -70,7 +137,6 @@ specify the connection string.
 ## Roadmpap
 - Fix warning when retrying - Only show if the retry is unsuccessful
 - Add code docs
-- Add query parsing directly from CLI?
 - Allow for continuing a query directly from the last run.
 - Support for other data types (e.g. "Query Users")
 
@@ -80,7 +146,7 @@ specify the connection string.
 - Not [tiktok-research-client](https://github.com/AndersGiovanni/tiktok-research-client/tree/main)?
     - At the time of creation, the library was not available.
 
-## Development
+# Development
 
 ## Testing
 To run unit tests locally (requires pytest installed):

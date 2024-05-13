@@ -4,7 +4,6 @@ import itertools
 from sqlalchemy import (
     Engine,
     select,
-    text,
 )
 from sqlalchemy.orm import Session
 import pytest
@@ -104,9 +103,11 @@ def assert_video_database_object_list_matches_api_responses_dict(
     }
     database_video_ids = set(video_id_to_database_object.keys())
     api_responses_video_ids = set(video_id_to_api_response_dict.keys())
-    assert (
-        database_video_ids == api_responses_video_ids
-    ), f"Database objects missing IDs in API response ({api_responses_video_ids - database_video_ids}). API responses missing IDs in database objects ({database_video_ids - api_responses_video_ids})"
+    assert database_video_ids == api_responses_video_ids, (
+        f"Database objects missing IDs in API response "
+        f"({api_responses_video_ids - database_video_ids}). API responses missing IDs in database "
+        f"objects ({database_video_ids - api_responses_video_ids})"
+    )
     for video_id in database_video_ids:
         _assert_video_database_object_matches_api_response_dict(
             video_id_to_database_object[video_id],
