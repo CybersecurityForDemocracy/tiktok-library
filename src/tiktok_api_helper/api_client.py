@@ -17,7 +17,6 @@ from sqlalchemy import Engine
 
 from .query import Query, QueryJSONEncoder
 
-
 ALL_VIDEO_DATA_URL = "https://open.tiktokapis.com/v2/research/video/query/?fields=id,video_description,create_time,region_code,share_count,view_count,like_count,comment_count,music_id,hashtag_names,username,effect_ids,voice_to_text,playlist_id"
 
 
@@ -317,6 +316,11 @@ class TikTokApiRequestClient:
             == ApiRateLimitWaitStrategy.WAIT_NEXT_UTC_MIDNIGHT
         ):
             wait_strategy = json_decoding_error_retry_immediately_or_api_rate_limi_wait_until_next_utc_midnight
+        else:
+            raise ValueError(
+                f"Unknown wait strategy: {self._api_rate_limit_wait_strategy}"
+            )
+
         return tenacity.Retrying(
             retry=retry_once_if_json_decoding_error_or_retry_indefintely_if_api_rate_limit_error,
             wait=wait_strategy,
