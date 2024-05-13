@@ -248,11 +248,11 @@ class TikTokApiRequestClient:
 
         return token
 
-    @_access_token_fetcher_session.default
+    @_access_token_fetcher_session.default # type: ignore - pyright not recognizing attrs ?
     def _default_access_token_fetcher_session(self):
         return rq.Session()
 
-    @_api_request_session.default
+    @_api_request_session.default # type: ignore - pyright not recognizing attrs ?
     def _make_session(self):
         return rq.Session()
 

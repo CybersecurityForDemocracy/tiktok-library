@@ -84,7 +84,7 @@ class Condition:
     )
     operation: str = attrs.field(validator=attrs.validators.in_(Operations))
 
-    @field_values.validator
+    @field_values.validator # type: ignore - not recognizing attrs overload
     def validate_field_values(self, attribute, value):
         for elem in value:
             self.field.validator(inst=self, attr=attribute, value=elem)
