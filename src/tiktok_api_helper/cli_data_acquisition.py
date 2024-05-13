@@ -55,7 +55,7 @@ _DEFAULT_CREDENTIALS_FILE_PATH = Path("./secrets.yaml")
 
 
 def insert_videos_from_response(
-    videos: list,
+    videos: Sequence[dict],
     crawl_id: int,
     engine: Engine,
     crawl_tags: Optional[list] = None,
