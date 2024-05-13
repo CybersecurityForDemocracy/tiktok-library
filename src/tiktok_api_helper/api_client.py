@@ -184,7 +184,8 @@ def json_decoding_error_retry_immediately_or_api_rate_limi_wait_four_hours(
 @attrs.define
 class TikTokApiRequestClient:
     _credentials: TiktokCredentials = attrs.field(
-        validator=[attrs.validators.instance_of(TiktokCredentials), field_is_not_empty]
+        validator=[attrs.validators.instance_of(TiktokCredentials), field_is_not_empty],
+        alias="credentials",  # Attrs removes underscores from field names but the static type checker doesn't know that
     )
     _access_token_fetcher_session: rq.Session = attrs.field()
     _api_request_session: rq.Session = attrs.field()
