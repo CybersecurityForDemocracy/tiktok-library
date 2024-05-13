@@ -34,7 +34,6 @@ from .custom_types import (
     IncludeAnyKeywordListType,
     JsonQueryFileType,
     OnlyUsernamesListType,
-    QueryFileType,
     RawResponsesOutputDir,
     RegionCodeListType,
     TikTokEndDateFormat,
