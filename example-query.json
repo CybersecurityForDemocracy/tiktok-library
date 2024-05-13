@@ -1,0 +1,28 @@
+{
+  "and": [
+    {
+      "operation": "IN",
+      "field_name": "keyword",
+      "field_values": [
+        "cat"
+      ]
+    },
+    {
+      "operation": "EQ",
+      "field_name": "region_code",
+      "field_values": [
+        "US"
+      ]
+    }
+  ],
+  "not": [
+    {
+      "operation": "IN",
+      "field_name": "hashtag_name",
+      "field_values": [
+        "garfield"
+      ]
+    }
+  ]
+}
+

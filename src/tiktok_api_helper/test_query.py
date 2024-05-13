@@ -10,6 +10,7 @@ from .query import (
     generate_query,
     get_normalized_hashtag_set,
     get_normalized_keyword_set,
+    get_normalized_username_set,
 )
 
 
@@ -240,6 +241,24 @@ def test_normalized_keyword_set(test_input, expected):
     assert get_normalized_keyword_set(test_input) == expected
 
 
+@pytest.mark.parametrize(
+    "test_input,expected",
+    [
+        ("cheese", set(["cheese"])),
+        ("cheese,cheese", set(["cheese"])),
+        ("cheese,Cheese", set(["cheese"])),
+        ("cheese,Cheese,CHEESE", set(["cheese"])),
+        ("@cheese", set(["cheese"])),
+        ("@cheese,cheese", set(["cheese"])),
+        ("this,that,other", set(["this", "that", "other"])),
+        ("@this,that@,@OTHER", set(["this", "that", "other"])),
+        ("@this,@that,@OTHER,other@", set(["this", "that", "other"])),
+    ],
+)
+def test_normalized_username_set(test_input, expected):
+    assert get_normalized_username_set(test_input) == expected
+
+
 def test_generate_query_include_any_hashtags():
     assert generate_query(include_any_hashtags="this,that,other").as_dict() == {
         "and": [
@@ -324,6 +343,38 @@ def test_generate_query_exclude_all_hashtags():
                 ],
                 "operation": "EQ",
             },
+        ]
+    }
+
+
+def test_generate_query_only_from_usernames():
+    assert generate_query(only_from_usernames="mark,sally,kai").as_dict() == {
+        "and": [
+            {
+                "field_name": "username",
+                "field_values": [
+                    "kai",
+                    "mark",
+                    "sally",
+                ],
+                "operation": "IN",
+            }
+        ]
+    }
+
+
+def test_generate_query_exclude_from_usernames():
+    assert generate_query(exclude_from_usernames="mark,sally,kai").as_dict() == {
+        "not": [
+            {
+                "field_name": "username",
+                "field_values": [
+                    "kai",
+                    "mark",
+                    "sally",
+                ],
+                "operation": "IN",
+            }
         ]
     }
 
@@ -935,10 +986,47 @@ def test_generate_query_include_all_hashtags_with_exclude_any_keywords():
         ],
     }
 
-
-def test_generate_query_include_any_keywords_with_exclude_any_keywords():
+def test_generate_query_include_any_keywords_with_exclude_any_keywords_with_only_from_usernames():
     assert generate_query(
-        include_any_keywords="this,that,other", exclude_any_keywords="cheese,butter"
+        include_any_keywords="this,that,other",
+        exclude_any_keywords="cheese,butter",
+        only_from_usernames="mark,sally,kai",
+    ).as_dict() == {
+        "and": [
+            {
+                "field_name": "keyword",
+                "field_values": [
+                    "other",
+                    "that",
+                    "this",
+                ],
+                "operation": "IN",
+            },
+            {
+                "field_name": "username",
+                "field_values": [
+                    "kai",
+                    "mark",
+                    "sally",
+                ],
+                "operation": "IN",
+            },
+        ],
+        "not": [
+            {
+                "field_name": "keyword",
+                "field_values": ["butter", "cheese"],
+                "operation": "IN",
+            },
+        ],
+    }
+
+
+def test_generate_query_include_any_keywords_with_exclude_any_keywords_with_exclude_from_usernames():
+    assert generate_query(
+        include_any_keywords="this,that,other",
+        exclude_any_keywords="cheese,butter",
+        exclude_from_usernames="mark,sally,kai",
     ).as_dict() == {
         "and": [
             {
@@ -955,6 +1043,57 @@ def test_generate_query_include_any_keywords_with_exclude_any_keywords():
             {
                 "field_name": "keyword",
                 "field_values": ["butter", "cheese"],
+                "operation": "IN",
+            },
+            {
+                "field_name": "username",
+                "field_values": [
+                    "kai",
+                    "mark",
+                    "sally",
+                ],
+                "operation": "IN",
+            },
+        ],
+    }
+
+
+def test_generate_query_include_any_keywords_with_exclude_any_keywords_with_only_from_usernames_with_exclude_from_usernames():
+    assert generate_query(
+        include_any_keywords="this,that,other",
+        exclude_any_keywords="cheese,butter",
+        only_from_usernames="amuro,roux",
+        exclude_from_usernames="mark,sally,kai",
+    ).as_dict() == {
+        "and": [
+            {
+                "field_name": "keyword",
+                "field_values": [
+                    "other",
+                    "that",
+                    "this",
+                ],
+                "operation": "IN",
+            },
+            {
+                "field_name": "username",
+                "field_values": ["amuro", "roux"],
+                "operation": "IN",
+            },
+        ],
+        "not": [
+            {
+                "field_name": "keyword",
+                "field_values": ["butter", "cheese"],
+                "operation": "IN",
+            },
+            {
+                "field_name": "username",
+                "field_values": [
+                    "kai",
+                    "mark",
+                    "sally",
+                ],
                 "operation": "IN",
             },
         ],

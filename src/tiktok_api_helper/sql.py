@@ -1,39 +1,38 @@
 import copy
 import datetime
-import logging
-from typing import Any, Optional, Set, Mapping, Sequence
-import json
-from pathlib import Path
 import itertools
+import json
+import logging
+from pathlib import Path
+from typing import Any, Mapping, Optional, Sequence, Set
 
 from sqlalchemy import (
     JSON,
+    BigInteger,
     Column,
     DateTime,
     Engine,
+    ForeignKey,
+    MetaData,
     String,
+    Table,
+    UniqueConstraint,
     create_engine,
     func,
-    BigInteger,
-    Table,
-    ForeignKey,
-    UniqueConstraint,
     select,
-    MetaData,
 )
+from sqlalchemy.dialects import postgresql, sqlite
 from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.orm import (
     DeclarativeBase,
     Mapped,
     Session,
     mapped_column,
-    synonym,
     relationship,
+    synonym,
 )
-from sqlalchemy.dialects import postgresql, sqlite
 
 from .query import Query, QueryJSONEncoder
-
 
 # See https://amercader.net/blog/beware-of-json-fields-in-sqlalchemy/
 MUTABLE_JSON = MutableDict.as_mutable(JSON)  # type: ignore
@@ -215,7 +214,7 @@ class Video(Base):
 
 # TODO(macpd): make generic method for this and use for all many-to-many objects inserted with video
 def _get_hashtag_name_to_hashtag_object_map(
-    session: Session, video_data: list[dict[str, Any]]
+    session: Session, video_data: Sequence[dict[str, Any]]
 ) -> Mapping[str, Hashtag]:
     """Gets hashtag name -> Hashtag object map, pulling existing Hashtag objects from database and
     creating new Hashtag objects for new hashtag names.
@@ -250,7 +249,7 @@ def _get_crawl_tag_name_to_crawl_tag_object_map(
     and creating new CrawlTag objects for new crawl_tag names.
     """
     if not crawl_tags:
-        return {}
+        return set()
     # Get all crawl_tag names references in this list of videos
     crawl_tag_names_referenced = set(crawl_tags)
     # Of all the referenced crawl_tag names get those which exist in the database
@@ -270,7 +269,7 @@ def _get_crawl_tag_name_to_crawl_tag_object_map(
 
 
 def _get_effect_id_to_effect_object_map(
-    session: Session, video_data: list[dict[str, Any]]
+    session: Session, video_data: Sequence[dict[str, Any]]
 ) -> Mapping[str, Effect]:
     """Gets effect id -> Effect object map, pulling existing Effect objects from database and
     creating new Effect objects for new effect ids.
@@ -298,7 +297,7 @@ def _get_effect_id_to_effect_object_map(
 
 
 def upsert_videos(
-    video_data: list[dict[str, Any]],
+    video_data: Sequence[dict[str, Any]],
     crawl_id: int,
     engine: Engine,
     crawl_tags: Optional[Sequence[str]] = None,
@@ -403,7 +402,7 @@ class Crawl(Base):
 
     @classmethod
     def from_request(
-        cls, res_data: dict, query: Query, crawl_tags: Optional[Sequence[str]] = None
+        cls, res_data: Mapping, query: Query, crawl_tags: Optional[Sequence[str]] = None
     ) -> "Crawl":
         return cls(
             cursor=res_data["cursor"],
@@ -438,7 +437,9 @@ class Crawl(Base):
                 session.add(self)
             session.commit()
 
-    def update_crawl(self, next_res_data: dict, videos: list[str], engine: Engine):
+    def update_crawl(
+        self, next_res_data: Mapping, videos: Sequence[str], engine: Engine
+    ):
         self.cursor = next_res_data["cursor"]
         self.has_more = next_res_data["has_more"]
 
