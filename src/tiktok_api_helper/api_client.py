@@ -72,7 +72,7 @@ class AcquitionConfig:
     raw_responses_output_dir: Optional[Path] = None
     api_rate_limit_wait_strategy: ApiRateLimitWaitStrategy = attrs.field(
         default=ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS,
-        validator=attrs.validators.instance_of(ApiRateLimitWaitStrategy),
+        validator=attrs.validators.instance_of(ApiRateLimitWaitStrategy), # type: ignore - Attrs overload
     )
 
 
@@ -191,7 +191,7 @@ class TikTokApiRequestClient:
     _raw_responses_output_dir: Optional[Path] = None
     _api_rate_limit_wait_strategy: ApiRateLimitWaitStrategy = attrs.field(
         default=ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS,
-        validator=attrs.validators.instance_of(ApiRateLimitWaitStrategy),
+        validator=attrs.validators.instance_of(ApiRateLimitWaitStrategy), # type: ignore - Attrs overload
     )
 
     @classmethod
@@ -248,11 +248,11 @@ class TikTokApiRequestClient:
 
         return token
 
-    @_access_token_fetcher_session.default
+    @_access_token_fetcher_session.default  # type: ignore - Attrs overload
     def _default_access_token_fetcher_session(self):
         return rq.Session()
 
-    @_api_request_session.default
+    @_api_request_session.default  # type: ignore - Attrs overload
     def _make_session(self):
         return rq.Session()
 
