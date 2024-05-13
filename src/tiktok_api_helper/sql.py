@@ -250,7 +250,7 @@ def _get_crawl_tag_name_to_crawl_tag_object_map(
     creating new CrawlTag objects for new crawl_tag names.
     """
     if not crawl_tags:
-        return {}
+        return set()
     # Get all crawl_tag names references in this list of videos
     crawl_tag_names_referenced = set(crawl_tags)
     # Of all the referenced crawl_tag names get those which exist in the database
