@@ -151,9 +151,16 @@ specify the connection string.
 ## Testing
 To run unit tests locally (requires pytest installed):
 `python3 -m pytest` OR use hatch `hatch run test:run`
+
 To run postgresql integration test (requires docker installed, may have to run
 as sudo):
-`docker compose build && docker compose run postgres-integration-test && docker compose down`
+```
+docker compose build && docker compose run postgres-integration-test && docker compose down
+```
+OR run with hatch (this runs above docker commands as sudo):
+```
+hatch run test:postgres-integration-test-docker-as-sudo
+```
 
 ## Automatic formatting with black
 To check if black would change code (but not actually make changes):
