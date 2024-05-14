@@ -1,11 +1,12 @@
 import json
+
 import pytest
 
 from .query import (
-    Query,
     Cond,
-    Op,
     Fields,
+    Op,
+    Query,
     QueryJSONEncoder,
     generate_query,
     get_normalized_hashtag_set,

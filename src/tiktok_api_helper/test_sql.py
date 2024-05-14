@@ -1,22 +1,22 @@
 import datetime
 import itertools
+import json
 
+import pytest
 from sqlalchemy import (
     Engine,
     select,
 )
 from sqlalchemy.orm import Session
-import pytest
-import json
 
 from .sql import (
-    Crawl,
-    Video,
-    Hashtag,
-    Effect,
-    CrawlTag,
-    get_engine_and_create_tables,
     Base,
+    Crawl,
+    CrawlTag,
+    Effect,
+    Hashtag,
+    Video,
+    get_engine_and_create_tables,
     upsert_videos,
 )
 
@@ -89,7 +89,7 @@ def mock_videos(mock_crawl):
 
 @pytest.fixture
 def api_response_videos():
-    with open("src/tiktok_api_helper/testdata/api_response.json", "r") as f:
+    with open("src/tiktok_api_helper/testdata/api_response.json") as f:
         return json.loads(f.read())["data"]["videos"]
 
 
@@ -692,7 +692,7 @@ def test_upsert_updates_existing_and_inserts_new_video_data_and_crawl_tags(
             set(itertools.chain.from_iterable(original_crawl_tags.values())) | new_crawl_tags
         )
 
-        assert set((session.scalars(select(CrawlTag.name)).all())) == expected_crawl_tags
+        assert set(session.scalars(select(CrawlTag.name)).all()) == expected_crawl_tags
 
         assert {
             v.id: v.crawl_tag_names for v in session.scalars(select(Video).order_by(Video.id)).all()

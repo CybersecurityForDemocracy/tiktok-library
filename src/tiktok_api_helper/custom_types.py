@@ -1,8 +1,7 @@
 from pathlib import Path
-from typing import Optional, List
+from typing import Annotated, Optional
 
 import typer
-from typing_extensions import Annotated
 
 from .api_client import ApiRateLimitWaitStrategy
 from .region_codes import SupportedRegions
@@ -70,7 +69,7 @@ ApiRateLimitWaitStrategyType = Annotated[
     ),
 ]
 
-RegionCodeListType = Annotated[Optional[List[SupportedRegions]], typer.Option()]
+RegionCodeListType = Annotated[Optional[list[SupportedRegions]], typer.Option()]
 
 IncludeAnyHashtagListType = Annotated[
     str,

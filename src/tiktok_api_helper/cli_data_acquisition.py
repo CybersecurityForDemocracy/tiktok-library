@@ -1,15 +1,15 @@
 import json
 import logging
+from collections.abc import Mapping, Sequence
 from copy import copy
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Mapping, Optional, Sequence
+from typing import Annotated, Any, Optional
 
 import numpy as np
 import typer
 from sqlalchemy import Engine
 from tqdm.auto import tqdm
-from typing_extensions import Annotated
 
 from . import region_codes, utils
 from .api_client import (

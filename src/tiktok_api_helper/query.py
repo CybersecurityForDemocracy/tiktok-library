@@ -1,7 +1,8 @@
-from datetime import datetime
-from typing import Callable, Optional, Sequence, Union, Mapping, Any, List, Set
-import json
 import enum
+import json
+from collections.abc import Callable, Mapping, Sequence
+from datetime import datetime
+from typing import Any, Optional, Union
 
 import attrs
 
@@ -160,18 +161,18 @@ class QueryJSONEncoder(json.JSONEncoder):
         return super().default(o)
 
 
-def get_normalized_hashtag_set(comma_separated_hashtags: str) -> Set[str]:
+def get_normalized_hashtag_set(comma_separated_hashtags: str) -> set[str]:
     """Takes a string of comma separated hashtag names and returns a set of hashtag names all
     lowercase and stripped of leading "#" if present."""
     return {hashtag.lstrip("#").lower() for hashtag in comma_separated_hashtags.split(",")}
 
 
-def get_normalized_keyword_set(comma_separated_keywords: str) -> Set[str]:
+def get_normalized_keyword_set(comma_separated_keywords: str) -> set[str]:
     """Takes a string of comma separated keywords and returns a set of keywords all lowercase"""
     return {keyword.lower() for keyword in comma_separated_keywords.split(",")}
 
 
-def get_normalized_username_set(comma_separated_usernames: str) -> Set[str]:
+def get_normalized_username_set(comma_separated_usernames: str) -> set[str]:
     """Takes a string of comma separated usernames and returns a set of usernames all lowercase with
     any @ symbols remove"""
     return {username.strip("@").lower() for username in comma_separated_usernames.split(",")}
@@ -204,7 +205,7 @@ def any_usernames_condition(usernames):
 
 
 def generate_query(
-    region_codes: Optional[List[SupportedRegions]] = None,
+    region_codes: Optional[list[SupportedRegions]] = None,
     include_any_hashtags: Optional[str] = None,
     include_all_hashtags: Optional[str] = None,
     exclude_any_hashtags: Optional[str] = None,

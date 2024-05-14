@@ -3,9 +3,10 @@ from __future__ import annotations
 import enum
 import json
 import logging
+from collections.abc import Mapping, Sequence
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Mapping, Optional, Sequence
+from typing import Any, Optional
 
 import attrs
 import certifi

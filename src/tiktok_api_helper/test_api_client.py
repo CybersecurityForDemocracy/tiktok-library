@@ -1,11 +1,11 @@
-from pathlib import Path
-import unittest
-from unittest.mock import Mock, call
 import json
+import unittest
+from pathlib import Path
+from unittest.mock import Mock, call
 
+import pendulum
 import pytest
 import requests
-import pendulum
 
 from . import api_client
 

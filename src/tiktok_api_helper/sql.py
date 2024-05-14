@@ -1,39 +1,39 @@
 import copy
 import datetime
-import logging
-from typing import Any, Optional, Set, Mapping, Sequence
-import json
-from pathlib import Path
 import itertools
+import json
+import logging
+from collections.abc import Mapping, Sequence
+from pathlib import Path
+from typing import Any, Optional
 
 from sqlalchemy import (
     JSON,
+    BigInteger,
     Column,
     DateTime,
     Engine,
+    ForeignKey,
+    MetaData,
     String,
+    Table,
+    UniqueConstraint,
     create_engine,
     func,
-    BigInteger,
-    Table,
-    ForeignKey,
-    UniqueConstraint,
     select,
-    MetaData,
 )
+from sqlalchemy.dialects import postgresql, sqlite
 from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.orm import (
     DeclarativeBase,
     Mapped,
     Session,
     mapped_column,
-    synonym,
     relationship,
+    synonym,
 )
-from sqlalchemy.dialects import postgresql, sqlite
 
 from .query import Query, QueryJSONEncoder
-
 
 # See https://amercader.net/blog/beware-of-json-fields-in-sqlalchemy/
 MUTABLE_JSON = MutableDict.as_mutable(JSON)  # type: ignore
@@ -146,7 +146,7 @@ class Video(Base):
     id: Mapped[int] = mapped_column(
         BigIntegerForPrimaryKeyType, autoincrement=False, primary_key=True
     )
-    crawls: Mapped[Set["Crawl"]] = relationship(secondary=videos_to_crawls_association_table)
+    crawls: Mapped[set["Crawl"]] = relationship(secondary=videos_to_crawls_association_table)
     video_id = synonym("id")
     item_id = synonym("id")
 
@@ -162,8 +162,8 @@ class Video(Base):
     share_count: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
     view_count: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
 
-    effects: Mapped[Set[Effect]] = relationship(secondary=videos_to_effect_ids_association_table)
-    hashtags: Mapped[Set[Hashtag]] = relationship(secondary=videos_to_hashtags_association_table)
+    effects: Mapped[set[Effect]] = relationship(secondary=videos_to_effect_ids_association_table)
+    hashtags: Mapped[set[Hashtag]] = relationship(secondary=videos_to_hashtags_association_table)
 
     playlist_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
     voice_to_text: Mapped[Optional[str]]
@@ -178,7 +178,7 @@ class Video(Base):
         onupdate=func.now(),
     )
 
-    crawl_tags: Mapped[Set[CrawlTag]] = relationship(
+    crawl_tags: Mapped[set[CrawlTag]] = relationship(
         secondary=videos_to_crawl_tags_association_table
     )
     extra_data = Column(MUTABLE_JSON, nullable=True)  # For future data I haven't thought of yet
@@ -233,7 +233,7 @@ def _get_hashtag_name_to_hashtag_object_map(
 
 def _get_crawl_tag_name_to_crawl_tag_object_map(
     session: Session, crawl_tags: Optional[Sequence[str]]
-) -> Set[CrawlTag]:
+) -> set[CrawlTag]:
     """Gets crawl_tag name -> CrawlTag object map, pulling existing CrawlTag objects from database and
     creating new CrawlTag objects for new crawl_tag names.
     """
@@ -340,7 +340,7 @@ def upsert_videos(
             new_vid.crawls.update(each.crawls)
             session.merge(new_vid)
 
-        session.add_all((Video(**vid) for vid in video_id_to_video.values()))
+        session.add_all(Video(**vid) for vid in video_id_to_video.values())
 
         session.commit()
 
@@ -365,7 +365,7 @@ class Crawl(Base):
         DateTime(timezone=True), onupdate=func.now(), server_default=func.now()
     )
 
-    crawl_tags: Mapped[Set[CrawlTag]] = relationship(
+    crawl_tags: Mapped[set[CrawlTag]] = relationship(
         secondary=crawls_to_crawl_tags_association_table
     )
     extra_data = Column(MUTABLE_JSON, nullable=True)  # For future data I haven't thought of yet
