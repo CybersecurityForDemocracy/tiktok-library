@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 import pytest
 import json
 
-from .sql import (
+from tiktok_api_helper.sql import (
     Crawl,
     Video,
     Hashtag,

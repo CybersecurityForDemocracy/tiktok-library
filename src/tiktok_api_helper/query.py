@@ -5,7 +5,7 @@ import enum
 
 import attrs
 
-from .region_codes import SupportedRegions
+from tiktok_api_helper.region_codes import SupportedRegions
 
 _QUERY_AND_ARG_NAME = "and_"
 _QUERY_NOT_ARG_NAME = "not_"

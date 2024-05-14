@@ -32,7 +32,7 @@ from sqlalchemy.orm import (
 )
 from sqlalchemy.dialects import postgresql, sqlite
 
-from .query import Query, QueryJSONEncoder
+from tiktok_api_helper.query import Query, QueryJSONEncoder
 
 
 # See https://amercader.net/blog/beware-of-json-fields-in-sqlalchemy/

@@ -4,8 +4,8 @@ from typing import Optional, List
 import typer
 from typing_extensions import Annotated
 
-from .api_client import ApiRateLimitWaitStrategy
-from .region_codes import SupportedRegions
+from tiktok_api_helper.api_client import ApiRateLimitWaitStrategy
+from tiktok_api_helper.region_codes import SupportedRegions
 
 TikTokStartDateFormat = Annotated[
     str, typer.Argument(help="Start date in the format %Y%m%d (e.g. 20210101)")
