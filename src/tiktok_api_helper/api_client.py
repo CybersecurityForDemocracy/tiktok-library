@@ -265,7 +265,12 @@ class TikTokApiRequestClient:
         self._api_request_session.hooks["response"].append(self._refresh_token)
         self._api_request_session.verify = certifi.where()
 
-    def _refresh_token(self, r) -> rq.Response | None:
+    def _refresh_token(
+        self,
+        r,
+        *unused_args: Optional[Sequence],
+        **unused_kwargs: Optional[Mapping[Any, Any]],
+    ) -> rq.Response | None:
         # Adapted from https://stackoverflow.com/questions/37094419/python-requests-retry-request-after-re-authentication
         if r.status_code == 401:
             logging.info("Fetching new token as the previous token expired")

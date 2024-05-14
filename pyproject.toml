@@ -59,6 +59,11 @@ extra-dependencies = [
 
 [tool.hatch.envs.test.scripts]
 run = "pytest ./src -vv"
+postgres-integration-test-docker-as-sudo = [
+  "sudo docker compose build",
+  "sudo docker compose run postgres-integration-test",
+  "sudo docker compose down"
+]
 
 # Hatch uses ruff for linting and formatting (hatch fmt ...)
 [tool.ruff]
