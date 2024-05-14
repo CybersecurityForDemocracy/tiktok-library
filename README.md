@@ -155,11 +155,11 @@ To run postgresql integration test (requires docker installed, may have to run
 as sudo):
 `docker compose build && docker compose run postgres-integration-test && docker compose down`
 
-## Automatic formatting with ruff
+## Automatic formatting and linting with ruff
 To check if ruff would change code (but not actually make changes):
-`hatch fmt --check --formatter`
+`hatch fmt --check`
 To apply changes from ruff
-`hatch fmt --formatter`
+`hatch fmt`
 
 ## Alembic database schema migrations
 Alembic is a tool/framework for database schema migrations. For instructions on
