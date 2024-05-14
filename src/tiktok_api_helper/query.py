@@ -84,7 +84,7 @@ class Condition:
     )
     operation: str = attrs.field(validator=attrs.validators.in_(Operations))
 
-    @field_values.validator
+    @field_values.validator  # type: ignore - attrs does not support type hinting for validators
     def validate_field_values(self, attribute, value):
         for elem in value:
             self.field.validator(inst=self, attr=attribute, value=elem)
@@ -99,7 +99,7 @@ class Condition:
 
 def make_conditions_dict(
     conditions: Optional[Union[Sequence[Condition], Condition]],
-) -> Mapping[str, Any]:
+) -> Sequence[Mapping[str, Any]] | None | str:
     if conditions is None:
         return None
 

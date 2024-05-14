@@ -1,22 +1,21 @@
 from __future__ import annotations
 
+import enum
+import json
 import logging
 from datetime import datetime, timedelta
-from typing import Optional, Sequence, Mapping, Any
 from pathlib import Path
-import json
-import enum
+from typing import Any, Mapping, Optional, Sequence
 
 import attrs
-import requests as rq
-import yaml
 import certifi
-from sqlalchemy import Engine
-import tenacity
 import pendulum
+import requests as rq
+import tenacity
+import yaml
+from sqlalchemy import Engine
 
 from .query import Query, QueryJSONEncoder
-
 
 ALL_VIDEO_DATA_URL = "https://open.tiktokapis.com/v2/research/video/query/?fields=id,video_description,create_time,region_code,share_count,view_count,like_count,comment_count,music_id,hashtag_names,username,effect_ids,voice_to_text,playlist_id"
 
@@ -72,7 +71,7 @@ class AcquitionConfig:
     raw_responses_output_dir: Optional[Path] = None
     api_rate_limit_wait_strategy: ApiRateLimitWaitStrategy = attrs.field(
         default=ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS,
-        validator=attrs.validators.instance_of(ApiRateLimitWaitStrategy),
+        validator=attrs.validators.instance_of(ApiRateLimitWaitStrategy),  # type: ignore - Attrs overload
     )
 
 
@@ -184,14 +183,15 @@ def json_decoding_error_retry_immediately_or_api_rate_limi_wait_four_hours(
 @attrs.define
 class TikTokApiRequestClient:
     _credentials: TiktokCredentials = attrs.field(
-        validator=[attrs.validators.instance_of(TiktokCredentials), field_is_not_empty]
+        validator=[attrs.validators.instance_of(TiktokCredentials), field_is_not_empty],
+        alias="credentials",  # Attrs removes underscores from field names but the static type checker doesn't know that
     )
     _access_token_fetcher_session: rq.Session = attrs.field()
     _api_request_session: rq.Session = attrs.field()
     _raw_responses_output_dir: Optional[Path] = None
     _api_rate_limit_wait_strategy: ApiRateLimitWaitStrategy = attrs.field(
         default=ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS,
-        validator=attrs.validators.instance_of(ApiRateLimitWaitStrategy),
+        validator=attrs.validators.instance_of(ApiRateLimitWaitStrategy),  # type: ignore - Attrs overload
     )
 
     @classmethod
@@ -248,11 +248,11 @@ class TikTokApiRequestClient:
 
         return token
 
-    @_access_token_fetcher_session.default
+    @_access_token_fetcher_session.default  # type: ignore - Attrs overload
     def _default_access_token_fetcher_session(self):
         return rq.Session()
 
-    @_api_request_session.default
+    @_api_request_session.default  # type: ignore - Attrs overload
     def _make_session(self):
         return rq.Session()
 
@@ -269,7 +269,7 @@ class TikTokApiRequestClient:
         self._api_request_session.hooks["response"].append(self._refresh_token)
         self._api_request_session.verify = certifi.where()
 
-    def _refresh_token(self, r, *unused_args, **unused_kwargs) -> rq.Response | None:
+    def _refresh_token(self, r) -> rq.Response | None:
         # Adapted from https://stackoverflow.com/questions/37094419/python-requests-retry-request-after-re-authentication
         if r.status_code == 401:
             logging.info("Fetching new token as the previous token expired")
@@ -287,7 +287,10 @@ class TikTokApiRequestClient:
 
         return None
 
-    def _store_response(self, response: rq.Request) -> None:
+    def _store_response(self, response: rq.Response) -> None:
+        if self._raw_responses_output_dir is None:
+            raise ValueError("No output directory set")
+
         output_filename = self._raw_responses_output_dir / Path(
             str(pendulum.now("local").timestamp()) + ".json"
         )
@@ -314,6 +317,11 @@ class TikTokApiRequestClient:
             == ApiRateLimitWaitStrategy.WAIT_NEXT_UTC_MIDNIGHT
         ):
             wait_strategy = json_decoding_error_retry_immediately_or_api_rate_limi_wait_until_next_utc_midnight
+        else:
+            raise ValueError(
+                f"Unknown wait strategy: {self._api_rate_limit_wait_strategy}"
+            )
+
         return tenacity.Retrying(
             retry=retry_once_if_json_decoding_error_or_retry_indefintely_if_api_rate_limit_error,
             wait=wait_strategy,
@@ -340,7 +348,7 @@ class TikTokApiRequestClient:
         retry=tenacity.retry_if_exception_type(rq.RequestException),
         reraise=True,
     )
-    def _post(self, request: TiktokRequest) -> rq.Response:
+    def _post(self, request: TiktokRequest) -> rq.Response | None:
         data = request.as_json()
         logging.log(logging.INFO, f"Sending request with data: {data}")
 
@@ -367,7 +375,10 @@ class TikTokApiRequestClient:
         return None
 
     @staticmethod
-    def _parse_response(response: rq.Response) -> TikTokResponse:
+    def _parse_response(response: Optional[rq.Response]) -> TikTokResponse:
+        if response is None:
+            raise ValueError("Response is None")
+
         try:
             req_data = response.json().get("data", {})
         except rq.exceptions.JSONDecodeError as e:

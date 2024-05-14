@@ -251,13 +251,13 @@ def test_upsert(test_database_engine, mock_videos, mock_crawl):
                 {
                     "id": mock_videos[0].id,
                     "share_count": 300,
-                    "create_time": datetime.datetime.utcnow().timestamp(),
+                    "create_time": datetime.datetime.now(datetime.UTC).timestamp(),
                     "hashtag_names": ["hashtag1", "hashtag2"],
                 },
                 {
                     "id": mock_videos[1].id,
                     "share_count": 3,
-                    "create_time": datetime.datetime.utcnow().timestamp(),
+                    "create_time": datetime.datetime.now(datetime.UTC).timestamp(),
                     "hashtag_names": ["hashtag1", "hashtag2", "hashtag3"],
                 },
             ],
@@ -312,13 +312,13 @@ def test_upsert_existing_video_and_new_video_upserted_together(
                 {
                     "id": mock_videos[0].id,
                     "share_count": 300,
-                    "create_time": datetime.datetime.utcnow().timestamp(),
+                    "create_time": datetime.datetime.now(datetime.UTC).timestamp(),
                     "hashtag_names": ["hashtag1", "hashtag2"],
                 },
                 {
                     "id": mock_videos[1].id,
                     "share_count": mock_videos[1].share_count,
-                    "create_time": datetime.datetime.utcnow().timestamp(),
+                    "create_time": datetime.datetime.now(datetime.UTC).timestamp(),
                     "hashtag_names": mock_videos[1].hashtag_names,
                     "region_code": mock_videos[1].region_code,
                     "username": mock_videos[1].username,
@@ -358,7 +358,7 @@ def test_upsert_no_prior_insert(test_database_engine, mock_videos, mock_crawl):
                 "username": "tron",
                 "region_code": "US",
                 "share_count": 300,
-                "create_time": datetime.datetime.utcnow().timestamp(),
+                "create_time": datetime.datetime.now(datetime.UTC).timestamp(),
                 "hashtag_names": ["hashtag1", "hashtag2"],
             },
             {
@@ -366,7 +366,7 @@ def test_upsert_no_prior_insert(test_database_engine, mock_videos, mock_crawl):
                 "username": "tron",
                 "region_code": "US",
                 "share_count": 3,
-                "create_time": datetime.datetime.utcnow().timestamp(),
+                "create_time": datetime.datetime.now(datetime.UTC).timestamp(),
                 "hashtag_names": ["hashtag1", "hashtag2"],
             },
         ],
@@ -422,7 +422,7 @@ def test_upsert_existing_hashtags_names_gets_same_id(
     """Tests that adding a video with an existing hashtag name (from a previously added video)
     succeeds, gets the same ID it had previously, and does not raise a Unique violation error.
     """
-    utcnow = datetime.datetime.utcnow().timestamp()
+    utcnow = datetime.datetime.now(datetime.UTC).timestamp()
     with Session(test_database_engine) as session:
         session.add_all(mock_crawl.crawl_tags)
         session.add_all([mock_crawl])
@@ -492,7 +492,7 @@ def test_upsert_updates_existing_and_inserts_new_video_data(
     mock_crawl,
     api_response_videos,
 ):
-    utcnow = datetime.datetime.utcnow().timestamp()
+    utcnow = datetime.datetime.now(datetime.UTC).timestamp()
     with Session(test_database_engine) as session:
         session.add_all(mock_crawl.crawl_tags)
         session.add_all([mock_crawl])
@@ -538,7 +538,7 @@ def test_upsert_updates_existing_and_inserts_new_video_data_and_hashtag_names(
     mock_crawl,
     api_response_videos,
 ):
-    utcnow = datetime.datetime.utcnow().timestamp()
+    utcnow = datetime.datetime.now(datetime.UTC).timestamp()
     with Session(test_database_engine) as session:
         session.add_all(mock_crawl.crawl_tags)
         session.add_all([mock_crawl])
@@ -624,7 +624,7 @@ def test_upsert_updates_existing_and_inserts_new_video_data_and_effect_id(
 ):
     # This video has effect_ids
     api_response_video = api_response_videos[19]
-    utcnow = datetime.datetime.utcnow().timestamp()
+    utcnow = datetime.datetime.now(datetime.UTC).timestamp()
     with Session(test_database_engine) as session:
         session.add_all(mock_crawl.crawl_tags)
         session.add_all([mock_crawl])
@@ -675,7 +675,7 @@ def test_upsert_updates_existing_and_inserts_new_video_data_and_crawl_tags(
 ):
     # Test adding crawl_tags from an API response
     api_response_video = api_response_videos[0]
-    utcnow = datetime.datetime.utcnow().timestamp()
+    utcnow = datetime.datetime.now(datetime.UTC).timestamp()
     #  mock_crawl.upload_self_to_db(test_database_engine)
     with Session(test_database_engine) as session:
         session.add_all(mock_crawl.crawl_tags)
