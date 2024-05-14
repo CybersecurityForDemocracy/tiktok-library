@@ -288,7 +288,8 @@ class TikTokApiRequestClient:
         return None
 
     def _store_response(self, response: rq.Response) -> None:
-        assert self._raw_responses_output_dir is not None, "No output directory set"
+        if self._raw_responses_output_dir is None:
+            raise ValueError("No output directory set")
 
         output_filename = self._raw_responses_output_dir / Path(
             str(pendulum.now("local").timestamp()) + ".json"
