@@ -63,9 +63,7 @@ class Fields:
     create_date = _Field("create_date", validator=check_can_convert_date)
 
 
-def convert_str_or_strseq_to_strseq(
-    element_or_list: Union[str, Sequence[str]]
-) -> Sequence[str]:
+def convert_str_or_strseq_to_strseq(element_or_list: Union[str, Sequence[str]]) -> Sequence[str]:
     """We purposely keep this function separate to the one optional_condition_or_list
     one below to avoid the edgecase that isinstance("any string", Sequence) = True
     """
@@ -165,9 +163,7 @@ class QueryJSONEncoder(json.JSONEncoder):
 def get_normalized_hashtag_set(comma_separated_hashtags: str) -> Set[str]:
     """Takes a string of comma separated hashtag names and returns a set of hashtag names all
     lowercase and stripped of leading "#" if present."""
-    return {
-        hashtag.lstrip("#").lower() for hashtag in comma_separated_hashtags.split(",")
-    }
+    return {hashtag.lstrip("#").lower() for hashtag in comma_separated_hashtags.split(",")}
 
 
 def get_normalized_keyword_set(comma_separated_keywords: str) -> Set[str]:
@@ -178,15 +174,11 @@ def get_normalized_keyword_set(comma_separated_keywords: str) -> Set[str]:
 def get_normalized_username_set(comma_separated_usernames: str) -> Set[str]:
     """Takes a string of comma separated usernames and returns a set of usernames all lowercase with
     any @ symbols remove"""
-    return {
-        username.strip("@").lower() for username in comma_separated_usernames.split(",")
-    }
+    return {username.strip("@").lower() for username in comma_separated_usernames.split(",")}
 
 
 def any_hashtags_condition(hashtags):
-    return Cond(
-        Fields.hashtag_name, sorted(get_normalized_hashtag_set(hashtags)), Op.IN
-    )
+    return Cond(Fields.hashtag_name, sorted(get_normalized_hashtag_set(hashtags)), Op.IN)
 
 
 def all_hashtags_condition_list(hashtags):
@@ -227,50 +219,30 @@ def generate_query(
     query_args = {_QUERY_AND_ARG_NAME: [], _QUERY_NOT_ARG_NAME: []}
 
     if include_any_hashtags:
-        query_args[_QUERY_AND_ARG_NAME].append(
-            any_hashtags_condition(include_any_hashtags)
-        )
+        query_args[_QUERY_AND_ARG_NAME].append(any_hashtags_condition(include_any_hashtags))
     elif include_all_hashtags:
-        query_args[_QUERY_AND_ARG_NAME].extend(
-            all_hashtags_condition_list(include_all_hashtags)
-        )
+        query_args[_QUERY_AND_ARG_NAME].extend(all_hashtags_condition_list(include_all_hashtags))
 
     if exclude_any_hashtags:
-        query_args[_QUERY_NOT_ARG_NAME].append(
-            any_hashtags_condition(exclude_any_hashtags)
-        )
+        query_args[_QUERY_NOT_ARG_NAME].append(any_hashtags_condition(exclude_any_hashtags))
     elif exclude_all_hashtags:
-        query_args[_QUERY_NOT_ARG_NAME].extend(
-            all_hashtags_condition_list(exclude_all_hashtags)
-        )
+        query_args[_QUERY_NOT_ARG_NAME].extend(all_hashtags_condition_list(exclude_all_hashtags))
 
     if include_any_keywords:
-        query_args[_QUERY_AND_ARG_NAME].append(
-            any_keywords_condition(include_any_keywords)
-        )
+        query_args[_QUERY_AND_ARG_NAME].append(any_keywords_condition(include_any_keywords))
     elif include_all_keywords:
-        query_args[_QUERY_AND_ARG_NAME].extend(
-            all_keywords_condition_list(include_all_keywords)
-        )
+        query_args[_QUERY_AND_ARG_NAME].extend(all_keywords_condition_list(include_all_keywords))
 
     if exclude_any_keywords:
-        query_args[_QUERY_NOT_ARG_NAME].append(
-            any_keywords_condition(exclude_any_keywords)
-        )
+        query_args[_QUERY_NOT_ARG_NAME].append(any_keywords_condition(exclude_any_keywords))
     elif exclude_all_keywords:
-        query_args[_QUERY_NOT_ARG_NAME].extend(
-            all_keywords_condition_list(exclude_all_keywords)
-        )
+        query_args[_QUERY_NOT_ARG_NAME].extend(all_keywords_condition_list(exclude_all_keywords))
 
     if only_from_usernames:
-        query_args[_QUERY_AND_ARG_NAME].append(
-            any_usernames_condition(only_from_usernames)
-        )
+        query_args[_QUERY_AND_ARG_NAME].append(any_usernames_condition(only_from_usernames))
 
     if exclude_from_usernames:
-        query_args[_QUERY_NOT_ARG_NAME].append(
-            any_usernames_condition(exclude_from_usernames)
-        )
+        query_args[_QUERY_NOT_ARG_NAME].append(any_usernames_condition(exclude_from_usernames))
 
     if region_codes:
         query_args[_QUERY_AND_ARG_NAME].append(

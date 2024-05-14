@@ -30,9 +30,7 @@ class InvalidRequestError(Exception):
 
 def field_is_not_empty(instance, attribute, value):
     if not value:
-        raise ValueError(
-            f"{instance.__class__.__name__}: {attribute.name} cannot be empty"
-        )
+        raise ValueError(f"{instance.__class__.__name__}: {attribute.name} cannot be empty")
 
 
 class ApiRateLimitWaitStrategy(enum.StrEnum):
@@ -48,9 +46,7 @@ class TiktokCredentials:
     client_secret: str = attrs.field(
         validator=[attrs.validators.instance_of(str), field_is_not_empty]
     )
-    client_key: str = attrs.field(
-        validator=[attrs.validators.instance_of(str), field_is_not_empty]
-    )
+    client_key: str = attrs.field(validator=[attrs.validators.instance_of(str), field_is_not_empty])
 
 
 @attrs.define
@@ -214,7 +210,6 @@ class TikTokApiRequestClient:
         self,
         grant_type: str = "client_credentials",
     ) -> str:
-
         headers = {
             "Content-Type": "application/x-www-form-urlencoded",
             "Cache-Control": "no-cache",
@@ -275,13 +270,9 @@ class TikTokApiRequestClient:
             logging.info("Fetching new token as the previous token expired")
 
             token = self._get_client_access_token()
-            self._api_request_session.headers.update(
-                {"Authorization": f"Bearer {token}"}
-            )
+            self._api_request_session.headers.update({"Authorization": f"Bearer {token}"})
 
-            r.request.headers["Authorization"] = self._api_request_session.headers[
-                "Authorization"
-            ]
+            r.request.headers["Authorization"] = self._api_request_session.headers["Authorization"]
 
             return self._api_request_session.send(r.request)
 
@@ -305,22 +296,14 @@ class TikTokApiRequestClient:
         else:
             stop_strategy = tenacity.stop_never
 
-        if (
-            self._api_rate_limit_wait_strategy
-            == ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS
-        ):
+        if self._api_rate_limit_wait_strategy == ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS:
+            wait_strategy = json_decoding_error_retry_immediately_or_api_rate_limi_wait_four_hours
+        elif self._api_rate_limit_wait_strategy == ApiRateLimitWaitStrategy.WAIT_NEXT_UTC_MIDNIGHT:
             wait_strategy = (
-                json_decoding_error_retry_immediately_or_api_rate_limi_wait_four_hours
+                json_decoding_error_retry_immediately_or_api_rate_limi_wait_until_next_utc_midnight
             )
-        elif (
-            self._api_rate_limit_wait_strategy
-            == ApiRateLimitWaitStrategy.WAIT_NEXT_UTC_MIDNIGHT
-        ):
-            wait_strategy = json_decoding_error_retry_immediately_or_api_rate_limi_wait_until_next_utc_midnight
         else:
-            raise ValueError(
-                f"Unknown wait strategy: {self._api_rate_limit_wait_strategy}"
-            )
+            raise ValueError(f"Unknown wait strategy: {self._api_rate_limit_wait_strategy}")
 
         return tenacity.Retrying(
             retry=retry_once_if_json_decoding_error_or_retry_indefintely_if_api_rate_limit_error,
@@ -329,12 +312,10 @@ class TikTokApiRequestClient:
             reraise=True,
         )
 
-    def fetch(
-        self, request: TiktokRequest, max_api_rate_limit_retries=None
-    ) -> TikTokResponse:
-        return self._fetch_retryer(
-            max_api_rate_limit_retries=max_api_rate_limit_retries
-        )(self._fetch, request)
+    def fetch(self, request: TiktokRequest, max_api_rate_limit_retries=None) -> TikTokResponse:
+        return self._fetch_retryer(max_api_rate_limit_retries=max_api_rate_limit_retries)(
+            self._fetch, request
+        )
 
     def _fetch(self, request: TiktokRequest) -> TikTokResponse:
         api_response = self._post(request)

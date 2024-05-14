@@ -132,15 +132,11 @@ def test_tiktok_api_request_client_retry_once_on_json_decoder_error(
         access_token_fetcher_session=mock_access_token_fetcher_session,
     )
     with pytest.raises(json.JSONDecodeError):
-        request.fetch(
-            api_client.TiktokRequest(query={}, start_date=None, end_date=None)
-        )
+        request.fetch(api_client.TiktokRequest(query={}, start_date=None, end_date=None))
     # Confirm that code retried the post request and json extraction twice (ie retried once after
     # the decode error before the exception is re-raised)
     assert mock_request_session_json_decoder_error.post.call_count == 2
-    assert (
-        mock_request_session_json_decoder_error.post.return_value.json.call_count == 2
-    )
+    assert mock_request_session_json_decoder_error.post.return_value.json.call_count == 2
     mock_sleep.assert_called_once_with(0)
 
 
@@ -163,10 +159,7 @@ def test_tiktok_api_request_client_wait_one_hour_on_rate_limit_wait_strategy(
     # Confirm that code retried the post request and json extraction twice (ie retried once after
     # the decode error before the exception is re-raised)
     assert mock_request_session_rate_limit_error.post.call_count == num_retries
-    assert (
-        mock_request_session_rate_limit_error.post.return_value.json.call_count
-        == num_retries
-    )
+    assert mock_request_session_rate_limit_error.post.return_value.json.call_count == num_retries
     # Sleep will be called once less than num_retries because it is not called after last retry
     assert mock_sleep.call_count == num_retries - 1
     assert mock_sleep.mock_calls == [
@@ -200,8 +193,7 @@ def test_tiktok_api_request_client_wait_til_next_utc_midnight_on_rate_limit_wait
         # the decode error before the exception is re-raised)
         assert mock_request_session_rate_limit_error.post.call_count == num_retries
         assert (
-            mock_request_session_rate_limit_error.post.return_value.json.call_count
-            == num_retries
+            mock_request_session_rate_limit_error.post.return_value.json.call_count == num_retries
         )
         # Sleep will be called once less than num_retries because it is not called after last retry
         assert mock_sleep.call_count == num_retries - 1

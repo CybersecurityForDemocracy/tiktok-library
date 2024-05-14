@@ -81,14 +81,10 @@ def run_long_query(config: AcquitionConfig):
     res = request_client.fetch(request)
 
     if not res.videos:
-        logging.log(
-            logging.INFO, f"No videos in response - {res}. Query: {config.query}"
-        )
+        logging.log(logging.INFO, f"No videos in response - {res}. Query: {config.query}")
         return
 
-    crawl = Crawl.from_request(
-        res.request_data, config.query, crawl_tags=config.crawl_tags
-    )
+    crawl = Crawl.from_request(res.request_data, config.query, crawl_tags=config.crawl_tags)
     crawl.upload_self_to_db(config.engine)
 
     insert_videos_from_response(
@@ -113,9 +109,7 @@ def run_long_query(config: AcquitionConfig):
         )
         res = request_client.fetch(request)
 
-        crawl.update_crawl(
-            next_res_data=res.request_data, videos=res.videos, engine=config.engine
-        )
+        crawl.update_crawl(next_res_data=res.request_data, videos=res.videos, engine=config.engine)
         insert_videos_from_response(
             res.videos,
             crawl_id=crawl.id,
@@ -158,7 +152,6 @@ def main_driver(config: AcquitionConfig):
     start_date = copy(config.start_date)
 
     with tqdm(total=total) as pbar:
-
         while start_date < config.final_date:
             # API limit is 30, we maintain 28 to be safe
             local_end_date = start_date + days_per_iter
@@ -244,15 +237,11 @@ def validate_mutually_exclusive_flags(
     """Takes a dict of flag names -> flag values, and raises an exception if more than one or none
     specified."""
 
-    num_values_not_none = len(
-        list(filter(lambda x: x is not None, flags_names_to_values.values()))
-    )
+    num_values_not_none = len(list(filter(lambda x: x is not None, flags_names_to_values.values())))
     flag_names_str = ", ".join(flags_names_to_values.keys())
 
     if num_values_not_none > 1:
-        raise typer.BadParameter(
-            f"{flag_names_str} are mutually exclusive. Please use only one."
-        )
+        raise typer.BadParameter(f"{flag_names_str} are mutually exclusive. Please use only one.")
 
     if at_least_one_required and num_values_not_none == 0:
         raise typer.BadParameter(f"Must specify one of {flag_names_str}")

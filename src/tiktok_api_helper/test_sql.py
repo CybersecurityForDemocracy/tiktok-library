@@ -98,8 +98,7 @@ def assert_video_database_object_list_matches_api_responses_dict(
 ):
     video_id_to_database_object = {video.id: video for video in video_objects}
     video_id_to_api_response_dict = {
-        api_response_dict["id"]: api_response_dict
-        for api_response_dict in api_responses_video_dict
+        api_response_dict["id"]: api_response_dict for api_response_dict in api_responses_video_dict
     }
     database_video_ids = set(video_id_to_database_object.keys())
     api_responses_video_ids = set(video_id_to_api_response_dict.keys())
@@ -115,9 +114,7 @@ def assert_video_database_object_list_matches_api_responses_dict(
         )
 
 
-def _assert_video_database_object_matches_api_response_dict(
-    video_object, api_response_video_dict
-):
+def _assert_video_database_object_matches_api_response_dict(video_object, api_response_video_dict):
     for k, v in api_response_video_dict.items():
         try:
             db_value = getattr(video_object, k)
@@ -135,9 +132,7 @@ def _assert_video_database_object_matches_api_response_dict(
             )
 
         except AttributeError as e:
-            raise ValueError(
-                f"Video object {video_object!r} has not attribute {k}: {e}"
-            ) from e
+            raise ValueError(f"Video object {video_object!r} has not attribute {k}: {e}") from e
 
 
 def test_video_basic_insert(test_database_engine, mock_videos):
@@ -223,9 +218,7 @@ def test_none_crawl_tags(test_database_engine, mock_crawl):
     with Session(test_database_engine) as session:
         assert {
             crawl_tag.name
-            for crawl_tag in session.scalar(
-                select(Crawl).where(Crawl.id == crawl.id)
-            ).crawl_tags
+            for crawl_tag in session.scalar(select(Crawl).where(Crawl.id == crawl.id)).crawl_tags
         } == set()
 
 
@@ -279,9 +272,7 @@ def test_upsert(test_database_engine, mock_videos, mock_crawl):
         ]
         assert {
             v.id: {hashtag.name for hashtag in v.hashtags}
-            for v in session.scalars(
-                select(Video).join(Video.hashtags).order_by(Video.id)
-            ).all()
+            for v in session.scalars(select(Video).join(Video.hashtags).order_by(Video.id)).all()
         } == {
             mock_videos[0].id: {"hashtag1", "hashtag2"},
             mock_videos[1].id: {"hashtag1", "hashtag2", "hashtag3"},
@@ -387,17 +378,14 @@ def test_upsert_no_prior_insert(test_database_engine, mock_videos, mock_crawl):
             3,
         ]
         assert [
-            {*v.hashtag_names}
-            for v in session.scalars(select(Video).order_by(Video.id)).all()
+            {*v.hashtag_names} for v in session.scalars(select(Video).order_by(Video.id)).all()
         ] == [
             {"hashtag1", "hashtag2"},
             {"hashtag1", "hashtag2"},
         ]
 
 
-def test_upsert_videos_to_crawls_association(
-    test_database_engine, mock_crawl, api_response_videos
-):
+def test_upsert_videos_to_crawls_association(test_database_engine, mock_crawl, api_response_videos):
     with Session(test_database_engine) as session:
         mock_crawl.upload_self_to_db(test_database_engine)
         expected_crawl_id = mock_crawl.id
@@ -658,8 +646,7 @@ def test_upsert_updates_existing_and_inserts_new_video_data_and_effect_id(
         ]
 
         assert {
-            v.id: v.effect_ids
-            for v in session.scalars(select(Video).order_by(Video.id)).all()
+            v.id: v.effect_ids for v in session.scalars(select(Video).order_by(Video.id)).all()
         } == {
             mock_videos[0].id: set(),
             mock_videos[1].id: {"101", "202", "303", "404"},
@@ -684,8 +671,7 @@ def test_upsert_updates_existing_and_inserts_new_video_data_and_crawl_tags(
         session.commit()
 
         original_crawl_tags = {
-            v.id: v.crawl_tag_names
-            for v in session.scalars(select(Video).order_by(Video.id)).all()
+            v.id: v.crawl_tag_names for v in session.scalars(select(Video).order_by(Video.id)).all()
         }
         new_crawl_tags = {"0.0-testing"}
         upsert_videos(
@@ -703,17 +689,13 @@ def test_upsert_updates_existing_and_inserts_new_video_data_and_crawl_tags(
         )
         session.expire_all()
         expected_crawl_tags = (
-            set(itertools.chain.from_iterable(original_crawl_tags.values()))
-            | new_crawl_tags
+            set(itertools.chain.from_iterable(original_crawl_tags.values())) | new_crawl_tags
         )
 
-        assert (
-            set((session.scalars(select(CrawlTag.name)).all())) == expected_crawl_tags
-        )
+        assert set((session.scalars(select(CrawlTag.name)).all())) == expected_crawl_tags
 
         assert {
-            v.id: v.crawl_tag_names
-            for v in session.scalars(select(Video).order_by(Video.id)).all()
+            v.id: v.crawl_tag_names for v in session.scalars(select(Video).order_by(Video.id)).all()
         } == {
             mock_videos[0].id: original_crawl_tags[mock_videos[0].id],
             mock_videos[1].id: original_crawl_tags[mock_videos[1].id] | new_crawl_tags,
@@ -721,15 +703,11 @@ def test_upsert_updates_existing_and_inserts_new_video_data_and_crawl_tags(
         }
 
 
-def test_upsert_api_response_videos(
-    test_database_engine, mock_crawl, api_response_videos
-):
+def test_upsert_api_response_videos(test_database_engine, mock_crawl, api_response_videos):
     with Session(test_database_engine) as session:
         session.add_all(mock_crawl.crawl_tags)
         session.add_all([mock_crawl])
-        upsert_videos(
-            api_response_videos, crawl_id=mock_crawl.id, engine=test_database_engine
-        )
+        upsert_videos(api_response_videos, crawl_id=mock_crawl.id, engine=test_database_engine)
         session.expire_all()
         assert_video_database_object_list_matches_api_responses_dict(
             session.scalars(select(Video)).all(), api_response_videos
