@@ -54,23 +54,19 @@ extra-dependencies = [
 
 [tool.hatch.envs.alembic]
 extra-dependencies = [
-  "pytest",
-  "black",
   "alembic"
 ]
 
 [tool.hatch.envs.test.scripts]
 run = "pytest ./src -vv"
 
-[tool.hatch.envs.style]
-detached = true
-dependencies = [
-  "black",
-]
-[tool.hatch.envs.style.scripts]
-check = [
-  "black --check --diff src/",
-]
-fmt = [
-  "black src/",
-]
+# Hatch uses ruff for linting and formatting (hatch fmt ...)
+[tool.ruff]
+line-length=100
+exclude = ["alembic"]
+
+[tool.ruff.lint]
+ignore=["SIM108"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/tiktok_api_helper/test_*.py" = ["S101"]
