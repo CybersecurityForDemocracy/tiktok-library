@@ -132,7 +132,8 @@ def _assert_video_database_object_matches_api_response_dict(video_object, api_re
             )
 
         except AttributeError as e:
-            raise ValueError(f"Video object {video_object!r} has not attribute {k}: {e}") from e
+            error_msg = f"Video object {video_object!r} has not attribute {k}: {e}"
+            raise ValueError(error_msg) from e
 
 
 def test_video_basic_insert(test_database_engine, mock_videos):
