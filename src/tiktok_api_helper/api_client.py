@@ -15,7 +15,7 @@ import tenacity
 import yaml
 from sqlalchemy import Engine
 
-from .query import Query, QueryJSONEncoder
+from tiktok_api_helper.query import Query, QueryJSONEncoder
 
 ALL_VIDEO_DATA_URL = "https://open.tiktokapis.com/v2/research/video/query/?fields=id,video_description,create_time,region_code,share_count,view_count,like_count,comment_count,music_id,hashtag_names,username,effect_ids,voice_to_text,playlist_id"
 

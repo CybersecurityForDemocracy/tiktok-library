@@ -7,7 +7,7 @@ import pytest
 import requests
 import pendulum
 
-from . import api_client
+from tiktok_api_helper import api_client
 
 FAKE_SECRETS_YAML_FILE = Path("src/tiktok_api_helper/testdata/fake_secrets.yaml")
 

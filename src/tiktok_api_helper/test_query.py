@@ -1,7 +1,7 @@
 import json
 import pytest
 
-from .query import (
+from tiktok_api_helper.query import (
     Query,
     Cond,
     Op,
