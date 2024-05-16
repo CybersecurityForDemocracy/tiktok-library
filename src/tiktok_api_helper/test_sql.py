@@ -265,7 +265,7 @@ def test_upsert(test_database_engine, mock_videos, mock_crawl):
             for v in session.scalars(select(Video).order_by(Video.id)).all()
         } == {
             mock_videos[0].id: {"testing", "0.0-testing"},
-            mock_videos[1].id: {"testing", "testing", "0.0-testing"},
+            mock_videos[1].id: {"testing", "0.0-testing"},
         }
         assert session.scalars(select(Video.share_count).order_by(Video.id)).all() == [
             300,
