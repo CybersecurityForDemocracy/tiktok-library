@@ -56,7 +56,7 @@ def mock_crawl(mock_crawl_tags):
 
 @pytest.fixture
 def mock_videos(mock_crawl):
-    now = datetime.datetime.now()
+    now = datetime.datetime.now(tz=datetime.UTC)
     return [
         Video(
             id=1,
