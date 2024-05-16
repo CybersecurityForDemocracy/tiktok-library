@@ -208,7 +208,7 @@ class TikTokApiRequestClient:
         )
 
     def __attrs_post_init__(self):
-        self._configure_session()
+        self._configure_request_sessions()
 
     def _get_client_access_token(
         self,
@@ -256,9 +256,12 @@ class TikTokApiRequestClient:
     def _make_session(self):
         return rq.Session()
 
-    def _configure_session(self):
-        """Gets access token for authorization, sets token in headers for all request, and registers
-        a hook to refresh token when response indicates it has expired."""
+    def _configure_request_sessions(self):
+        """Gets access token for authorization, sets token in headers for all requests, and registers
+        a hook to refresh token when response indicates it has expired. Configures access token
+        fetcher and api fetcher sessions to verify certs using certifi."""
+        self._access_token_fetcher_session.verify = certifi.where()
+
         token = self._get_client_access_token()
         headers = {
             "Authorization": f"Bearer {token}",
