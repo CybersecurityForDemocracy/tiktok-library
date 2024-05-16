@@ -11,14 +11,14 @@ import typer
 from sqlalchemy import Engine
 from tqdm.auto import tqdm
 
-from . import region_codes, utils
-from .api_client import (
+from tiktok_api_helper import region_codes, utils
+from tiktok_api_helper.api_client import (
     AcquitionConfig,
     ApiRateLimitWaitStrategy,
     TikTokApiRequestClient,
     TiktokRequest,
 )
-from .custom_types import (
+from tiktok_api_helper.custom_types import (
     ApiCredentialsFileType,
     ApiRateLimitWaitStrategyType,
     DBFileType,
@@ -39,8 +39,8 @@ from .custom_types import (
     TikTokEndDateFormat,
     TikTokStartDateFormat,
 )
-from .query import Cond, Fields, Op, Query, QueryJSONEncoder, generate_query
-from .sql import (
+from tiktok_api_helper.query import Cond, Fields, Op, Query, QueryJSONEncoder, generate_query
+from tiktok_api_helper.sql import (
     Crawl,
     get_engine_and_create_tables,
     get_sqlite_engine_and_create_tables,

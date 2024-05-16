@@ -9,7 +9,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Session
 
-from .sql import (
+from tiktok_api_helper.sql import (
     Base,
     Crawl,
     CrawlTag,
