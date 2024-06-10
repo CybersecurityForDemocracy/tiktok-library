@@ -5,10 +5,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Mapping, Optional, Sequence
 
-import numpy as np
 import typer
 from sqlalchemy import Engine
-from tqdm.auto import tqdm
 from typing_extensions import Annotated
 
 from tiktok_api_helper import region_codes, utils
@@ -50,7 +48,6 @@ from tiktok_api_helper.sql import (
 APP = typer.Typer(rich_markup_mode="markdown")
 
 _DAYS_PER_ITER = 28
-_COUNT_PREVIOUS_ITERATION_REPS = -1
 _DEFAULT_CREDENTIALS_FILE_PATH = Path("./secrets.yaml")
 
 
@@ -98,12 +95,6 @@ def run_long_query(config: AcquitionConfig):
         crawl_tags=config.crawl_tags,
     )
 
-    # manual tqdm maintance
-    count = 1
-    global _COUNT_PREVIOUS_ITERATION_REPS
-    disable_tqdm = _COUNT_PREVIOUS_ITERATION_REPS <= 0
-    pbar = tqdm(total=_COUNT_PREVIOUS_ITERATION_REPS, disable=disable_tqdm)
-
     while crawl.has_more:
         request = TiktokRequest.from_config(
             config=config,
@@ -123,9 +114,6 @@ def run_long_query(config: AcquitionConfig):
             engine=config.engine,
         )
 
-        pbar.update(1)
-        count += 1
-
         if not res.videos and crawl.has_more:
             logging.log(
                 logging.ERROR,
@@ -136,9 +124,6 @@ def run_long_query(config: AcquitionConfig):
             break
 
     logging.info("Crawl completed.")
-
-    pbar.close()
-    _COUNT_PREVIOUS_ITERATION_REPS = count
 
 
 def driver_single_day(config: AcquitionConfig):
@@ -153,37 +138,31 @@ def driver_single_day(config: AcquitionConfig):
 def main_driver(config: AcquitionConfig):
     days_per_iter = utils.int_to_days(_DAYS_PER_ITER)
 
-    total = np.ceil((config.final_date - config.start_date).days / _DAYS_PER_ITER)
-
     start_date = copy(config.start_date)
 
-    with tqdm(total=total) as pbar:
+    while start_date < config.final_date:
+        # API limit is 30, we maintain 28 to be safe
+        local_end_date = start_date + days_per_iter
+        local_end_date = min(local_end_date, config.final_date)
 
-        while start_date < config.final_date:
-            # API limit is 30, we maintain 28 to be safe
-            local_end_date = start_date + days_per_iter
-            local_end_date = min(local_end_date, config.final_date)
+        new_config = AcquitionConfig(
+            query=config.query,
+            start_date=start_date,
+            final_date=local_end_date,
+            engine=config.engine,
+            stop_after_one_request=config.stop_after_one_request,
+            crawl_tags=config.crawl_tags,
+            raw_responses_output_dir=config.raw_responses_output_dir,
+            api_credentials_file=config.api_credentials_file,
+            api_rate_limit_wait_strategy=config.api_rate_limit_wait_strategy,
+        )
+        run_long_query(new_config)
 
-            new_config = AcquitionConfig(
-                query=config.query,
-                start_date=start_date,
-                final_date=local_end_date,
-                engine=config.engine,
-                stop_after_one_request=config.stop_after_one_request,
-                crawl_tags=config.crawl_tags,
-                raw_responses_output_dir=config.raw_responses_output_dir,
-                api_credentials_file=config.api_credentials_file,
-                api_rate_limit_wait_strategy=config.api_rate_limit_wait_strategy,
-            )
-            run_long_query(new_config)
+        start_date += days_per_iter
 
-            start_date += days_per_iter
-
-            pbar.update(1)
-
-            if config.stop_after_one_request:
-                logging.log(logging.WARN, "Stopping after one request")
-                break
+        if config.stop_after_one_request:
+            logging.log(logging.WARN, "Stopping after one request")
+            break
 
 
 @APP.command()
@@ -370,12 +349,6 @@ def run(
             help="Extra metadata for tagging the crawl of the data with a name (e.g. `Experiment_1_test_acquisition`)"
         ),
     ] = "",
-    est_nreps: Annotated[
-        int,
-        typer.Option(
-            help="Used for estimating # acquisitions on long running queries for progress bar"
-        ),
-    ] = -1,
     raw_responses_output_dir: Optional[RawResponsesOutputDir] = None,
     query_file_json: Optional[JsonQueryFileType] = None,
     api_credentials_file: ApiCredentialsFileType = _DEFAULT_CREDENTIALS_FILE_PATH,
@@ -393,11 +366,7 @@ def run(
     exclude_from_usernames: Optional[ExcludeUsernamesListType] = None,
 ) -> None:
     """
-
-    It executes it and stores the results from the TikTok API in a local SQLite database.
-
-    If the optional est_nreps parameter is provided, it'll be used for the first iteration of a progress bar.
-    If not, the progress bar will not have a end estimation.
+    Queries TikTok API and stores the results in specified database.
     """
     utils.setup_logging(file_level=logging.INFO, rich_level=logging.WARN)
 
@@ -501,9 +470,6 @@ def run(
         api_rate_limit_wait_strategy=rate_limit_wait_strategy,
     )
     logging.log(logging.INFO, f"Config: {config}")
-
-    global _COUNT_PREVIOUS_ITERATION_REPS
-    _COUNT_PREVIOUS_ITERATION_REPS = est_nreps
 
     if config.start_date == config.final_date:
         logging.log(
