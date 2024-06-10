@@ -366,7 +366,7 @@ def run(
     exclude_from_usernames: Optional[ExcludeUsernamesListType] = None,
 ) -> None:
     """
-    Executes it and stores the results from the TikTok API in a local SQLite database.
+    Queries TikTok API and stores the results in specified database.
     """
     utils.setup_logging(file_level=logging.INFO, rich_level=logging.WARN)
 
