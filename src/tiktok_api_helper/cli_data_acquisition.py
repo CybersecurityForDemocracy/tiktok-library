@@ -37,14 +37,7 @@ from tiktok_api_helper.custom_types import (
     TikTokEndDateFormat,
     TikTokStartDateFormat,
 )
-from tiktok_api_helper.query import (
-    Cond,
-    Fields,
-    Op,
-    Query,
-    QueryJSONEncoder,
-    generate_query,
-)
+from tiktok_api_helper.query import Cond, Fields, Op, Query, QueryJSONEncoder, generate_query
 from tiktok_api_helper.sql import (
     Crawl,
     get_engine_and_create_tables,
