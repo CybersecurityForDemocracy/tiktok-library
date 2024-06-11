@@ -434,7 +434,6 @@ class TikTokApiClient:
     # TODO(macpd): decide if this function should interact with database, or simply return API JSON
     # results.
     def fetch_and_store_all(self):
-        crawl_ids = []
         request = TiktokRequest.from_config(self._config, max_count=100)
         logging.warning("request: %s", request.as_json())
         api_response = self._request_client.fetch(request)
@@ -449,14 +448,7 @@ class TikTokApiClient:
             api_response.request_data, self._config.query, crawl_tags=self._config.crawl_tags
         )
         crawl.upload_self_to_db(self._config.engine)
-        crawl_ids.append(crawl.id)
 
-        #  insert_videos_from_response(
-            #  api_response.videos,
-            #  crawl_id=crawl.id,
-            #  engine=self._config.engine,
-            #  crawl_tags=self._config.crawl_tags,
-        #  )
         # TODO(macpd): decide how to handle exception here. perhaps func arg to suppress exception
         upsert_videos(
             video_data=api_response.videos,
@@ -477,13 +469,8 @@ class TikTokApiClient:
             crawl.update_crawl(
                 next_res_data=api_response.request_data, videos=api_response.videos, engine=self._config.engine
             )
-            crawl_ids.append(crawl.id)
-            #  insert_videos_from_response(
-                #  api_response.videos,
-                #  crawl_id=crawl.id,
-                #  crawl_tags=self._config.crawl_tags,
-                #  engine=self._config.engine,
-            #  )
+
+            # TODO(macpd): decide how to handle exception here. perhaps func arg to suppress exception
             upsert_videos(
                 video_data=api_response.videos,
                 crawl_id=crawl.id,
@@ -500,4 +487,4 @@ class TikTokApiClient:
                 logging.log(logging.WARN, "Stopping after one request")
                 break
 
-        logging.info("Crawl completed. crawl_ids: %s", crawl_ids)
+        logging.info("Crawl completed.")
