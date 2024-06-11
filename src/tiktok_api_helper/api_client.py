@@ -16,6 +16,10 @@ import yaml
 from sqlalchemy import Engine
 
 from tiktok_api_helper.query import Query, QueryJSONEncoder
+from tiktok_api_helper.sql import (
+    Crawl,
+    upsert_videos
+)
 
 ALL_VIDEO_DATA_URL = "https://open.tiktokapis.com/v2/research/video/query/?fields=id,video_description,create_time,region_code,share_count,view_count,like_count,comment_count,music_id,hashtag_names,username,effect_ids,voice_to_text,playlist_id"
 
@@ -182,6 +186,9 @@ def json_decoding_error_retry_immediately_or_api_rate_limi_wait_four_hours(
 
 @attrs.define
 class TikTokApiRequestClient:
+    """
+    A class for making authenticated requests to the TikTok API and getting a parsed response.
+    """
     _credentials: TiktokCredentials = attrs.field(
         validator=[attrs.validators.instance_of(TiktokCredentials), field_is_not_empty],
         alias="credentials",  # Attrs removes underscores from field names but the static type checker doesn't know that
@@ -202,9 +209,9 @@ class TikTokApiRequestClient:
             dict_credentials = yaml.load(f, Loader=yaml.FullLoader)
 
         return cls(
-            credentials=TiktokCredentials(**dict_credentials),
             *args,
             **kwargs,
+            credentials=TiktokCredentials(**dict_credentials),
         )
 
     def __attrs_post_init__(self):
@@ -374,10 +381,12 @@ class TikTokApiRequestClient:
         if req.status_code == 400:
             raise InvalidRequestError(f"{req!r} {req.text}")
 
-        logging.log(
-            logging.ERROR,
-            f"Request failed, status code {req.status_code} - text {req.text} - data {data}",
-        )
+        if req.status_code == 500:
+            logging.info("API responded 500. This happens occasionally")
+        else:
+            logging.warning(
+                f"Request failed, status code {req.status_code} - text {req.text} - data {data}",
+            )
         req.raise_for_status()
         # In case raise_for_status does not raise an exception we return None
         return None
@@ -401,3 +410,94 @@ class TikTokApiRequestClient:
         videos = req_data.get("videos", [])
 
         return TikTokResponse(request_data=req_data, videos=videos)
+
+@attrs.define
+class TikTokApiClient:
+    _request_client: TikTokApiRequestClient = attrs.field(
+        validator=[attrs.validators.instance_of(TikTokApiRequestClient), field_is_not_empty])
+    _config: AcquitionConfig = attrs.field(
+        validator=[attrs.validators.instance_of(AcquitionConfig), field_is_not_empty])
+
+    @classmethod
+    def from_config(
+        cls, config: AcquitionConfig, *args, **kwargs
+    ) -> TikTokApiClient:
+        return cls(
+            *args,
+            **kwargs,
+            config=config,
+            request_client=TikTokApiRequestClient.from_credentials_file(
+                credentials_file=config.api_credentials_file,
+                raw_responses_output_dir=config.raw_responses_output_dir)
+        )
+
+    # TODO(macpd): decide if this function should interact with database, or simply return API JSON
+    # results.
+    def fetch_and_store_all(self):
+        crawl_ids = []
+        request = TiktokRequest.from_config(self._config, max_count=100)
+        logging.warning("request: %s", request.as_json())
+        api_response = self._request_client.fetch(request)
+
+        if not api_response.videos:
+            logging.log(
+                logging.INFO, f"No videos in response - {api_response}. Query: {self._config.query}"
+            )
+            return
+
+        crawl = Crawl.from_request(
+            api_response.request_data, self._config.query, crawl_tags=self._config.crawl_tags
+        )
+        crawl.upload_self_to_db(self._config.engine)
+        crawl_ids.append(crawl.id)
+
+        #  insert_videos_from_response(
+            #  api_response.videos,
+            #  crawl_id=crawl.id,
+            #  engine=self._config.engine,
+            #  crawl_tags=self._config.crawl_tags,
+        #  )
+        # TODO(macpd): decide how to handle exception here. perhaps func arg to suppress exception
+        upsert_videos(
+            video_data=api_response.videos,
+            crawl_id=crawl.id,
+            crawl_tags=self._config.crawl_tags,
+            engine=self._config.engine,
+        )
+
+        while crawl.has_more:
+            request = TiktokRequest.from_config(
+                config=self._config,
+                max_count=100,
+                cursor=crawl.cursor,
+                search_id=crawl.search_id,
+            )
+            api_response = self._request_client.fetch(request)
+
+            crawl.update_crawl(
+                next_res_data=api_response.request_data, videos=api_response.videos, engine=self._config.engine
+            )
+            crawl_ids.append(crawl.id)
+            #  insert_videos_from_response(
+                #  api_response.videos,
+                #  crawl_id=crawl.id,
+                #  crawl_tags=self._config.crawl_tags,
+                #  engine=self._config.engine,
+            #  )
+            upsert_videos(
+                video_data=api_response.videos,
+                crawl_id=crawl.id,
+                crawl_tags=self._config.crawl_tags,
+                engine=self._config.engine,
+            )
+
+            if not api_response.videos and crawl.has_more:
+                logging.log(
+                    logging.ERROR,
+                    f"No videos in response but there's still data to Crawl - Query: {self._config.query} \n api_response.request_data: {api_response.request_data}",
+                )
+            if self._config.stop_after_one_request:
+                logging.log(logging.WARN, "Stopping after one request")
+                break
+
+        logging.info("Crawl completed. crawl_ids: %s", crawl_ids)
