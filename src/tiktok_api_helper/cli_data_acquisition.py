@@ -13,6 +13,7 @@ from tiktok_api_helper import region_codes, utils
 from tiktok_api_helper.api_client import (
     AcquitionConfig,
     ApiRateLimitWaitStrategy,
+    TikTokApiClient,
     TikTokApiRequestClient,
     TiktokRequest,
 )
@@ -69,61 +70,63 @@ def run_long_query(config: AcquitionConfig):
 
     Unless you have a good reason to believe otherwise, queries should default to be considered "long".
     """
-    request = TiktokRequest.from_config(config, max_count=100)
-    logging.warning("request.as_json: %s", request.as_json())
-    request_client = TikTokApiRequestClient.from_credentials_file(
-        credentials_file=config.api_credentials_file,
-        raw_responses_output_dir=config.raw_responses_output_dir,
-    )
-    res = request_client.fetch(request)
+    api_client = TikTokApiClient.from_config(config)
+    api_client.fetch_and_store_all()
+    #  request = TiktokRequest.from_config(config, max_count=100)
+    #  logging.warning("request.as_json: %s", request.as_json())
+    #  request_client = TikTokApiRequestClient.from_credentials_file(
+        #  credentials_file=config.api_credentials_file,
+        #  raw_responses_output_dir=config.raw_responses_output_dir,
+    #  )
+    #  res = request_client.fetch(request)
 
-    if not res.videos:
-        logging.log(
-            logging.INFO, f"No videos in response - {res}. Query: {config.query}"
-        )
-        return
+    #  if not res.videos:
+        #  logging.log(
+            #  logging.INFO, f"No videos in response - {res}. Query: {config.query}"
+        #  )
+        #  return
 
-    crawl = Crawl.from_request(
-        res.request_data, config.query, crawl_tags=config.crawl_tags
-    )
-    crawl.upload_self_to_db(config.engine)
+    #  crawl = Crawl.from_request(
+        #  res.request_data, config.query, crawl_tags=config.crawl_tags
+    #  )
+    #  crawl.upload_self_to_db(config.engine)
 
-    insert_videos_from_response(
-        res.videos,
-        crawl_id=crawl.id,
-        engine=config.engine,
-        crawl_tags=config.crawl_tags,
-    )
+    #  insert_videos_from_response(
+        #  res.videos,
+        #  crawl_id=crawl.id,
+        #  engine=config.engine,
+        #  crawl_tags=config.crawl_tags,
+    #  )
 
-    while crawl.has_more:
-        request = TiktokRequest.from_config(
-            config=config,
-            max_count=100,
-            cursor=crawl.cursor,
-            search_id=crawl.search_id,
-        )
-        res = request_client.fetch(request)
+    #  while crawl.has_more:
+        #  request = TiktokRequest.from_config(
+            #  config=config,
+            #  max_count=100,
+            #  cursor=crawl.cursor,
+            #  search_id=crawl.search_id,
+        #  )
+        #  res = request_client.fetch(request)
 
-        crawl.update_crawl(
-            next_res_data=res.request_data, videos=res.videos, engine=config.engine
-        )
-        insert_videos_from_response(
-            res.videos,
-            crawl_id=crawl.id,
-            crawl_tags=config.crawl_tags,
-            engine=config.engine,
-        )
+        #  crawl.update_crawl(
+            #  next_res_data=res.request_data, videos=res.videos, engine=config.engine
+        #  )
+        #  insert_videos_from_response(
+            #  res.videos,
+            #  crawl_id=crawl.id,
+            #  crawl_tags=config.crawl_tags,
+            #  engine=config.engine,
+        #  )
 
-        if not res.videos and crawl.has_more:
-            logging.log(
-                logging.ERROR,
-                f"No videos in response but there's still data to Crawl - Query: {config.query} \n res.request_data: {res.request_data}",
-            )
-        if config.stop_after_one_request:
-            logging.log(logging.WARN, "Stopping after one request")
-            break
+        #  if not res.videos and crawl.has_more:
+            #  logging.log(
+                #  logging.ERROR,
+                #  f"No videos in response but there's still data to Crawl - Query: {config.query} \n res.request_data: {res.request_data}",
+            #  )
+        #  if config.stop_after_one_request:
+            #  logging.log(logging.WARN, "Stopping after one request")
+            #  break
 
-    logging.info("Crawl completed.")
+    #  logging.info("Crawl completed.")
 
 
 def driver_single_day(config: AcquitionConfig):
