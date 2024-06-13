@@ -59,8 +59,14 @@ class TiktokCredentials:
 
 @attrs.define
 class TikTokResponse:
-    request_data: Mapping[str, Any]
+    data: Mapping[str, Any]
     videos: Sequence[Any]
+    error: Mapping[str, Any]
+
+@attrs.define
+class TikTokApiClientFetchResult:
+    videos: Sequence[Any]
+    crawl: Crawl
 
 
 @attrs.define
@@ -70,6 +76,7 @@ class AcquitionConfig:
     final_date: datetime
     engine: Engine
     api_credentials_file: Path
+    max_count: int = 100
     stop_after_one_request: bool = False
     crawl_tags: Optional[list[str]] = None
     raw_responses_output_dir: Optional[Path] = None
@@ -100,12 +107,13 @@ class TiktokRequest:
     def from_config(cls, config: AcquitionConfig, **kwargs) -> TiktokRequest:
         return cls(
             query=config.query,
+            max_count=config.max_count,
             start_date=config.start_date.strftime("%Y%m%d"),
             end_date=config.final_date.strftime("%Y%m%d"),
             **kwargs,
         )
 
-    def as_json(self):
+    def as_json(self, indent=None):
         request_obj = {
             "query": self.query,
             "max_count": self.max_count,
@@ -118,7 +126,7 @@ class TiktokRequest:
 
         if self.cursor is not None:
             request_obj["cursor"] = self.cursor
-        return json.dumps(request_obj, cls=QueryJSONEncoder, indent=1)
+        return json.dumps(request_obj, cls=QueryJSONEncoder, indent=indent)
 
 
 def retry_once_if_json_decoding_error_or_retry_indefintely_if_api_rate_limit_error(
@@ -132,6 +140,11 @@ def retry_once_if_json_decoding_error_or_retry_indefintely_if_api_rate_limit_err
 
     # Retry once if JSON decoding response fails
     if isinstance(exception, (rq.exceptions.JSONDecodeError, json.JSONDecodeError)):
+        return retry_state.attempt_number <= 1
+
+    # TODO(macpd): remove or improve this
+    # Retry twice on invalid request error
+    if isinstance(exception, InvalidRequestError):
         return retry_state.attempt_number <= 1
 
     # Retry API rate lmiit errors indefinitely.
@@ -200,6 +213,7 @@ class TikTokApiRequestClient:
         default=ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS,
         validator=attrs.validators.instance_of(ApiRateLimitWaitStrategy),  # type: ignore - Attrs overload
     )
+    _num_api_requests_sent: int = 0
 
     @classmethod
     def from_credentials_file(
@@ -249,7 +263,8 @@ class TikTokApiRequestClient:
                 response.text,
             )
             raise e
-        logging.info(f"Access token response: {access_data}")
+        logging.info("Access token retrieval succeeded")
+        logging.debug("Access token response: %s", access_data)
 
         token = access_data["access_token"]
 
@@ -353,7 +368,12 @@ class TikTokApiRequestClient:
 
     def _fetch(self, request: TiktokRequest) -> TikTokResponse:
         api_response = self._post(request)
+        self._num_api_requests_sent += 1
         return self._parse_response(api_response)
+
+    @property
+    def num_api_requests_sent(self):
+        return self._num_api_requests_sent
 
     @tenacity.retry(
         stop=tenacity.stop_after_attempt(10),
@@ -368,6 +388,7 @@ class TikTokApiRequestClient:
         logging.log(logging.INFO, f"Sending request with data: {data}")
 
         req = self._api_request_session.post(url=ALL_VIDEO_DATA_URL, data=data)
+        logging.debug(req)
 
         if self._raw_responses_output_dir is not None:
             self._store_response(req)
@@ -397,7 +418,9 @@ class TikTokApiRequestClient:
             raise ValueError("Response is None")
 
         try:
-            req_data = response.json().get("data", {})
+            response_json = response.json()
+            response_data_section = response_json.get("data", {})
+            error_data = response_json.get("error")
         except rq.exceptions.JSONDecodeError as e:
             logging.info(
                 "Error parsing JSON response:\n%s\n%s\n%s",
@@ -407,9 +430,9 @@ class TikTokApiRequestClient:
             )
             raise e
 
-        videos = req_data.get("videos", [])
+        videos = response_data_section.get("videos", [])
 
-        return TikTokResponse(request_data=req_data, videos=videos)
+        return TikTokResponse(data=response_data_section, videos=videos, error=error_data)
 
 @attrs.define
 class TikTokApiClient:
@@ -431,60 +454,87 @@ class TikTokApiClient:
                 raw_responses_output_dir=config.raw_responses_output_dir)
         )
 
+    @property
+    def num_api_requests_sent(self):
+        return self._request_client.num_api_requests_sent
+
+    @property
+    def expected_remaining_api_request_quota(self):
+        return 1000 - self.num_api_requests_sent
+
     # TODO(macpd): decide if this function should interact with database, or simply return API JSON
     # results.
-    def fetch_and_store_all(self):
-        request = TiktokRequest.from_config(self._config, max_count=100)
-        logging.warning("request: %s", request.as_json())
-        api_response = self._request_client.fetch(request)
+    def fetch_all(self) -> TikTokApiClientFetchResult:
+        """Fetches all results from API (ie requests until API indicates query results have been
+        fully delivered (has_more == False))
+        """
+        video_data = []
+        #  request = TiktokRequest.from_config(self._config)
+        #  api_response = self._request_client.fetch(request)
 
-        if not api_response.videos:
-            logging.log(
-                logging.INFO, f"No videos in response - {api_response}. Query: {self._config.query}"
-            )
-            return
+        #  if api_response.data:
+            #  logging.debug("api_response.data: cursor: %s, has_more: %s, search_id: %s",
+                          #  api_response.data.get('cursor'), api_response.data.get('has_more'),
+                          #  api_response.data.get('search_id'))
 
-        crawl = Crawl.from_request(
-            api_response.request_data, self._config.query, crawl_tags=self._config.crawl_tags
-        )
-        crawl.upload_self_to_db(self._config.engine)
+        #  if not api_response.videos:
+            #  logging.log(
+                #  logging.INFO, f"No videos in response - {api_response}. Query: {self._config.query}"
+            #  )
+            #  return
 
-        # TODO(macpd): decide how to handle exception here. perhaps func arg to suppress exception
-        upsert_videos(
-            video_data=api_response.videos,
-            crawl_id=crawl.id,
-            crawl_tags=self._config.crawl_tags,
-            engine=self._config.engine,
-        )
+        #  crawl = Crawl.from_request(
+            #  api_response.data, self._config.query, crawl_tags=self._config.crawl_tags
+        #  )
+        crawl = Crawl.from_query(query=self._config.query, crawl_tags=self._config.crawl_tags,
+                                 # Set has_more to True since we have not yet made an API request
+                                 has_more=True)
+        logging.debug('Crawl: %s', crawl)
+
+        #  video_data.extend(api_response.videos)
 
         while crawl.has_more:
             request = TiktokRequest.from_config(
                 config=self._config,
-                max_count=100,
                 cursor=crawl.cursor,
                 search_id=crawl.search_id,
             )
             api_response = self._request_client.fetch(request)
 
+            if api_response.data:
+                logging.debug("api_response.data: cursor: %s, has_more: %s, search_id: %s",
+                              api_response.data.get('cursor'), api_response.data.get('has_more'),
+                              api_response.data.get('search_id'))
+
             crawl.update_crawl(
-                next_res_data=api_response.request_data, videos=api_response.videos, engine=self._config.engine
+                next_res_data=api_response.data, videos=api_response.videos #, engine=self._config.engine
             )
 
-            # TODO(macpd): decide how to handle exception here. perhaps func arg to suppress exception
-            upsert_videos(
-                video_data=api_response.videos,
-                crawl_id=crawl.id,
-                crawl_tags=self._config.crawl_tags,
-                engine=self._config.engine,
-            )
+            video_data.extend(api_response.videos)
 
             if not api_response.videos and crawl.has_more:
                 logging.log(
                     logging.ERROR,
-                    f"No videos in response but there's still data to Crawl - Query: {self._config.query} \n api_response.request_data: {api_response.request_data}",
+                    f"No videos in response but there's still data to Crawl - Query: {self._config.query} \n api_response.data: {api_response.data}",
                 )
             if self._config.stop_after_one_request:
                 logging.log(logging.WARN, "Stopping after one request")
                 break
 
-        logging.info("Crawl completed.")
+        logging.debug('video results:\n%s', video_data)
+        logging.info(
+                "Crawl completed. Num api requests: %s. Expected remaining API request quota: %s", self.num_api_requests_sent, self.expected_remaining_api_request_quota)
+        return TikTokApiClientFetchResult(videos=video_data, crawl=crawl)
+
+    def store_fetch_result(self, fetch_result: TikTokApiClientFetchResult):
+        fetch_result.crawl.upload_self_to_db(self._config.engine)
+        upsert_videos(video_data=fetch_result.videos,
+                      crawl_id=fetch_result.crawl.id,
+                      crawl_tags=self._config.crawl_tags,
+                      engine=self._config.engine)
+
+    def fetch_and_store_all(self) -> TikTokApiClientFetchResult:
+        fetch_result = self.fetch_all()
+        self.store_fetch_result(fetch_result)
+        return fetch_result
+

@@ -415,6 +415,21 @@ class Crawl(Base):
             ),
         )
 
+    # TODO(macpd): rename this to explain it's intent of being used before fetch starts
+    @classmethod
+    def from_query(
+            cls, query: Query, crawl_tags: Optional[Sequence[str]] = None, has_more: bool = True,
+            search_id: [int | None] = None
+    ) -> "Crawl":
+        return cls(
+            has_more=has_more,
+            query=json.dumps(query, cls=QueryJSONEncoder),
+            search_id=search_id,
+            crawl_tags=(
+                {CrawlTag(name=name) for name in crawl_tags} if crawl_tags else set()
+            ),
+        )
+
     def upload_self_to_db(self, engine: Engine) -> None:
         """Uploads current instance to DB"""
         with Session(engine, expire_on_commit=False) as session:
@@ -439,16 +454,17 @@ class Crawl(Base):
             session.commit()
 
     def update_crawl(
-        self, next_res_data: Mapping, videos: Sequence[str], engine: Engine
+        self, next_res_data: Mapping, videos: Sequence[str], engine: Engine = None
     ):
         self.cursor = next_res_data["cursor"]
         self.has_more = next_res_data["has_more"]
 
         if next_res_data["search_id"] != self.search_id:
-            logging.log(
-                logging.ERROR,
-                f"search_id changed! Was {self.search_id} now {next_res_data['search_id']}",
-            )
+            if self.search_id is not None:
+                logging.log(
+                    logging.ERROR,
+                    f"search_id changed! Was {self.search_id} now {next_res_data['search_id']}",
+                )
             self.search_id = next_res_data["search_id"]
 
         self.updated_at = datetime.datetime.now()
@@ -464,7 +480,8 @@ class Crawl(Base):
         # assumes we're using the maximum 100 videos per request
         self.extra_data = {"possibly_deleted": (100 - n_videos) + current_deleted_count}
 
-        self.upload_self_to_db(engine)
+        if engine:
+            self.upload_self_to_db(engine)
 
 
 def get_sqlite_engine_and_create_tables(db_path: Path, **kwargs) -> Engine:
