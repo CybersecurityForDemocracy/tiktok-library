@@ -166,7 +166,7 @@ def get_query_file_json(query_file: Path):
 
 
 def validate_mutually_exclusive_flags(
-    flags_names_to_values: Mapping[str, Any], at_least_one_required=False
+    flags_names_to_values: Mapping[str, Any], at_least_one_required: bool = False
 ):
     """Takes a dict of flag names -> flag values, and raises an exception if more than one or none
     specified."""
@@ -312,11 +312,15 @@ def run(
     exclude_all_keywords: Optional[ExcludeAllKeywordListType] = None,
     only_from_usernames: Optional[OnlyUsernamesListType] = None,
     exclude_from_usernames: Optional[ExcludeUsernamesListType] = None,
+    debug: Optional[bool] = False
 ) -> None:
     """
     Queries TikTok API and stores the results in specified database.
     """
-    utils.setup_logging(file_level=logging.INFO, rich_level=logging.WARN)
+    if debug:
+        utils.setup_logging(file_level=logging.DEBUG, rich_level=logging.DEBUG)
+    else:
+        utils.setup_logging(file_level=logging.INFO, rich_level=logging.INFO)
 
     logging.log(logging.INFO, f"Arguments: {locals()}")
 
