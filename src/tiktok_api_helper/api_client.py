@@ -521,7 +521,7 @@ class TikTokApiClient:
                 logging.debug('API response videos results:\n%s', api_response.videos)
 
             update_crawl_from_api_response(crawl=crawl, api_response=api_response,
-                                           num_videos_requested=config.max_count)
+                                           num_videos_requested=self._config.max_count)
 
             yield TikTokApiClientFetchResult(videos=api_response.videos, crawl=crawl)
 
@@ -531,7 +531,7 @@ class TikTokApiClient:
                     f"No videos in response but there's still data to Crawl - Query: {self._config.query} \n api_response.data: {api_response.data}",
                 )
             if self._config.stop_after_one_request:
-                logging.log(logging.WARN, "Stopping after one request")
+                logging.info("Stopping after one request")
                 break
 
         logging.info(
@@ -558,7 +558,7 @@ class TikTokApiClient:
 
     def store_fetch_result(self, fetch_result: TikTokApiClientFetchResult):
         """Stores API results to database."""
-        logging.debug('Putting crawl to database: %s', crawl)
+        logging.debug('Putting crawl to database: %s', fetch_result.crawl)
         fetch_result.crawl.upload_self_to_db(self._config.engine)
         logging.debug('Upserting videos')
         upsert_videos(video_data=fetch_result.videos,
