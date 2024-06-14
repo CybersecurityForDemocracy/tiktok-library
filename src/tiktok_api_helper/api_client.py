@@ -435,7 +435,7 @@ class TikTokApiRequestClient:
         return TikTokResponse(data=response_data_section, videos=videos, error=error_data)
 
 def update_crawl_from_api_response(
-        crawl: Crawl, api_response: TikTokResponse #, next_res_data: Mapping, videos: Sequence[str]
+        crawl: Crawl, api_response: TikTokResponse, num_videos_requested: int = 100
 ):
     crawl.cursor = api_response.data["cursor"]
     crawl.has_more = api_response.data["has_more"]
@@ -458,8 +458,7 @@ def update_crawl_from_api_response(
 
     n_videos = len(api_response.videos)
 
-    # assumes we're using the maximum 100 videos per request
-    crawl.extra_data = {"possibly_deleted": (100 - n_videos) + current_deleted_count}
+    crawl.extra_data = {"possibly_deleted": (num_videos_requested - n_videos) + current_deleted_count}
 
 @attrs.define
 class TikTokApiClient:
@@ -521,7 +520,8 @@ class TikTokApiClient:
                 logging.debug('API response error section: \n%s', api_response.error)
                 logging.debug('API response videos results:\n%s', api_response.videos)
 
-            update_crawl_from_api_response(crawl=crawl, api_response=api_response)
+            update_crawl_from_api_response(crawl=crawl, api_response=api_response,
+                                           num_videos_requested=config.max_count)
 
             yield TikTokApiClientFetchResult(videos=api_response.videos, crawl=crawl)
 
