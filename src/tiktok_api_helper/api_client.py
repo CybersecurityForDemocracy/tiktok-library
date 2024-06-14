@@ -434,8 +434,42 @@ class TikTokApiRequestClient:
 
         return TikTokResponse(data=response_data_section, videos=videos, error=error_data)
 
+def update_crawl_from_api_response(
+        crawl: Crawl, api_response: TikTokResponse #, next_res_data: Mapping, videos: Sequence[str]
+):
+    crawl.cursor = api_response.data["cursor"]
+    crawl.has_more = api_response.data["has_more"]
+
+    if api_response.data["search_id"] != crawl.search_id:
+        if crawl.search_id is not None:
+            logging.log(
+                logging.ERROR,
+                f"search_id changed! Was {crawl.search_id} now {api_response.data['search_id']}",
+            )
+        crawl.search_id = api_response.data["search_id"]
+
+    crawl.updated_at = datetime.now()
+
+    # Update the number of videos that were possibly deleted
+    if crawl.extra_data is None:
+        current_deleted_count = 0
+    else:
+        current_deleted_count = crawl.extra_data.get("possibly_deleted", 0)
+
+    n_videos = len(api_response.videos)
+
+    # assumes we're using the maximum 100 videos per request
+    crawl.extra_data = {"possibly_deleted": (100 - n_videos) + current_deleted_count}
+
 @attrs.define
 class TikTokApiClient:
+    """Provides interface for interacting with TikTok research API. Handles requests to API to
+    get/refresh access token and requests required to fetch all API query responses (especially if
+    results are paginated).
+
+    Can be used to fetch only API results, and additionally store those results in a database (if
+    database engine provided in config).
+    """
     _request_client: TikTokApiRequestClient = attrs.field(
         validator=[attrs.validators.instance_of(TikTokApiRequestClient), field_is_not_empty])
     _config: AcquitionConfig = attrs.field(
@@ -462,37 +496,16 @@ class TikTokApiClient:
     def expected_remaining_api_request_quota(self):
         return 1000 - self.num_api_requests_sent
 
-    # TODO(macpd): decide if this function should interact with database, or simply return API JSON
-    # results.
-    def fetch_all(self) -> TikTokApiClientFetchResult:
+    def api_results_iter(self) -> TikTokApiClientFetchResult:
         """Fetches all results from API (ie requests until API indicates query results have been
-        fully delivered (has_more == False))
+        fully delivered (has_more == False)). Yielding each API response individually.
         """
-        video_data = []
-        #  request = TiktokRequest.from_config(self._config)
-        #  api_response = self._request_client.fetch(request)
-
-        #  if api_response.data:
-            #  logging.debug("api_response.data: cursor: %s, has_more: %s, search_id: %s",
-                          #  api_response.data.get('cursor'), api_response.data.get('has_more'),
-                          #  api_response.data.get('search_id'))
-
-        #  if not api_response.videos:
-            #  logging.log(
-                #  logging.INFO, f"No videos in response - {api_response}. Query: {self._config.query}"
-            #  )
-            #  return
-
-        #  crawl = Crawl.from_request(
-            #  api_response.data, self._config.query, crawl_tags=self._config.crawl_tags
-        #  )
         crawl = Crawl.from_query(query=self._config.query, crawl_tags=self._config.crawl_tags,
                                  # Set has_more to True since we have not yet made an API request
                                  has_more=True)
         logging.debug('Crawl: %s', crawl)
 
-        #  video_data.extend(api_response.videos)
-
+        logging.info('Beginning API results fetch.')
         while crawl.has_more:
             request = TiktokRequest.from_config(
                 config=self._config,
@@ -505,12 +518,12 @@ class TikTokApiClient:
                 logging.debug("api_response.data: cursor: %s, has_more: %s, search_id: %s",
                               api_response.data.get('cursor'), api_response.data.get('has_more'),
                               api_response.data.get('search_id'))
+                logging.debug('API response error section: \n%s', api_response.error)
+                logging.debug('API response videos results:\n%s', api_response.videos)
 
-            crawl.update_crawl(
-                next_res_data=api_response.data, videos=api_response.videos #, engine=self._config.engine
-            )
+            update_crawl_from_api_response(crawl=crawl, api_response=api_response)
 
-            video_data.extend(api_response.videos)
+            yield TikTokApiClientFetchResult(videos=api_response.videos, crawl=crawl)
 
             if not api_response.videos and crawl.has_more:
                 logging.log(
@@ -521,20 +534,38 @@ class TikTokApiClient:
                 logging.log(logging.WARN, "Stopping after one request")
                 break
 
-        logging.debug('video results:\n%s', video_data)
         logging.info(
                 "Crawl completed. Num api requests: %s. Expected remaining API request quota: %s", self.num_api_requests_sent, self.expected_remaining_api_request_quota)
-        return TikTokApiClientFetchResult(videos=video_data, crawl=crawl)
+
+
+    def fetch_all(self, store_results_after_each_response: bool = False) -> TikTokApiClientFetchResult:
+        """Fetches all results from API (ie requests until API indicates query results have been
+        fully delivered (has_more == False))
+
+        Args:
+            store_results_after_each_response: bool, if true used database engine from config to
+            store api results in database after each response is received (and before requesting
+            next page of results).
+        """
+        video_data = []
+        for api_response in self.api_results_iter():
+            video_data.extend(api_response.videos)
+            if store_results_after_each_response:
+                self.store_fetch_result(api_response)
+
+        logging.debug('fetch_all video results:\n%s', video_data)
+        return TikTokApiClientFetchResult(videos=video_data, crawl=api_response.crawl)
 
     def store_fetch_result(self, fetch_result: TikTokApiClientFetchResult):
+        """Stores API results to database."""
+        logging.debug('Putting crawl to database: %s', crawl)
         fetch_result.crawl.upload_self_to_db(self._config.engine)
+        logging.debug('Upserting videos')
         upsert_videos(video_data=fetch_result.videos,
                       crawl_id=fetch_result.crawl.id,
                       crawl_tags=self._config.crawl_tags,
                       engine=self._config.engine)
 
     def fetch_and_store_all(self) -> TikTokApiClientFetchResult:
-        fetch_result = self.fetch_all()
-        self.store_fetch_result(fetch_result)
-        return fetch_result
+        return self.fetch_all(store_results_after_each_response=True)
 
