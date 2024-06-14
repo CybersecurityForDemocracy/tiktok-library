@@ -6,6 +6,7 @@ import logging
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Mapping, Optional, Sequence
+import re
 
 import attrs
 import certifi
@@ -23,12 +24,16 @@ from tiktok_api_helper.sql import (
 
 ALL_VIDEO_DATA_URL = "https://open.tiktokapis.com/v2/research/video/query/?fields=id,video_description,create_time,region_code,share_count,view_count,like_count,comment_count,music_id,hashtag_names,username,effect_ids,voice_to_text,playlist_id"
 
+SEARCH_ID_INVALID_ERROR_MESSAGE_REGEX = re.compile('Search Id \d+ is invalid or expired')
 
 class ApiRateLimitError(Exception):
     pass
 
 
 class InvalidRequestError(Exception):
+    pass
+
+class InvalidSearchIdError(InvalidRequestError):
     pass
 
 
@@ -143,9 +148,10 @@ def retry_once_if_json_decoding_error_or_retry_indefintely_if_api_rate_limit_err
         return retry_state.attempt_number <= 1
 
     # TODO(macpd): remove or improve this
-    # Retry twice on invalid request error
-    if isinstance(exception, InvalidRequestError):
-        return retry_state.attempt_number <= 1
+    # Workaround API bug where valid search ID (ie the one the API just returned) is rejected as
+    # invalid.
+    if isinstance(exception, InvalidSearchIdError):
+        return True
 
     # Retry API rate lmiit errors indefinitely.
     if isinstance(exception, ApiRateLimitError):
@@ -400,6 +406,9 @@ class TikTokApiRequestClient:
             raise ApiRateLimitError(repr(req))
 
         if req.status_code == 400:
+            if 'error' in data and SEARCH_ID_INVALID_ERROR_MESSAGE_REGEX.match(data.get('error').get('message', '')):
+                raise InvalidSearchIdError(f"{req!r} {req.text}")
+
             raise InvalidRequestError(f"{req!r} {req.text}")
 
         if req.status_code == 500:
