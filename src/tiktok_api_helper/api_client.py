@@ -478,8 +478,7 @@ class TikTokApiClient:
     Can be used to fetch only API results, and additionally store those results in a database (if
     database engine provided in config).
     """
-    _request_client: TikTokApiRequestClient = attrs.field(
-        validator=[attrs.validators.instance_of(TikTokApiRequestClient), field_is_not_empty])
+    _request_client: TikTokApiRequestClient = attrs.field()
     _config: AcquitionConfig = attrs.field(
         validator=[attrs.validators.instance_of(AcquitionConfig), field_is_not_empty])
 
