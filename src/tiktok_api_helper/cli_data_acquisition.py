@@ -38,7 +38,14 @@ from tiktok_api_helper.custom_types import (
     TikTokEndDateFormat,
     TikTokStartDateFormat,
 )
-from tiktok_api_helper.query import Cond, Fields, Op, Query, QueryJSONEncoder, generate_query
+from tiktok_api_helper.query import (
+    Cond,
+    Fields,
+    Op,
+    Query,
+    QueryJSONEncoder,
+    generate_query,
+)
 from tiktok_api_helper.sql import (
     Crawl,
     get_engine_and_create_tables,
@@ -312,7 +319,7 @@ def run(
     exclude_all_keywords: Optional[ExcludeAllKeywordListType] = None,
     only_from_usernames: Optional[OnlyUsernamesListType] = None,
     exclude_from_usernames: Optional[ExcludeUsernamesListType] = None,
-    debug: Optional[bool] = False
+    debug: Optional[bool] = False,
 ) -> None:
     """
     Queries TikTok API and stores the results in specified database.

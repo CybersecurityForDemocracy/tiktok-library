@@ -418,8 +418,11 @@ class Crawl(Base):
     # TODO(macpd): rename this to explain it's intent of being used before fetch starts
     @classmethod
     def from_query(
-            cls, query: Query, crawl_tags: Optional[Sequence[str]] = None, has_more: bool = True,
-            search_id: [int | None] = None
+        cls,
+        query: Query,
+        crawl_tags: Optional[Sequence[str]] = None,
+        has_more: bool = True,
+        search_id: [int | None] = None,
     ) -> "Crawl":
         return cls(
             has_more=has_more,
