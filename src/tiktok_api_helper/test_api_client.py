@@ -1,7 +1,8 @@
 from pathlib import Path
 import unittest
-from unittest.mock import Mock, call
+from unittest.mock import Mock, call, MagicMock
 import json
+import copy
 
 import pytest
 import requests
@@ -59,7 +60,6 @@ def mock_request_session_rate_limit_error(mock_request_session):
     mock_response.json = Mock(side_effect=api_client.ApiRateLimitError)
     mock_request_session.post = Mock(return_value=mock_response)
     return mock_request_session
-
 
 def test_tiktok_credentials_accepts_str_or_int_client_id():
     api_client.TiktokCredentials("client_id_1", "client_secret_1", "client_key_1")
@@ -211,3 +211,60 @@ def test_tiktok_api_request_client_wait_til_next_utc_midnight_on_rate_limit_wait
             call(expected_sleep_duration),
             call(expected_sleep_duration),
         ]
+
+
+@pytest.fixture
+def mock_tiktok_responses():
+    with open("src/tiktok_api_helper/testdata/api_response.json", "r") as f:
+        json_data = json.load(f)
+        first_page = copy.deepcopy(json_data)
+        second_page = copy.deepcopy(first_page)
+        second_page['data']['cursor'] += 100
+        last_page = copy.deepcopy(second_page)
+        last_page['data']['cursor'] += 100
+        last_page['data']['has_more'] = False
+        return [
+            api_client.TikTokResponse(data=first_page['data'], videos=first_page['data']['videos'], error=first_page['error']),
+            api_client.TikTokResponse(data=second_page['data'], videos=second_page['data']['videos'], error=second_page['error']),
+            api_client.TikTokResponse(data=last_page['data'], videos=last_page['data']['videos'], error=last_page['error'])]
+
+
+
+@pytest.fixture
+def mock_tiktok_request_client(mock_tiktok_responses):
+    mock_request_client = MagicMock(autospec=api_client.TikTokApiClient)
+    mock_request_client.fetch = Mock(side_effect=mock_tiktok_responses)
+    return mock_request_client
+
+
+def test_tiktok_api_client(mock_tiktok_request_client, mock_tiktok_responses):
+    config = api_client.AcquitionConfig(query=None, start_date=pendulum.parse('20240601'), final_date=pendulum.parse('20240601'), engine=None, api_credentials_file='')
+    client = api_client.TikTokApiClient(request_client=mock_tiktok_request_client, config=config)
+    for i, response in enumerate(client.api_results_iter()):
+        assert response.videos == mock_tiktok_responses[i].videos
+        assert response.crawl.has_more == (True if i < 2 else False), f"hash_more: {response.crawl.has_more}, i: {i}"
+        assert response.crawl.cursor == 100 * (i + 1)
+
+    assert mock_tiktok_request_client.fetch.call_count == 3
+    mock_tiktok_request_client.fetch.assert_has_calls(
+        [call(api_client.TiktokRequest(query=config.query,
+                                       start_date=config.start_date.strftime('%Y%m%d'),
+                                       end_date=config.final_date.strftime('%Y%m%d'),
+                                       max_count=100,
+                                       is_random=False,
+                                       cursor=None,
+                                       search_id=None)),
+         call(api_client.TiktokRequest(query=config.query,
+                                       start_date=config.start_date.strftime('%Y%m%d'),
+                                       end_date=config.final_date.strftime('%Y%m%d'),
+                                       max_count=100,
+                                       is_random=False,
+                                       cursor=100,
+                                       search_id=mock_tiktok_responses[-1].data['search_id'])),
+         call(api_client.TiktokRequest(query=config.query,
+                                       start_date=config.start_date.strftime('%Y%m%d'),
+                                       end_date=config.final_date.strftime('%Y%m%d'),
+                                       max_count=100,
+                                       is_random=False,
+                                       cursor=200,
+                                       search_id=mock_tiktok_responses[-1].data['search_id']))])
