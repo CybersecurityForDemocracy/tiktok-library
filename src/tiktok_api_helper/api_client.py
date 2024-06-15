@@ -284,6 +284,10 @@ class TikTokApiRequestClient:
     def _make_session(self):
         return rq.Session()
 
+    @property
+    def num_api_requests_sent(self):
+        return self._num_api_requests_sent
+
     def _configure_request_sessions(self):
         """Gets access token for authorization, sets token in headers for all requests, and registers
         a hook to refresh token when response indicates it has expired. Configures access token
@@ -376,10 +380,6 @@ class TikTokApiRequestClient:
         api_response = self._post(request)
         self._num_api_requests_sent += 1
         return self._parse_response(api_response)
-
-    @property
-    def num_api_requests_sent(self):
-        return self._num_api_requests_sent
 
     @tenacity.retry(
         stop=tenacity.stop_after_attempt(10),
@@ -543,12 +543,13 @@ class TikTokApiClient:
                 break
 
         logging.info(
-                "Crawl completed. Num api requests: %s. Expected remaining API request quota: %s", self.num_api_requests_sent, self.expected_remaining_api_request_quota)
+                "Crawl completed. Num api requests: %s. Expected remaining API request quota: %s",
+                self.num_api_requests_sent, self.expected_remaining_api_request_quota)
 
 
     def fetch_all(self, store_results_after_each_response: bool = False) -> TikTokApiClientFetchResult:
-        """Fetches all results from API (ie requests until API indicates query results have been
-        fully delivered (has_more == False))
+        """Fetches all results from API (ie sends requests until API indicates query results have
+        been fully delivered (has_more == False))
 
         Args:
             store_results_after_each_response: bool, if true used database engine from config to
@@ -576,4 +577,3 @@ class TikTokApiClient:
 
     def fetch_and_store_all(self) -> TikTokApiClientFetchResult:
         return self.fetch_all(store_results_after_each_response=True)
-
