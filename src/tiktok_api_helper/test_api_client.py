@@ -238,41 +238,43 @@ def mock_tiktok_request_client(mock_tiktok_responses):
     mock_request_client.fetch = Mock(side_effect=mock_tiktok_responses)
     return mock_request_client
 
+@pytest.fixture
+def basic_acquisition_config():
+    return api_client.AcquitionConfig(query=query.generate_query(include_any_hashtags='test1,test2'), start_date=pendulum.parse('20240601'), final_date=pendulum.parse('20240601'), engine=None, api_credentials_file='')
 
-def test_tiktok_api_client_api_results_iter(mock_tiktok_request_client, mock_tiktok_responses):
-    config = api_client.AcquitionConfig(query=query.generate_query(include_any_hashtags='test1,test2'), start_date=pendulum.parse('20240601'), final_date=pendulum.parse('20240601'), engine=None, api_credentials_file='')
-    client = api_client.TikTokApiClient(request_client=mock_tiktok_request_client, config=config)
+
+def test_tiktok_api_client_api_results_iter(basic_acquisition_config, mock_tiktok_request_client, mock_tiktok_responses):
+    client = api_client.TikTokApiClient(request_client=mock_tiktok_request_client, config=basic_acquisition_config)
     for i, response in enumerate(client.api_results_iter()):
         assert response.videos == mock_tiktok_responses[i].videos
         assert response.crawl.has_more == (True if i < 2 else False), f"hash_more: {response.crawl.has_more}, i: {i}"
         assert response.crawl.cursor == 100 * (i + 1)
 
     assert mock_tiktok_request_client.fetch.call_count == len(mock_tiktok_responses)
-    assert mock_tiktok_request_client.fetch.mock_calls == [call(api_client.TiktokRequest(query=config.query,
-                                       start_date=config.start_date.strftime('%Y%m%d'),
-                                       end_date=config.final_date.strftime('%Y%m%d'),
+    assert mock_tiktok_request_client.fetch.mock_calls == [call(api_client.TiktokRequest(query=basic_acquisition_config.query,
+                                       start_date=basic_acquisition_config.start_date.strftime('%Y%m%d'),
+                                       end_date=basic_acquisition_config.final_date.strftime('%Y%m%d'),
                                        max_count=100,
                                        is_random=False,
                                        cursor=None,
                                        search_id=None)),
-         call(api_client.TiktokRequest(query=config.query,
-                                       start_date=config.start_date.strftime('%Y%m%d'),
-                                       end_date=config.final_date.strftime('%Y%m%d'),
+         call(api_client.TiktokRequest(query=basic_acquisition_config.query,
+                                       start_date=basic_acquisition_config.start_date.strftime('%Y%m%d'),
+                                       end_date=basic_acquisition_config.final_date.strftime('%Y%m%d'),
                                        max_count=100,
                                        is_random=False,
                                        cursor=100,
                                        search_id=mock_tiktok_responses[-1].data['search_id'])),
-         call(api_client.TiktokRequest(query=config.query,
-                                       start_date=config.start_date.strftime('%Y%m%d'),
-                                       end_date=config.final_date.strftime('%Y%m%d'),
+         call(api_client.TiktokRequest(query=basic_acquisition_config.query,
+                                       start_date=basic_acquisition_config.start_date.strftime('%Y%m%d'),
+                                       end_date=basic_acquisition_config.final_date.strftime('%Y%m%d'),
                                        max_count=100,
                                        is_random=False,
                                        cursor=200,
                                        search_id=mock_tiktok_responses[-1].data['search_id']))]
 
-def test_tiktok_api_client_fetch_all(mock_tiktok_request_client, mock_tiktok_responses):
-    config = api_client.AcquitionConfig(query=query.generate_query(include_any_hashtags='test1,test2'), start_date=pendulum.parse('20240601'), final_date=pendulum.parse('20240601'), engine=None, api_credentials_file='')
-    client = api_client.TikTokApiClient(request_client=mock_tiktok_request_client, config=config)
+def test_tiktok_api_client_fetch_all(basic_acquisition_config, mock_tiktok_request_client, mock_tiktok_responses):
+    client = api_client.TikTokApiClient(request_client=mock_tiktok_request_client, config=basic_acquisition_config)
 
     response = client.fetch_all()
 
@@ -280,23 +282,23 @@ def test_tiktok_api_client_fetch_all(mock_tiktok_request_client, mock_tiktok_res
     assert response.crawl.has_more == False
     assert response.crawl.cursor == 100 * len(mock_tiktok_responses)
     assert mock_tiktok_request_client.fetch.call_count == len(mock_tiktok_responses)
-    assert mock_tiktok_request_client.fetch.mock_calls == [call(api_client.TiktokRequest(query=config.query,
-                                       start_date=config.start_date.strftime('%Y%m%d'),
-                                       end_date=config.final_date.strftime('%Y%m%d'),
+    assert mock_tiktok_request_client.fetch.mock_calls == [call(api_client.TiktokRequest(query=basic_acquisition_config.query,
+                                       start_date=basic_acquisition_config.start_date.strftime('%Y%m%d'),
+                                       end_date=basic_acquisition_config.final_date.strftime('%Y%m%d'),
                                        max_count=100,
                                        is_random=False,
                                        cursor=None,
                                        search_id=None)),
-         call(api_client.TiktokRequest(query=config.query,
-                                       start_date=config.start_date.strftime('%Y%m%d'),
-                                       end_date=config.final_date.strftime('%Y%m%d'),
+         call(api_client.TiktokRequest(query=basic_acquisition_config.query,
+                                       start_date=basic_acquisition_config.start_date.strftime('%Y%m%d'),
+                                       end_date=basic_acquisition_config.final_date.strftime('%Y%m%d'),
                                        max_count=100,
                                        is_random=False,
                                        cursor=100,
                                        search_id=mock_tiktok_responses[-1].data['search_id'])),
-         call(api_client.TiktokRequest(query=config.query,
-                                       start_date=config.start_date.strftime('%Y%m%d'),
-                                       end_date=config.final_date.strftime('%Y%m%d'),
+         call(api_client.TiktokRequest(query=basic_acquisition_config.query,
+                                       start_date=basic_acquisition_config.start_date.strftime('%Y%m%d'),
+                                       end_date=basic_acquisition_config.final_date.strftime('%Y%m%d'),
                                        max_count=100,
                                        is_random=False,
                                        cursor=200,
