@@ -396,7 +396,7 @@ class Crawl(Base):
     def __repr__(self) -> str:
         return (
             f"Crawl id={self.id}, crawl_tags={self.crawl_tags!r}, "
-            f"started_at={self.crawl_started_at!r}, "
+            f"started_at={self.crawl_started_at!r}, cursor={self.cursor}, "
             f"has_more={self.has_more!r}, search_id={self.search_id!r}\n"
             f"query='{self.query!r}'"
         )
