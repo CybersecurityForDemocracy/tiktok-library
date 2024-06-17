@@ -12,8 +12,8 @@ from tiktok_api_helper.sql import (
     Base,
     Hashtag,
     Video,
-    Crawl
-    )
+    Crawl,
+)
 
 _IN_MEMORY_SQLITE_DATABASE_URL = "sqlite://"
 
@@ -30,6 +30,7 @@ def test_database_engine(database_url_command_line_arg) -> Engine:
     # Clear database after test runs and releases fixture
     Base.metadata.drop_all(engine)
 
+
 @pytest.fixture
 def testdata_api_response_json():
     with open("src/tiktok_api_helper/testdata/api_response.json", "r") as f:
@@ -39,9 +40,10 @@ def testdata_api_response_json():
 def all_hashtag_names_sorted(session):
     return sorted(session.scalars(select(Hashtag.name)).all())
 
+
 def all_hashtags(session):
     return session.scalars(select(Hashtag)).all()
 
+
 def all_videos(session):
     return session.scalars(select(Video)).all()
-
