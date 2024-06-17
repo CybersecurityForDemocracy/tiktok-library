@@ -47,15 +47,6 @@ tiktok-lib = "tiktok_api_helper.cli_data_acquisition:APP"
 #TODO: Add Sphinx documentation auto-generation
 # Libs: sphinx, sphinx-autoapi
 
-[tool.hatch.envs.hatch-test]
-default-args = ["tests"]
-extra-args = ["-vv"]
-
-[tool.hatch.envs.test]
-extra-dependencies = [
-  "pytest"
-]
-
 [tool.hatch.envs.alembic]
 extra-dependencies = [
   "pytest",
@@ -63,8 +54,13 @@ extra-dependencies = [
   "alembic"
 ]
 
+[tool.hatch.envs.test]
+extra-dependencies = [
+  "pytest"
+]
+
 [tool.hatch.envs.test.scripts]
-run = "pytest ./src -vv"
+run = "pytest tests/ -vv"
 postgres-integration-test-docker-as-sudo = [
   "sudo docker compose build",
   "sudo docker compose run postgres-integration-test",
