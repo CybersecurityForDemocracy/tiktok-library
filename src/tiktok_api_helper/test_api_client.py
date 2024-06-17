@@ -259,25 +259,12 @@ def basic_acquisition_config():
         start_date=pendulum.parse("20240601"),
         final_date=pendulum.parse("20240601"),
         engine=None,
-        api_credentials_file="",
+        api_credentials_file=None,
     )
 
-
-def test_tiktok_api_client_api_results_iter(
-    basic_acquisition_config, mock_tiktok_request_client, mock_tiktok_responses
-):
-    client = api_client.TikTokApiClient(
-        request_client=mock_tiktok_request_client, config=basic_acquisition_config
-    )
-    for i, response in enumerate(client.api_results_iter()):
-        assert response.videos == mock_tiktok_responses[i].videos
-        assert response.crawl.has_more == (
-            True if i < 2 else False
-        ), f"hash_more: {response.crawl.has_more}, i: {i}"
-        assert response.crawl.cursor == 100 * (i + 1)
-
-    assert mock_tiktok_request_client.fetch.call_count == len(mock_tiktok_responses)
-    assert mock_tiktok_request_client.fetch.mock_calls == [
+@pytest.fixture
+def expected_fetch_calls(basic_acquisition_config, mock_tiktok_responses):
+    return [
         call(
             api_client.TiktokRequest(
                 query=basic_acquisition_config.query,
@@ -314,8 +301,27 @@ def test_tiktok_api_client_api_results_iter(
     ]
 
 
+def test_tiktok_api_client_api_results_iter(
+    basic_acquisition_config, mock_tiktok_request_client, mock_tiktok_responses,
+    expected_fetch_calls
+):
+    client = api_client.TikTokApiClient(
+        request_client=mock_tiktok_request_client, config=basic_acquisition_config
+    )
+    for i, response in enumerate(client.api_results_iter()):
+        assert response.videos == mock_tiktok_responses[i].videos
+        assert response.crawl.has_more == (
+            True if i < 2 else False
+        ), f"hash_more: {response.crawl.has_more}, i: {i}"
+        assert response.crawl.cursor == 100 * (i + 1)
+
+    assert mock_tiktok_request_client.fetch.call_count == len(mock_tiktok_responses)
+    assert mock_tiktok_request_client.fetch.mock_calls == expected_fetch_calls
+
+
 def test_tiktok_api_client_fetch_all(
-    basic_acquisition_config, mock_tiktok_request_client, mock_tiktok_responses
+    basic_acquisition_config, mock_tiktok_request_client, mock_tiktok_responses,
+    expected_fetch_calls
 ):
     client = api_client.TikTokApiClient(
         request_client=mock_tiktok_request_client, config=basic_acquisition_config
@@ -329,38 +335,4 @@ def test_tiktok_api_client_fetch_all(
     assert response.crawl.has_more == False
     assert response.crawl.cursor == 100 * len(mock_tiktok_responses)
     assert mock_tiktok_request_client.fetch.call_count == len(mock_tiktok_responses)
-    assert mock_tiktok_request_client.fetch.mock_calls == [
-        call(
-            api_client.TiktokRequest(
-                query=basic_acquisition_config.query,
-                start_date=basic_acquisition_config.start_date.strftime("%Y%m%d"),
-                end_date=basic_acquisition_config.final_date.strftime("%Y%m%d"),
-                max_count=100,
-                is_random=False,
-                cursor=None,
-                search_id=None,
-            )
-        ),
-        call(
-            api_client.TiktokRequest(
-                query=basic_acquisition_config.query,
-                start_date=basic_acquisition_config.start_date.strftime("%Y%m%d"),
-                end_date=basic_acquisition_config.final_date.strftime("%Y%m%d"),
-                max_count=100,
-                is_random=False,
-                cursor=100,
-                search_id=mock_tiktok_responses[-1].data["search_id"],
-            )
-        ),
-        call(
-            api_client.TiktokRequest(
-                query=basic_acquisition_config.query,
-                start_date=basic_acquisition_config.start_date.strftime("%Y%m%d"),
-                end_date=basic_acquisition_config.final_date.strftime("%Y%m%d"),
-                max_count=100,
-                is_random=False,
-                cursor=200,
-                search_id=mock_tiktok_responses[-1].data["search_id"],
-            )
-        ),
-    ]
+    assert mock_tiktok_request_client.fetch.mock_calls == expected_fetch_calls
