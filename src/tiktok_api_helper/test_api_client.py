@@ -217,32 +217,42 @@ def test_tiktok_api_request_client_wait_til_next_utc_midnight_on_rate_limit_wait
 
 
 @pytest.fixture
-def mock_tiktok_responses():
-    with open("src/tiktok_api_helper/testdata/api_response.json", "r") as f:
-        json_data = json.load(f)
-        first_page = copy.deepcopy(json_data)
-        second_page = copy.deepcopy(first_page)
-        second_page["data"]["cursor"] += 100
-        last_page = copy.deepcopy(second_page)
-        last_page["data"]["cursor"] += 100
-        last_page["data"]["has_more"] = False
-        return [
-            api_client.TikTokResponse(
-                data=first_page["data"],
-                videos=first_page["data"]["videos"],
-                error=first_page["error"],
-            ),
-            api_client.TikTokResponse(
-                data=second_page["data"],
-                videos=second_page["data"]["videos"],
-                error=second_page["error"],
-            ),
-            api_client.TikTokResponse(
-                data=last_page["data"],
-                videos=last_page["data"]["videos"],
-                error=last_page["error"],
-            ),
-        ]
+def mock_tiktok_responses(testdata_api_response_json):
+    first_page = copy.deepcopy(testdata_api_response_json)
+
+    second_page = copy.deepcopy(first_page)
+    # Emulate API incrementing cursor by number of previous results
+    second_page["data"]["cursor"] += 100
+    # Modifiy video IDs so that database treats them as distinct
+    for video in second_page["data"]["videos"]:
+        video["id"] += 1
+
+    last_page = copy.deepcopy(second_page)
+    # Emulate API indicating this is the last page of results
+    last_page["data"]["has_more"] = False
+    # Emulate API incrementing cursor by number of previous results
+    last_page["data"]["cursor"] += 100
+    # Modifiy video IDs so that database treats them as distinct
+    for video in last_page["data"]["videos"]:
+        video["id"] += 1
+
+    return [
+        api_client.TikTokResponse(
+            data=first_page["data"],
+            videos=first_page["data"]["videos"],
+            error=first_page["error"],
+        ),
+        api_client.TikTokResponse(
+            data=second_page["data"],
+            videos=second_page["data"]["videos"],
+            error=second_page["error"],
+        ),
+        api_client.TikTokResponse(
+            data=last_page["data"],
+            videos=last_page["data"]["videos"],
+            error=last_page["error"],
+        ),
+    ]
 
 
 @pytest.fixture
