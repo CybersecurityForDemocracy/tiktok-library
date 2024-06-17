@@ -9,7 +9,7 @@ import pendulum
 
 from tiktok_api_helper import api_client
 
-FAKE_SECRETS_YAML_FILE = Path("src/tiktok_api_helper/testdata/fake_secrets.yaml")
+FAKE_SECRETS_YAML_FILE = Path("tests/testdata/fake_secrets.yaml")
 
 
 @pytest.fixture
