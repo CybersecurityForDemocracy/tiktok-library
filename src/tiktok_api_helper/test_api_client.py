@@ -8,9 +8,22 @@ import itertools
 import pytest
 import requests
 import pendulum
+from sqlalchemy import (
+    select,
+)
+from sqlalchemy.orm import Session
 
 from tiktok_api_helper import api_client
 from tiktok_api_helper import query
+from tiktok_api_helper.sql import (
+    Crawl,
+    Video,
+    Hashtag,
+    Effect,
+    CrawlTag,
+    upsert_videos,
+)
+from tiktok_api_helper.test_utils import test_database_engine, testdata_api_response_json, all_videos
 
 FAKE_SECRETS_YAML_FILE = Path("src/tiktok_api_helper/testdata/fake_secrets.yaml")
 
@@ -280,7 +293,7 @@ def expected_fetch_calls(basic_acquisition_config, mock_tiktok_responses):
                 query=basic_acquisition_config.query,
                 start_date=basic_acquisition_config.start_date.strftime("%Y%m%d"),
                 end_date=basic_acquisition_config.final_date.strftime("%Y%m%d"),
-                max_count=100,
+                max_count=basic_acquisition_config.max_count,
                 is_random=False,
                 cursor=None,
                 search_id=None,
@@ -291,9 +304,9 @@ def expected_fetch_calls(basic_acquisition_config, mock_tiktok_responses):
                 query=basic_acquisition_config.query,
                 start_date=basic_acquisition_config.start_date.strftime("%Y%m%d"),
                 end_date=basic_acquisition_config.final_date.strftime("%Y%m%d"),
-                max_count=100,
+                max_count=basic_acquisition_config.max_count,
                 is_random=False,
-                cursor=100,
+                cursor=basic_acquisition_config.max_count,
                 search_id=mock_tiktok_responses[-1].data["search_id"],
             )
         ),
@@ -302,9 +315,9 @@ def expected_fetch_calls(basic_acquisition_config, mock_tiktok_responses):
                 query=basic_acquisition_config.query,
                 start_date=basic_acquisition_config.start_date.strftime("%Y%m%d"),
                 end_date=basic_acquisition_config.final_date.strftime("%Y%m%d"),
-                max_count=100,
+                max_count=basic_acquisition_config.max_count,
                 is_random=False,
-                cursor=200,
+                cursor=basic_acquisition_config.max_count * 2,
                 search_id=mock_tiktok_responses[-1].data["search_id"],
             )
         ),
@@ -323,7 +336,7 @@ def test_tiktok_api_client_api_results_iter(
         assert response.crawl.has_more == (
             True if i < 2 else False
         ), f"hash_more: {response.crawl.has_more}, i: {i}"
-        assert response.crawl.cursor == 100 * (i + 1)
+        assert response.crawl.cursor == basic_acquisition_config.max_count * (i + 1)
 
     assert mock_tiktok_request_client.fetch.call_count == len(mock_tiktok_responses)
     assert mock_tiktok_request_client.fetch.mock_calls == expected_fetch_calls
@@ -343,6 +356,25 @@ def test_tiktok_api_client_fetch_all(
         itertools.chain.from_iterable([r.videos for r in mock_tiktok_responses])
     )
     assert response.crawl.has_more == False
-    assert response.crawl.cursor == 100 * len(mock_tiktok_responses)
+    assert response.crawl.cursor == basic_acquisition_config.max_count * len(mock_tiktok_responses)
     assert mock_tiktok_request_client.fetch.call_count == len(mock_tiktok_responses)
     assert mock_tiktok_request_client.fetch.mock_calls == expected_fetch_calls
+
+def test_tiktok_api_client_store_fetch_result(test_database_engine,
+                                              basic_acquisition_config, mock_tiktok_request_client,
+                                              mock_tiktok_responses):
+    basic_acquisition_config.engine = test_database_engine
+    client = api_client.TikTokApiClient(
+        request_client=mock_tiktok_request_client, config=basic_acquisition_config)
+    fetch_result = client.fetch_and_store_all()
+    # TODO(macpd): verify results in database.
+    with Session(test_database_engine) as session:
+        crawls = session.scalars(select(Crawl).order_by(Crawl.id)).all()
+        assert len(crawls) == 1
+        crawl = crawls[0]
+        assert crawl.id == fetch_result.crawl.id
+        assert crawl.cursor == len(mock_tiktok_responses) * basic_acquisition_config.max_count
+        assert crawl.query == json.dumps(basic_acquisition_config.query, cls=query.QueryJSONEncoder)
+        videos = all_videos(session)
+        assert len(videos) == len(mock_tiktok_responses) * len(mock_tiktok_responses[0].videos)
+        assert len(videos) == len(fetch_result.videos)
