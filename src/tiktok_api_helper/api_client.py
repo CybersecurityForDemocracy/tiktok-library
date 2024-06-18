@@ -163,6 +163,7 @@ def retry_invalid_search_id_error(
 
     return None
 
+
 def retry_api_rate_limit_error_indefintely(
     retry_state,
 ):
@@ -499,7 +500,7 @@ def update_crawl_from_api_response(
             )
         crawl.search_id = api_response.data["search_id"]
 
-    crawl.updated_at = pendulum.now('UTC')
+    crawl.updated_at = pendulum.now("UTC")
 
     # Update the number of videos that were possibly deleted
     if crawl.extra_data is None:
