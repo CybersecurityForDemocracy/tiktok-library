@@ -314,9 +314,7 @@ class TikTokApiRequestClient:
         logging.info("Access token retrieval succeeded")
         logging.debug("Access token response: %s", access_data)
 
-        token = access_data["access_token"]
-
-        return token
+        return access_data["access_token"]
 
     @_access_token_fetcher_session.default  # type: ignore - Attrs overload
     def _default_access_token_fetcher_session(self):
@@ -429,7 +427,7 @@ class TikTokApiRequestClient:
         logging.log(logging.INFO, f"Sending request with data: {data}")
 
         response = self._api_request_session.post(url=ALL_VIDEO_DATA_URL, data=data)
-        logging.debug('%s\n%s', response, response.text)
+        logging.debug("%s\n%s", response, response.text)
 
         if self._raw_responses_output_dir is not None:
             self._store_response(response)
@@ -443,10 +441,12 @@ class TikTokApiRequestClient:
         if response.status_code == 400:
             try:
                 response_json = response.json()
-                if SEARCH_ID_INVALID_ERROR_MESSAGE_REGEX.match(response_json.get("error", {}).get("message", "")):
+                if SEARCH_ID_INVALID_ERROR_MESSAGE_REGEX.match(
+                    response_json.get("error", {}).get("message", "")
+                ):
                     raise InvalidSearchIdError(f"{response!r} {response.text}")
             except json.JSONDecodeError:
-                logging.debug('Unable to JSON decode response data:\n%s', response.text)
+                logging.debug("Unable to JSON decode response data:\n%s", response.text)
 
             raise InvalidRequestError(f"{response!r} {response.text}")
 
@@ -469,14 +469,14 @@ class TikTokApiRequestClient:
             response_json = response.json()
             response_data_section = response_json.get("data", {})
             error_data = response_json.get("error")
-        except rq.exceptions.JSONDecodeError as e:
+        except rq.exceptions.JSONDecodeError:
             logging.info(
                 "Error parsing JSON response:\n%s\n%s\n%s",
                 response.status_code,
                 "\n".join([f"{k}: {v}" for k, v in response.headers.items()]),
                 response.text,
             )
-            raise e
+            raise
 
         videos = response_data_section.get("videos", [])
 
@@ -499,7 +499,7 @@ def update_crawl_from_api_response(
             )
         crawl.search_id = api_response.data["search_id"]
 
-    crawl.updated_at = datetime.now()
+    crawl.updated_at = pendulum.now('UTC')
 
     # Update the number of videos that were possibly deleted
     if crawl.extra_data is None:
@@ -577,7 +577,7 @@ class TikTokApiClient:
                     api_response.data.get("has_more"),
                     api_response.data.get("search_id"),
                 )
-                logging.debug("API response error section: \n%s", api_response.error)
+                logging.debug("API response error section: %s", api_response.error)
                 logging.debug("API response videos results:\n%s", api_response.videos)
 
             update_crawl_from_api_response(
