@@ -89,7 +89,7 @@ def mock_videos(mock_crawl):
 
 @pytest.fixture
 def api_response_videos():
-    with open("src/tiktok_api_helper/testdata/api_response.json", "r") as f:
+    with open("tests/testdata/api_response.json", "r") as f:
         return json.loads(f.read())["data"]["videos"]
 
 

@@ -9,6 +9,7 @@ RUN pip3 install --upgrade pip hatch
 COPY README.md pyproject.toml conftest.py ./
 # Copy source code
 COPY ./src/ ./src/
+COPY ./tests/ ./tests/
 
 # Setup hatch env which will install deps
 RUN hatch env create test
@@ -16,4 +17,4 @@ RUN hatch env create test
 # Take arg for database URL, specified in docker-compose.yml
 ARG DATABASE_URL
 ENV DATABASE_URL=${DATABASE_URL:-}
-ENTRYPOINT hatch --env test run pytest . -vv --database-url "$DATABASE_URL"
+ENTRYPOINT hatch --env test run pytest tests/ -vv --database-url "$DATABASE_URL"
