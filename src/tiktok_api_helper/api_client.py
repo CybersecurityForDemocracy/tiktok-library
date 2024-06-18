@@ -139,33 +139,42 @@ class TiktokRequest:
         return json.dumps(request_obj, cls=QueryJSONEncoder, indent=indent)
 
 
-def retry_once_if_json_decoding_error_or_retry_indefintely_if_api_rate_limit_error(
+def retry_json_decoding_error_once(
     retry_state,
 ):
     exception = retry_state.outcome.exception()
 
-    # No exception, call succeeded
-    if exception is None:
-        return False
-
     # Retry once if JSON decoding response fails
     if isinstance(exception, (rq.exceptions.JSONDecodeError, json.JSONDecodeError)):
         return retry_state.attempt_number <= 1
+
+    return None
+
+
+def retry_invalid_search_id_error(
+    retry_state,
+):
+    exception = retry_state.outcome.exception()
 
     # Workaround API bug where valid search ID (ie the one the API just returned) is rejected as
     # invalid.
     if isinstance(exception, InvalidSearchIdError):
         return retry_state.attempt_number <= INVALID_SEARCH_ID_ERROR_MAX_NUM_RETRIES
 
+    return None
+
+def retry_api_rate_limit_error_indefintely(
+    retry_state,
+):
+    exception = retry_state.outcome.exception()
     # Retry API rate lmiit errors indefinitely.
     if isinstance(exception, ApiRateLimitError):
         return True
 
-    logging.warning("Retry call back received unexpected retry state: %r", retry_state)
-    return False
+    return None
 
 
-def json_decoding_error_retry_immediately_or_api_rate_limi_wait_until_next_utc_midnight(
+def json_decoding_error_retry_immediately(
     retry_state,
 ):
     exception = retry_state.outcome.exception()
@@ -173,10 +182,38 @@ def json_decoding_error_retry_immediately_or_api_rate_limi_wait_until_next_utc_m
     if isinstance(exception, (rq.exceptions.JSONDecodeError, json.JSONDecodeError)):
         return 0
 
+    logging.warning("Unknown exception in wait callback: %r", exception)
+    return 0
+
+
+def search_id_invalid_error_wait(
+    retry_state,
+):
+    exception = retry_state.outcome.exception()
     # Wait in case API needs a few seconds to consider search ID valid.
     if isinstance(exception, InvalidSearchIdError):
         return INVALID_SEARCH_ID_ERROR_RETRY_WAIT
 
+    logging.warning("Unknown exception in wait callback: %r", exception)
+    return 0
+
+
+def get_api_rate_limit_wait_strategy(
+    api_rate_limit_wait_strategy: ApiRateLimitWaitStrategy,
+):
+    if api_rate_limit_wait_strategy == ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS:
+        return api_rate_limi_wait_four_hours
+    if api_rate_limit_wait_strategy == ApiRateLimitWaitStrategy.WAIT_NEXT_UTC_MIDNIGHT:
+        return api_rate_limi_wait_until_next_utc_midnight
+
+    raise ValueError(f"Unknown wait strategy: {api_rate_limit_wait_strategy}")
+
+
+def api_rate_limi_wait_until_next_utc_midnight(
+    retry_state,
+):
+    exception = retry_state.outcome.exception()
+    # If JSON decoding fails retry immediately
     if isinstance(exception, ApiRateLimitError):
         next_utc_midnight = pendulum.tomorrow("UTC")
         logging.warning(
@@ -192,18 +229,10 @@ def json_decoding_error_retry_immediately_or_api_rate_limi_wait_until_next_utc_m
     return 0
 
 
-def json_decoding_error_retry_immediately_or_api_rate_limi_wait_four_hours(
+def api_rate_limi_wait_four_hours(
     retry_state,
 ):
     exception = retry_state.outcome.exception()
-    # If JSON decoding fails retry immediately
-    if isinstance(exception, (rq.exceptions.JSONDecodeError, json.JSONDecodeError)):
-        return 0
-
-    # Wait in case API needs a few seconds to consider search ID valid.
-    if isinstance(exception, InvalidSearchIdError):
-        return INVALID_SEARCH_ID_ERROR_RETRY_WAIT
-
     if isinstance(exception, ApiRateLimitError):
         logging.warning(
             "Response indicates rate limit exceeded: %r\nSleeping four hours before trying again.",
@@ -358,26 +387,19 @@ class TikTokApiRequestClient:
         else:
             stop_strategy = tenacity.stop_never
 
-        if (
-            self._api_rate_limit_wait_strategy
-            == ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS
-        ):
-            wait_strategy = (
-                json_decoding_error_retry_immediately_or_api_rate_limi_wait_four_hours
-            )
-        elif (
-            self._api_rate_limit_wait_strategy
-            == ApiRateLimitWaitStrategy.WAIT_NEXT_UTC_MIDNIGHT
-        ):
-            wait_strategy = json_decoding_error_retry_immediately_or_api_rate_limi_wait_until_next_utc_midnight
-        else:
-            raise ValueError(
-                f"Unknown wait strategy: {self._api_rate_limit_wait_strategy}"
-            )
-
         return tenacity.Retrying(
-            retry=retry_once_if_json_decoding_error_or_retry_indefintely_if_api_rate_limit_error,
-            wait=wait_strategy,
+            retry=tenacity.retry_any(
+                retry_json_decoding_error_once,
+                retry_invalid_search_id_error,
+                retry_api_rate_limit_error_indefintely,
+            ),
+            wait=tenacity.wait_combine(
+                json_decoding_error_retry_immediately,
+                search_id_invalid_error_wait,
+                get_api_rate_limit_wait_strategy(
+                    api_rate_limit_wait_strategy=self._api_rate_limit_wait_strategy
+                ),
+            ),
             stop=stop_strategy,
             reraise=True,
         )
