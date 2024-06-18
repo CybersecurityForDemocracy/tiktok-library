@@ -33,7 +33,7 @@ def test_database_engine(database_url_command_line_arg) -> Engine:
 
 @pytest.fixture
 def testdata_api_response_json():
-    with open("src/tiktok_api_helper/testdata/api_response.json", "r") as f:
+    with open("tests/testdata/api_response.json", "r") as f:
         return json.load(f)
 
 

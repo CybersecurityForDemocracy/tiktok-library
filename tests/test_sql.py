@@ -16,7 +16,7 @@ from tiktok_api_helper.sql import (
     CrawlTag,
     upsert_videos,
 )
-from tiktok_api_helper.test_utils import (
+from tests.test_utils import (
     test_database_engine,
     testdata_api_response_json,
     all_videos,
