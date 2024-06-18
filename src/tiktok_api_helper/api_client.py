@@ -570,7 +570,7 @@ class TikTokApiClient:
         )
 
     def fetch_all(
-        self, store_results_after_each_response: bool = False
+        self, *, store_results_after_each_response: bool = False
     ) -> TikTokApiClientFetchResult:
         """Fetches all results from API (ie sends requests until API indicates query results have
         been fully delivered (has_more == False))
