@@ -173,7 +173,7 @@ def json_decoding_error_retry_immediately_or_api_rate_limi_wait_until_next_utc_m
     if isinstance(exception, (rq.exceptions.JSONDecodeError, json.JSONDecodeError)):
         return 0
 
-    # Wait a little before retrying to give API time to think about what it has done
+    # Wait in case API needs a few seconds to consider search ID valid.
     if isinstance(exception, InvalidSearchIdError):
         return INVALID_SEARCH_ID_ERROR_RETRY_WAIT
 
@@ -200,7 +200,7 @@ def json_decoding_error_retry_immediately_or_api_rate_limi_wait_four_hours(
     if isinstance(exception, (rq.exceptions.JSONDecodeError, json.JSONDecodeError)):
         return 0
 
-    # Wait a little before retrying to give API time to think about what it has done
+    # Wait in case API needs a few seconds to consider search ID valid.
     if isinstance(exception, InvalidSearchIdError):
         return INVALID_SEARCH_ID_ERROR_RETRY_WAIT
 
