@@ -25,6 +25,9 @@ SEARCH_ID_INVALID_ERROR_MESSAGE_REGEX = re.compile(
     r"Search Id \d+ is invalid or expired"
 )
 
+INVALID_SEARCH_ID_ERROR_RETRY_WAIT = 5
+INVALID_SEARCH_ID_ERROR_MAX_NUM_RETRIES = 5
+
 
 class ApiRateLimitError(Exception):
     pass
@@ -149,11 +152,10 @@ def retry_once_if_json_decoding_error_or_retry_indefintely_if_api_rate_limit_err
     if isinstance(exception, (rq.exceptions.JSONDecodeError, json.JSONDecodeError)):
         return retry_state.attempt_number <= 1
 
-    # TODO(macpd): remove or improve this
     # Workaround API bug where valid search ID (ie the one the API just returned) is rejected as
     # invalid.
     if isinstance(exception, InvalidSearchIdError):
-        return True
+        return retry_state.attempt_number <= INVALID_SEARCH_ID_ERROR_MAX_NUM_RETRIES
 
     # Retry API rate lmiit errors indefinitely.
     if isinstance(exception, ApiRateLimitError):
@@ -170,6 +172,10 @@ def json_decoding_error_retry_immediately_or_api_rate_limi_wait_until_next_utc_m
     # If JSON decoding fails retry immediately
     if isinstance(exception, (rq.exceptions.JSONDecodeError, json.JSONDecodeError)):
         return 0
+
+    # Wait a little before retrying to give API time to think about what it has done
+    if isinstance(exception, InvalidSearchIdError):
+        return INVALID_SEARCH_ID_ERROR_RETRY_WAIT
 
     if isinstance(exception, ApiRateLimitError):
         next_utc_midnight = pendulum.tomorrow("UTC")
@@ -193,6 +199,10 @@ def json_decoding_error_retry_immediately_or_api_rate_limi_wait_four_hours(
     # If JSON decoding fails retry immediately
     if isinstance(exception, (rq.exceptions.JSONDecodeError, json.JSONDecodeError)):
         return 0
+
+    # Wait a little before retrying to give API time to think about what it has done
+    if isinstance(exception, InvalidSearchIdError):
+        return INVALID_SEARCH_ID_ERROR_RETRY_WAIT
 
     if isinstance(exception, ApiRateLimitError):
         logging.warning(
