@@ -22,6 +22,7 @@ from tiktok_api_helper.test_utils import (
     all_videos,
     all_hashtags,
     all_hashtag_names_sorted,
+    all_crawls
 )
 
 
@@ -147,7 +148,7 @@ def test_crawl_basic_insert(test_database_engine):
         session.add_all([mock_crawl])
         session.commit()
 
-        assert session.scalars(select(Crawl).order_by(Crawl.id)).all() == [mock_crawl]
+        assert all_crawls(session) == [mock_crawl]
 
 
 def test_crawl_tags_inserted_via_crawl(test_database_engine, mock_crawl):
@@ -691,7 +692,7 @@ def test_remove_all(test_database_engine, mock_videos, mock_crawl):
         session.add_all(mock_videos)
         session.commit()
         assert all_videos(session) == mock_videos
-        assert session.scalars(select(Crawl)).all() == [mock_crawl]
+        assert all_crawls(session) == [mock_crawl]
 
         for video in session.scalars(select(Video)):
             session.delete(video)
@@ -701,4 +702,4 @@ def test_remove_all(test_database_engine, mock_videos, mock_crawl):
 
         session.commit()
         assert all_videos(session) == []
-        assert session.scalars(select(Crawl)).all() == []
+        assert all_crawls(session) == []
