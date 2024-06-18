@@ -48,5 +48,6 @@ def all_hashtags(session):
 def all_videos(session):
     return session.scalars(select(Video)).all()
 
+
 def all_crawls(session):
     return session.scalars(select(Crawl)).all()

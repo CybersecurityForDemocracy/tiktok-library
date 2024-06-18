@@ -372,6 +372,7 @@ def test_tiktok_api_client_fetch_all(
     assert mock_tiktok_request_client.fetch.call_count == len(mock_tiktok_responses)
     assert mock_tiktok_request_client.fetch.mock_calls == expected_fetch_calls
 
+
 def test_tiktok_api_client_fetch_all_do_not_store_after_each_response(
     test_database_engine,
     basic_acquisition_config,
@@ -400,26 +401,23 @@ def test_tiktok_api_client_fetch_all_do_not_store_after_each_response(
         assert all_crawls(session) == []
         assert all_videos(session) == []
 
-def assert_has_expected_crawl_and_videos_in_database(database_engine, fetch_result,
-                                                     tiktok_responses,
-                                                     acquisition_config):
+
+def assert_has_expected_crawl_and_videos_in_database(
+    database_engine, fetch_result, tiktok_responses, acquisition_config
+):
     with Session(database_engine) as session:
         crawls = all_crawls(session)
         assert len(crawls) == 1
         crawl = crawls[0]
         assert crawl.id == fetch_result.crawl.id
-        assert (
-            crawl.cursor
-            == len(tiktok_responses) * acquisition_config.max_count
-        )
+        assert crawl.cursor == len(tiktok_responses) * acquisition_config.max_count
         assert crawl.query == json.dumps(
             acquisition_config.query, cls=query.QueryJSONEncoder
         )
         videos = all_videos(session)
-        assert len(videos) == len(tiktok_responses) * len(
-            tiktok_responses[0].videos
-        )
+        assert len(videos) == len(tiktok_responses) * len(tiktok_responses[0].videos)
         assert len(videos) == len(fetch_result.videos)
+
 
 def test_tiktok_api_client_fetch_all_store_after_each_response(
     test_database_engine,
@@ -444,10 +442,12 @@ def test_tiktok_api_client_fetch_all_store_after_each_response(
     )
     assert mock_tiktok_request_client.fetch.call_count == len(mock_tiktok_responses)
     assert mock_tiktok_request_client.fetch.mock_calls == expected_fetch_calls
-    assert_has_expected_crawl_and_videos_in_database(database_engine=test_database_engine,
-                                                     fetch_result=fetch_result,
-                                                     tiktok_responses=mock_tiktok_responses,
-                                                     acquisition_config=basic_acquisition_config)
+    assert_has_expected_crawl_and_videos_in_database(
+        database_engine=test_database_engine,
+        fetch_result=fetch_result,
+        tiktok_responses=mock_tiktok_responses,
+        acquisition_config=basic_acquisition_config,
+    )
 
 
 def test_tiktok_api_client_store_fetch_result(
@@ -462,10 +462,13 @@ def test_tiktok_api_client_store_fetch_result(
     )
     fetch_result = client.fetch_and_store_all()
     client.store_fetch_result(fetch_result)
-    assert_has_expected_crawl_and_videos_in_database(database_engine=test_database_engine,
-                                                     fetch_result=fetch_result,
-                                                     tiktok_responses=mock_tiktok_responses,
-                                                     acquisition_config=basic_acquisition_config)
+    assert_has_expected_crawl_and_videos_in_database(
+        database_engine=test_database_engine,
+        fetch_result=fetch_result,
+        tiktok_responses=mock_tiktok_responses,
+        acquisition_config=basic_acquisition_config,
+    )
+
 
 def test_tiktok_api_client_fetch_and_store_all(
     test_database_engine,
@@ -478,7 +481,9 @@ def test_tiktok_api_client_fetch_and_store_all(
         request_client=mock_tiktok_request_client, config=basic_acquisition_config
     )
     fetch_result = client.fetch_and_store_all()
-    assert_has_expected_crawl_and_videos_in_database(database_engine=test_database_engine,
-                                                     fetch_result=fetch_result,
-                                                     tiktok_responses=mock_tiktok_responses,
-                                                     acquisition_config=basic_acquisition_config)
+    assert_has_expected_crawl_and_videos_in_database(
+        database_engine=test_database_engine,
+        fetch_result=fetch_result,
+        tiktok_responses=mock_tiktok_responses,
+        acquisition_config=basic_acquisition_config,
+    )

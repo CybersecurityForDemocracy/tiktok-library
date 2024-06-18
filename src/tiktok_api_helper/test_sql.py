@@ -22,7 +22,7 @@ from tiktok_api_helper.test_utils import (
     all_videos,
     all_hashtags,
     all_hashtag_names_sorted,
-    all_crawls
+    all_crawls,
 )
 
 
