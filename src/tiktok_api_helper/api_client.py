@@ -396,33 +396,35 @@ class TikTokApiRequestClient:
         data = request.as_json()
         logging.log(logging.INFO, f"Sending request with data: {data}")
 
-        req = self._api_request_session.post(url=ALL_VIDEO_DATA_URL, data=data)
-        logging.debug(req)
+        response = self._api_request_session.post(url=ALL_VIDEO_DATA_URL, data=data)
+        logging.debug('%s\n%s', response, response.text)
 
         if self._raw_responses_output_dir is not None:
-            self._store_response(req)
+            self._store_response(response)
 
-        if req.status_code == 200:
-            return req
+        if response.status_code == 200:
+            return response
 
-        if req.status_code == 429:
-            raise ApiRateLimitError(repr(req))
+        if response.status_code == 429:
+            raise ApiRateLimitError(repr(response))
 
-        if req.status_code == 400:
-            if "error" in data and SEARCH_ID_INVALID_ERROR_MESSAGE_REGEX.match(
-                data.get("error").get("message", "")
-            ):
-                raise InvalidSearchIdError(f"{req!r} {req.text}")
+        if response.status_code == 400:
+            try:
+                response_json = response.json()
+                if SEARCH_ID_INVALID_ERROR_MESSAGE_REGEX.match(response_json.get("error", {}).get("message", "")):
+                    raise InvalidSearchIdError(f"{response!r} {response.text}")
+            except json.JSONDecodeError:
+                logging.debug('Unable to JSON decode response data:\n%s', response.text)
 
-            raise InvalidRequestError(f"{req!r} {req.text}")
+            raise InvalidRequestError(f"{response!r} {response.text}")
 
-        if req.status_code == 500:
+        if response.status_code == 500:
             logging.info("API responded 500. This happens occasionally")
         else:
             logging.warning(
-                f"Request failed, status code {req.status_code} - text {req.text} - data {data}",
+                f"Request failed, status code {response.status_code} - text {response.text} - data {data}",
             )
-        req.raise_for_status()
+        response.raise_for_status()
         # In case raise_for_status does not raise an exception we return None
         return None
 
