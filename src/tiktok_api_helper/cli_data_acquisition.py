@@ -432,7 +432,7 @@ def run(
 
     if config.start_date == config.final_date:
         logging.log(
-            logging.WARNING,
+            logging.INFO,
             "Start and final date are the same - running single day driver",
         )
         driver_single_day(config)
