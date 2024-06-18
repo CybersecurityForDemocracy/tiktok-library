@@ -27,6 +27,7 @@ from tiktok_api_helper.test_utils import (
     test_database_engine,
     testdata_api_response_json,
     all_videos,
+    all_crawls,
 )
 
 FAKE_SECRETS_YAML_FILE = Path("src/tiktok_api_helper/testdata/fake_secrets.yaml")
@@ -359,17 +360,94 @@ def test_tiktok_api_client_fetch_all(
         request_client=mock_tiktok_request_client, config=basic_acquisition_config
     )
 
-    response = client.fetch_all()
+    fetch_result = client.fetch_all()
 
-    assert response.videos == list(
+    assert fetch_result.videos == list(
         itertools.chain.from_iterable([r.videos for r in mock_tiktok_responses])
     )
-    assert response.crawl.has_more == False
-    assert response.crawl.cursor == basic_acquisition_config.max_count * len(
+    assert fetch_result.crawl.has_more == False
+    assert fetch_result.crawl.cursor == basic_acquisition_config.max_count * len(
         mock_tiktok_responses
     )
     assert mock_tiktok_request_client.fetch.call_count == len(mock_tiktok_responses)
     assert mock_tiktok_request_client.fetch.mock_calls == expected_fetch_calls
+
+def test_tiktok_api_client_fetch_all_do_not_store_after_each_response(
+    test_database_engine,
+    basic_acquisition_config,
+    mock_tiktok_request_client,
+    mock_tiktok_responses,
+    expected_fetch_calls,
+):
+    basic_acquisition_config.engine = test_database_engine
+    client = api_client.TikTokApiClient(
+        request_client=mock_tiktok_request_client, config=basic_acquisition_config
+    )
+
+    fetch_result = client.fetch_all(store_results_after_each_response=False)
+
+    assert fetch_result.videos == list(
+        itertools.chain.from_iterable([r.videos for r in mock_tiktok_responses])
+    )
+    assert fetch_result.crawl.has_more == False
+    assert fetch_result.crawl.cursor == basic_acquisition_config.max_count * len(
+        mock_tiktok_responses
+    )
+    assert mock_tiktok_request_client.fetch.call_count == len(mock_tiktok_responses)
+    assert mock_tiktok_request_client.fetch.mock_calls == expected_fetch_calls
+    # Confirm nothing put to database
+    with Session(test_database_engine) as session:
+        assert all_crawls(session) == []
+        assert all_videos(session) == []
+
+def assert_has_expected_crawl_and_videos_in_database(database_engine, fetch_result,
+                                                     tiktok_responses,
+                                                     acquisition_config):
+    with Session(database_engine) as session:
+        crawls = all_crawls(session)
+        assert len(crawls) == 1
+        crawl = crawls[0]
+        assert crawl.id == fetch_result.crawl.id
+        assert (
+            crawl.cursor
+            == len(tiktok_responses) * acquisition_config.max_count
+        )
+        assert crawl.query == json.dumps(
+            acquisition_config.query, cls=query.QueryJSONEncoder
+        )
+        videos = all_videos(session)
+        assert len(videos) == len(tiktok_responses) * len(
+            tiktok_responses[0].videos
+        )
+        assert len(videos) == len(fetch_result.videos)
+
+def test_tiktok_api_client_fetch_all_store_after_each_response(
+    test_database_engine,
+    basic_acquisition_config,
+    mock_tiktok_request_client,
+    mock_tiktok_responses,
+    expected_fetch_calls,
+):
+    basic_acquisition_config.engine = test_database_engine
+    client = api_client.TikTokApiClient(
+        request_client=mock_tiktok_request_client, config=basic_acquisition_config
+    )
+
+    fetch_result = client.fetch_all(store_results_after_each_response=True)
+
+    assert fetch_result.videos == list(
+        itertools.chain.from_iterable([r.videos for r in mock_tiktok_responses])
+    )
+    assert fetch_result.crawl.has_more == False
+    assert fetch_result.crawl.cursor == basic_acquisition_config.max_count * len(
+        mock_tiktok_responses
+    )
+    assert mock_tiktok_request_client.fetch.call_count == len(mock_tiktok_responses)
+    assert mock_tiktok_request_client.fetch.mock_calls == expected_fetch_calls
+    assert_has_expected_crawl_and_videos_in_database(database_engine=test_database_engine,
+                                                     fetch_result=fetch_result,
+                                                     tiktok_responses=mock_tiktok_responses,
+                                                     acquisition_config=basic_acquisition_config)
 
 
 def test_tiktok_api_client_store_fetch_result(
@@ -383,21 +461,24 @@ def test_tiktok_api_client_store_fetch_result(
         request_client=mock_tiktok_request_client, config=basic_acquisition_config
     )
     fetch_result = client.fetch_and_store_all()
-    # TODO(macpd): verify results in database.
-    with Session(test_database_engine) as session:
-        crawls = session.scalars(select(Crawl).order_by(Crawl.id)).all()
-        assert len(crawls) == 1
-        crawl = crawls[0]
-        assert crawl.id == fetch_result.crawl.id
-        assert (
-            crawl.cursor
-            == len(mock_tiktok_responses) * basic_acquisition_config.max_count
-        )
-        assert crawl.query == json.dumps(
-            basic_acquisition_config.query, cls=query.QueryJSONEncoder
-        )
-        videos = all_videos(session)
-        assert len(videos) == len(mock_tiktok_responses) * len(
-            mock_tiktok_responses[0].videos
-        )
-        assert len(videos) == len(fetch_result.videos)
+    client.store_fetch_result(fetch_result)
+    assert_has_expected_crawl_and_videos_in_database(database_engine=test_database_engine,
+                                                     fetch_result=fetch_result,
+                                                     tiktok_responses=mock_tiktok_responses,
+                                                     acquisition_config=basic_acquisition_config)
+
+def test_tiktok_api_client_fetch_and_store_all(
+    test_database_engine,
+    basic_acquisition_config,
+    mock_tiktok_request_client,
+    mock_tiktok_responses,
+):
+    basic_acquisition_config.engine = test_database_engine
+    client = api_client.TikTokApiClient(
+        request_client=mock_tiktok_request_client, config=basic_acquisition_config
+    )
+    fetch_result = client.fetch_and_store_all()
+    assert_has_expected_crawl_and_videos_in_database(database_engine=test_database_engine,
+                                                     fetch_result=fetch_result,
+                                                     tiktok_responses=mock_tiktok_responses,
+                                                     acquisition_config=basic_acquisition_config)
