@@ -492,7 +492,10 @@ def update_crawl_from_api_response(
     crawl.cursor = api_response.data["cursor"]
     crawl.has_more = api_response.data["has_more"]
 
-    if "search_id" in api_response.data and api_response.data["search_id"] != crawl.search_id:
+    if (
+        "search_id" in api_response.data
+        and api_response.data["search_id"] != crawl.search_id
+    ):
         if crawl.search_id is not None:
             logging.log(
                 logging.ERROR,
