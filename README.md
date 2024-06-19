@@ -120,8 +120,9 @@ specify the connection string.
 - TikTok research API quota is 1000 requests per day (https://developers.tiktok.com/doc/research-api-faq). When the API indicates that limit has been reached this library will retry (see `--rate-limit-wait-strategy` flag for available strategies) until quota limit resets and continue collection.
 - `TikTokApiClient` provides a high-level interface for querying TikTok Research
   API
-    - Handles API pagination (ie requesting results from API until API
-  indicates query results have been completely delivered)
+    - Handles API pagination (ie requesting results from API until API indicates
+      query results have been completely delivered), access token
+      fetch/refresh, and retry on request failures.
     - Client provides an iterator (`api_results_iter`) which yields each parsed
       API response, or `fetch_all` which returns all parsed results in one
       object.
