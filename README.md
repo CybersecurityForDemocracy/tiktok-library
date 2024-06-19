@@ -119,9 +119,15 @@ specify the connection string.
 - The library automatically manages the access token and refreshes it when needed.
 - TikTok research API quota is 1000 requests per day (https://developers.tiktok.com/doc/research-api-faq). When the API indicates that limit has been reached this library will retry (see `--rate-limit-wait-strategy` flag for available strategies) until quota limit resets and continue collection.
 - `TikTokApiClient` provides a high-level interface for querying TikTok Research
-  API and handling API pagination (ie requesting results from API until API
-  indicates query results have been completely delivered). Client provides an iterator
-  (`api_results_iter`) which yields each parsed API response, or `fetch_all` which returns all parsed results in one object. `store_fetch_result` stores the crawl and videos data to the database, and `fetch_and_store_all` does it all (fetching all results from API and storing them in database as responses are received).
+  API
+    - Handles API pagination (ie requesting results from API until API
+  indicates query results have been completely delivered)
+    - Client provides an iterator (`api_results_iter`) which yields each parsed
+      API response, or `fetch_all` which returns all parsed results in one
+      object.
+    - `store_fetch_result` stores crawl and videos data to the database
+    - `fetch_and_store_all` does all the above (fetching all results from API
+      and storing them in database as responses are received).
 - Database
     - All "Crawls" (really each request to the API) are stored in a seperate table `crawl` and the data itself in `video`.
     - Mapping of video <-> crawl is stored in `videos_to_crawls`.
