@@ -121,7 +121,7 @@ specify the connection string.
 - `TikTokApiClient` provides a high-level interface for querying TikTok Research
   API and handling API pagination (ie requesting results from API until API
   indicates query results have been completely delivered). Client provides an iterator
-  (`api_results_iter`) which yields each parsed API response, or `fetch_all` which returns all results in one object.
+  (`api_results_iter`) which yields each parsed API response, or `fetch_all` which returns all results in one object. `store_fetch_result` stores the crawl and videos data to the database, and `fetch_and_store_all` puts it together (fetching all results from API and storing them in database as responses are received).
 - Database
     - All "Crawls" (really each request to the API) are stored in a seperate table `crawl` and the data itself in `video`.
     - Mapping of video <-> crawl is stored in `videos_to_crawls`.
