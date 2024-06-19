@@ -83,7 +83,7 @@ class TikTokApiClientFetchResult:
 class ApiClientConfig:
     query: Query
     start_date: datetime
-    final_date: datetime
+    end_date: datetime
     engine: Engine
     api_credentials_file: Path
     max_count: int = 100
@@ -119,7 +119,7 @@ class TiktokRequest:
             query=config.query,
             max_count=config.max_count,
             start_date=config.start_date.strftime("%Y%m%d"),
-            end_date=config.final_date.strftime("%Y%m%d"),
+            end_date=config.end_date.strftime("%Y%m%d"),
             **kwargs,
         )
 

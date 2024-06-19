@@ -285,7 +285,7 @@ def basic_acquisition_config():
     return api_client.ApiClientConfig(
         query=query.generate_query(include_any_hashtags="test1,test2"),
         start_date=pendulum.parse("20240601"),
-        final_date=pendulum.parse("20240601"),
+        end_date=pendulum.parse("20240601"),
         engine=None,
         api_credentials_file=None,
     )
@@ -298,7 +298,7 @@ def expected_fetch_calls(basic_acquisition_config, mock_tiktok_responses):
             api_client.TiktokRequest(
                 query=basic_acquisition_config.query,
                 start_date=basic_acquisition_config.start_date.strftime("%Y%m%d"),
-                end_date=basic_acquisition_config.final_date.strftime("%Y%m%d"),
+                end_date=basic_acquisition_config.end_date.strftime("%Y%m%d"),
                 max_count=basic_acquisition_config.max_count,
                 is_random=False,
                 cursor=None,
@@ -309,7 +309,7 @@ def expected_fetch_calls(basic_acquisition_config, mock_tiktok_responses):
             api_client.TiktokRequest(
                 query=basic_acquisition_config.query,
                 start_date=basic_acquisition_config.start_date.strftime("%Y%m%d"),
-                end_date=basic_acquisition_config.final_date.strftime("%Y%m%d"),
+                end_date=basic_acquisition_config.end_date.strftime("%Y%m%d"),
                 max_count=basic_acquisition_config.max_count,
                 is_random=False,
                 cursor=basic_acquisition_config.max_count,
@@ -320,7 +320,7 @@ def expected_fetch_calls(basic_acquisition_config, mock_tiktok_responses):
             api_client.TiktokRequest(
                 query=basic_acquisition_config.query,
                 start_date=basic_acquisition_config.start_date.strftime("%Y%m%d"),
-                end_date=basic_acquisition_config.final_date.strftime("%Y%m%d"),
+                end_date=basic_acquisition_config.end_date.strftime("%Y%m%d"),
                 max_count=basic_acquisition_config.max_count,
                 is_random=False,
                 cursor=basic_acquisition_config.max_count * 2,

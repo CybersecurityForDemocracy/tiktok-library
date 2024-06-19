@@ -84,7 +84,7 @@ def run_long_query(config: ApiClientConfig):
 def driver_single_day(config: ApiClientConfig):
     """Simpler driver for a single day of query"""
     assert (
-        config.start_date == config.final_date
+        config.start_date == config.end_date
     ), "Start and final date must be the same for single day driver"
 
     run_long_query(config)
@@ -95,15 +95,15 @@ def main_driver(config: ApiClientConfig):
 
     start_date = copy(config.start_date)
 
-    while start_date < config.final_date:
+    while start_date < config.end_date:
         # API limit is 30, we maintain 28 to be safe
         local_end_date = start_date + days_per_iter
-        local_end_date = min(local_end_date, config.final_date)
+        local_end_date = min(local_end_date, config.end_date)
 
         new_config = ApiClientConfig(
             query=config.query,
             start_date=start_date,
-            final_date=local_end_date,
+            end_date=local_end_date,
             engine=config.engine,
             stop_after_one_request=config.stop_after_one_request,
             crawl_tags=config.crawl_tags,
@@ -151,7 +151,7 @@ def test(
     config = ApiClientConfig(
         query=test_query,
         start_date=start_date_datetime,
-        final_date=end_date_datetime,
+        end_date=end_date_datetime,
         engine=engine,
         stop_after_one_request=True,
         crawl_tags=["Testing"],
@@ -420,7 +420,7 @@ def run(
     config = ApiClientConfig(
         query=query,
         start_date=start_date_datetime,
-        final_date=end_date_datetime,
+        end_date=end_date_datetime,
         engine=engine,  # type: ignore - cant catch if logic above
         stop_after_one_request=stop_after_one_request,
         crawl_tags=[crawl_tag],
@@ -430,7 +430,7 @@ def run(
     )
     logging.log(logging.INFO, f"Config: {config}")
 
-    if config.start_date == config.final_date:
+    if config.start_date == config.end_date:
         logging.log(
             logging.INFO,
             "Start and final date are the same - running single day driver",
