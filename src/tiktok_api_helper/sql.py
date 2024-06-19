@@ -396,7 +396,7 @@ class Crawl(Base):
     def __repr__(self) -> str:
         return (
             f"Crawl id={self.id}, crawl_tags={self.crawl_tags!r}, "
-            f"started_at={self.crawl_started_at!r}, "
+            f"started_at={self.crawl_started_at!r}, cursor={self.cursor}, "
             f"has_more={self.has_more!r}, search_id={self.search_id!r}\n"
             f"query='{self.query!r}'"
         )
@@ -410,6 +410,24 @@ class Crawl(Base):
             has_more=res_data["has_more"],
             search_id=res_data["search_id"],
             query=json.dumps(query, cls=QueryJSONEncoder),
+            crawl_tags=(
+                {CrawlTag(name=name) for name in crawl_tags} if crawl_tags else set()
+            ),
+        )
+
+    # TODO(macpd): rename this to explain it's intent of being used before fetch starts
+    @classmethod
+    def from_query(
+        cls,
+        query: Query,
+        crawl_tags: Optional[Sequence[str]] = None,
+        has_more: bool = True,
+        search_id: [int | None] = None,
+    ) -> "Crawl":
+        return cls(
+            has_more=has_more,
+            query=json.dumps(query, cls=QueryJSONEncoder),
+            search_id=search_id,
             crawl_tags=(
                 {CrawlTag(name=name) for name in crawl_tags} if crawl_tags else set()
             ),
@@ -437,34 +455,6 @@ class Crawl(Base):
             else:
                 session.add(self)
             session.commit()
-
-    def update_crawl(
-        self, next_res_data: Mapping, videos: Sequence[str], engine: Engine
-    ):
-        self.cursor = next_res_data["cursor"]
-        self.has_more = next_res_data["has_more"]
-
-        if next_res_data["search_id"] != self.search_id:
-            logging.log(
-                logging.ERROR,
-                f"search_id changed! Was {self.search_id} now {next_res_data['search_id']}",
-            )
-            self.search_id = next_res_data["search_id"]
-
-        self.updated_at = datetime.datetime.now()
-
-        # Update the number of videos that were possibly deleted
-        if self.extra_data is None:
-            current_deleted_count = 0
-        else:
-            current_deleted_count = self.extra_data.get("possibly_deleted", 0)
-
-        n_videos = len(videos)
-
-        # assumes we're using the maximum 100 videos per request
-        self.extra_data = {"possibly_deleted": (100 - n_videos) + current_deleted_count}
-
-        self.upload_self_to_db(engine)
 
 
 def get_sqlite_engine_and_create_tables(db_path: Path, **kwargs) -> Engine:

@@ -6,6 +6,7 @@ import logging
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Mapping, Optional, Sequence
+import re
 
 import attrs
 import certifi
@@ -16,8 +17,16 @@ import yaml
 from sqlalchemy import Engine
 
 from tiktok_api_helper.query import Query, QueryJSONEncoder
+from tiktok_api_helper.sql import Crawl, upsert_videos
 
 ALL_VIDEO_DATA_URL = "https://open.tiktokapis.com/v2/research/video/query/?fields=id,video_description,create_time,region_code,share_count,view_count,like_count,comment_count,music_id,hashtag_names,username,effect_ids,voice_to_text,playlist_id"
+
+SEARCH_ID_INVALID_ERROR_MESSAGE_REGEX = re.compile(
+    r"Search Id \d+ is invalid or expired"
+)
+
+INVALID_SEARCH_ID_ERROR_RETRY_WAIT = 5
+INVALID_SEARCH_ID_ERROR_MAX_NUM_RETRIES = 5
 
 
 class ApiRateLimitError(Exception):
@@ -25,6 +34,10 @@ class ApiRateLimitError(Exception):
 
 
 class InvalidRequestError(Exception):
+    pass
+
+
+class InvalidSearchIdError(InvalidRequestError):
     pass
 
 
@@ -55,17 +68,25 @@ class TiktokCredentials:
 
 @attrs.define
 class TikTokResponse:
-    request_data: Mapping[str, Any]
+    data: Mapping[str, Any]
     videos: Sequence[Any]
+    error: Mapping[str, Any]
 
 
 @attrs.define
-class AcquitionConfig:
+class TikTokApiClientFetchResult:
+    videos: Sequence[Any]
+    crawl: Crawl
+
+
+@attrs.define
+class ApiClientConfig:
     query: Query
     start_date: datetime
-    final_date: datetime
+    end_date: datetime
     engine: Engine
     api_credentials_file: Path
+    max_count: int = 100
     stop_after_one_request: bool = False
     crawl_tags: Optional[list[str]] = None
     raw_responses_output_dir: Optional[Path] = None
@@ -93,15 +114,16 @@ class TiktokRequest:
     search_id: Optional[str] = None
 
     @classmethod
-    def from_config(cls, config: AcquitionConfig, **kwargs) -> TiktokRequest:
+    def from_config(cls, config: ApiClientConfig, **kwargs) -> TiktokRequest:
         return cls(
             query=config.query,
+            max_count=config.max_count,
             start_date=config.start_date.strftime("%Y%m%d"),
-            end_date=config.final_date.strftime("%Y%m%d"),
+            end_date=config.end_date.strftime("%Y%m%d"),
             **kwargs,
         )
 
-    def as_json(self):
+    def as_json(self, indent=None):
         request_obj = {
             "query": self.query,
             "max_count": self.max_count,
@@ -114,31 +136,46 @@ class TiktokRequest:
 
         if self.cursor is not None:
             request_obj["cursor"] = self.cursor
-        return json.dumps(request_obj, cls=QueryJSONEncoder, indent=1)
+        return json.dumps(request_obj, cls=QueryJSONEncoder, indent=indent)
 
 
-def retry_once_if_json_decoding_error_or_retry_indefintely_if_api_rate_limit_error(
+def retry_json_decoding_error_once(
     retry_state,
 ):
     exception = retry_state.outcome.exception()
-
-    # No exception, call succeeded
-    if exception is None:
-        return False
 
     # Retry once if JSON decoding response fails
     if isinstance(exception, (rq.exceptions.JSONDecodeError, json.JSONDecodeError)):
         return retry_state.attempt_number <= 1
 
+    return None
+
+
+def retry_invalid_search_id_error(
+    retry_state,
+):
+    exception = retry_state.outcome.exception()
+
+    # Workaround API bug where valid search ID (ie the one the API just returned) is rejected as
+    # invalid.
+    if isinstance(exception, InvalidSearchIdError):
+        return retry_state.attempt_number <= INVALID_SEARCH_ID_ERROR_MAX_NUM_RETRIES
+
+    return None
+
+
+def retry_api_rate_limit_error_indefintely(
+    retry_state,
+):
+    exception = retry_state.outcome.exception()
     # Retry API rate lmiit errors indefinitely.
     if isinstance(exception, ApiRateLimitError):
         return True
 
-    logging.warning("Retry call back received unexpected retry state: %r", retry_state)
-    return False
+    return None
 
 
-def json_decoding_error_retry_immediately_or_api_rate_limi_wait_until_next_utc_midnight(
+def json_decoding_error_retry_immediately(
     retry_state,
 ):
     exception = retry_state.outcome.exception()
@@ -146,6 +183,38 @@ def json_decoding_error_retry_immediately_or_api_rate_limi_wait_until_next_utc_m
     if isinstance(exception, (rq.exceptions.JSONDecodeError, json.JSONDecodeError)):
         return 0
 
+    logging.warning("Unknown exception in wait callback: %r", exception)
+    return 0
+
+
+def search_id_invalid_error_wait(
+    retry_state,
+):
+    exception = retry_state.outcome.exception()
+    # Wait in case API needs a few seconds to consider search ID valid.
+    if isinstance(exception, InvalidSearchIdError):
+        return INVALID_SEARCH_ID_ERROR_RETRY_WAIT
+
+    logging.warning("Unknown exception in wait callback: %r", exception)
+    return 0
+
+
+def get_api_rate_limit_wait_strategy(
+    api_rate_limit_wait_strategy: ApiRateLimitWaitStrategy,
+):
+    if api_rate_limit_wait_strategy == ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS:
+        return api_rate_limi_wait_four_hours
+    if api_rate_limit_wait_strategy == ApiRateLimitWaitStrategy.WAIT_NEXT_UTC_MIDNIGHT:
+        return api_rate_limi_wait_until_next_utc_midnight
+
+    raise ValueError(f"Unknown wait strategy: {api_rate_limit_wait_strategy}")
+
+
+def api_rate_limi_wait_until_next_utc_midnight(
+    retry_state,
+):
+    exception = retry_state.outcome.exception()
+    # If JSON decoding fails retry immediately
     if isinstance(exception, ApiRateLimitError):
         next_utc_midnight = pendulum.tomorrow("UTC")
         logging.warning(
@@ -161,14 +230,10 @@ def json_decoding_error_retry_immediately_or_api_rate_limi_wait_until_next_utc_m
     return 0
 
 
-def json_decoding_error_retry_immediately_or_api_rate_limi_wait_four_hours(
+def api_rate_limi_wait_four_hours(
     retry_state,
 ):
     exception = retry_state.outcome.exception()
-    # If JSON decoding fails retry immediately
-    if isinstance(exception, (rq.exceptions.JSONDecodeError, json.JSONDecodeError)):
-        return 0
-
     if isinstance(exception, ApiRateLimitError):
         logging.warning(
             "Response indicates rate limit exceeded: %r\nSleeping four hours before trying again.",
@@ -182,6 +247,10 @@ def json_decoding_error_retry_immediately_or_api_rate_limi_wait_four_hours(
 
 @attrs.define
 class TikTokApiRequestClient:
+    """
+    A class for making authenticated requests to the TikTok API and getting a parsed response.
+    """
+
     _credentials: TiktokCredentials = attrs.field(
         validator=[attrs.validators.instance_of(TiktokCredentials), field_is_not_empty],
         alias="credentials",  # Attrs removes underscores from field names but the static type checker doesn't know that
@@ -193,6 +262,7 @@ class TikTokApiRequestClient:
         default=ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS,
         validator=attrs.validators.instance_of(ApiRateLimitWaitStrategy),  # type: ignore - Attrs overload
     )
+    _num_api_requests_sent: int = 0
 
     @classmethod
     def from_credentials_file(
@@ -202,9 +272,9 @@ class TikTokApiRequestClient:
             dict_credentials = yaml.load(f, Loader=yaml.FullLoader)
 
         return cls(
-            credentials=TiktokCredentials(**dict_credentials),
             *args,
             **kwargs,
+            credentials=TiktokCredentials(**dict_credentials),
         )
 
     def __attrs_post_init__(self):
@@ -242,11 +312,10 @@ class TikTokApiRequestClient:
                 response.text,
             )
             raise e
-        logging.info(f"Access token response: {access_data}")
+        logging.info("Access token retrieval succeeded")
+        logging.debug("Access token response: %s", access_data)
 
-        token = access_data["access_token"]
-
-        return token
+        return access_data["access_token"]
 
     @_access_token_fetcher_session.default  # type: ignore - Attrs overload
     def _default_access_token_fetcher_session(self):
@@ -255,6 +324,10 @@ class TikTokApiRequestClient:
     @_api_request_session.default  # type: ignore - Attrs overload
     def _make_session(self):
         return rq.Session()
+
+    @property
+    def num_api_requests_sent(self):
+        return self._num_api_requests_sent
 
     def _configure_request_sessions(self):
         """Gets access token for authorization, sets token in headers for all requests, and registers
@@ -313,26 +386,19 @@ class TikTokApiRequestClient:
         else:
             stop_strategy = tenacity.stop_never
 
-        if (
-            self._api_rate_limit_wait_strategy
-            == ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS
-        ):
-            wait_strategy = (
-                json_decoding_error_retry_immediately_or_api_rate_limi_wait_four_hours
-            )
-        elif (
-            self._api_rate_limit_wait_strategy
-            == ApiRateLimitWaitStrategy.WAIT_NEXT_UTC_MIDNIGHT
-        ):
-            wait_strategy = json_decoding_error_retry_immediately_or_api_rate_limi_wait_until_next_utc_midnight
-        else:
-            raise ValueError(
-                f"Unknown wait strategy: {self._api_rate_limit_wait_strategy}"
-            )
-
         return tenacity.Retrying(
-            retry=retry_once_if_json_decoding_error_or_retry_indefintely_if_api_rate_limit_error,
-            wait=wait_strategy,
+            retry=tenacity.retry_any(
+                retry_json_decoding_error_once,
+                retry_invalid_search_id_error,
+                retry_api_rate_limit_error_indefintely,
+            ),
+            wait=tenacity.wait_combine(
+                json_decoding_error_retry_immediately,
+                search_id_invalid_error_wait,
+                get_api_rate_limit_wait_strategy(
+                    api_rate_limit_wait_strategy=self._api_rate_limit_wait_strategy
+                ),
+            ),
             stop=stop_strategy,
             reraise=True,
         )
@@ -346,6 +412,7 @@ class TikTokApiRequestClient:
 
     def _fetch(self, request: TiktokRequest) -> TikTokResponse:
         api_response = self._post(request)
+        self._num_api_requests_sent += 1
         return self._parse_response(api_response)
 
     @tenacity.retry(
@@ -360,25 +427,37 @@ class TikTokApiRequestClient:
         data = request.as_json()
         logging.log(logging.INFO, f"Sending request with data: {data}")
 
-        req = self._api_request_session.post(url=ALL_VIDEO_DATA_URL, data=data)
+        response = self._api_request_session.post(url=ALL_VIDEO_DATA_URL, data=data)
+        logging.debug("%s\n%s", response, response.text)
 
         if self._raw_responses_output_dir is not None:
-            self._store_response(req)
+            self._store_response(response)
 
-        if req.status_code == 200:
-            return req
+        if response.status_code == 200:
+            return response
 
-        if req.status_code == 429:
-            raise ApiRateLimitError(repr(req))
+        if response.status_code == 429:
+            raise ApiRateLimitError(repr(response))
 
-        if req.status_code == 400:
-            raise InvalidRequestError(f"{req!r} {req.text}")
+        if response.status_code == 400:
+            try:
+                response_json = response.json()
+                if SEARCH_ID_INVALID_ERROR_MESSAGE_REGEX.match(
+                    response_json.get("error", {}).get("message", "")
+                ):
+                    raise InvalidSearchIdError(f"{response!r} {response.text}")
+            except json.JSONDecodeError:
+                logging.debug("Unable to JSON decode response data:\n%s", response.text)
 
-        logging.log(
-            logging.ERROR,
-            f"Request failed, status code {req.status_code} - text {req.text} - data {data}",
-        )
-        req.raise_for_status()
+            raise InvalidRequestError(f"{response!r} {response.text}")
+
+        if response.status_code == 500:
+            logging.info("API responded 500. This happens occasionally")
+        else:
+            logging.warning(
+                f"Request failed, status code {response.status_code} - text {response.text} - data {data}",
+            )
+        response.raise_for_status()
         # In case raise_for_status does not raise an exception we return None
         return None
 
@@ -388,16 +467,177 @@ class TikTokApiRequestClient:
             raise ValueError("Response is None")
 
         try:
-            req_data = response.json().get("data", {})
-        except rq.exceptions.JSONDecodeError as e:
+            response_json = response.json()
+            response_data_section = response_json.get("data", {})
+            error_data = response_json.get("error")
+        except rq.exceptions.JSONDecodeError:
             logging.info(
                 "Error parsing JSON response:\n%s\n%s\n%s",
                 response.status_code,
                 "\n".join([f"{k}: {v}" for k, v in response.headers.items()]),
                 response.text,
             )
-            raise e
+            raise
 
-        videos = req_data.get("videos", [])
+        videos = response_data_section.get("videos", [])
 
-        return TikTokResponse(request_data=req_data, videos=videos)
+        return TikTokResponse(
+            data=response_data_section, videos=videos, error=error_data
+        )
+
+
+def update_crawl_from_api_response(
+    crawl: Crawl, api_response: TikTokResponse, num_videos_requested: int = 100
+):
+    crawl.cursor = api_response.data["cursor"]
+    crawl.has_more = api_response.data["has_more"]
+
+    if (
+        "search_id" in api_response.data
+        and api_response.data["search_id"] != crawl.search_id
+    ):
+        if crawl.search_id is not None:
+            logging.log(
+                logging.ERROR,
+                f"search_id changed! Was {crawl.search_id} now {api_response.data['search_id']}",
+            )
+        crawl.search_id = api_response.data["search_id"]
+
+    crawl.updated_at = pendulum.now("UTC")
+
+    # Update the number of videos that were possibly deleted
+    if crawl.extra_data is None:
+        current_deleted_count = 0
+    else:
+        current_deleted_count = crawl.extra_data.get("possibly_deleted", 0)
+
+    n_videos = len(api_response.videos)
+
+    crawl.extra_data = {
+        "possibly_deleted": (num_videos_requested - n_videos) + current_deleted_count
+    }
+
+
+@attrs.define
+class TikTokApiClient:
+    """Provides interface for interacting with TikTok research API. Handles requests to API to
+    get/refresh access token and requests required to fetch all API query responses (especially if
+    results are paginated).
+
+    Can be used to fetch only API results, and additionally store those results in a database (if
+    database engine provided in config).
+    """
+
+    _request_client: TikTokApiRequestClient = attrs.field()
+    _config: ApiClientConfig = attrs.field(
+        validator=[attrs.validators.instance_of(ApiClientConfig), field_is_not_empty]
+    )
+
+    @classmethod
+    def from_config(cls, config: ApiClientConfig, *args, **kwargs) -> TikTokApiClient:
+        return cls(
+            *args,
+            **kwargs,
+            config=config,
+            request_client=TikTokApiRequestClient.from_credentials_file(
+                credentials_file=config.api_credentials_file,
+                raw_responses_output_dir=config.raw_responses_output_dir,
+            ),
+        )
+
+    @property
+    def num_api_requests_sent(self):
+        return self._request_client.num_api_requests_sent
+
+    @property
+    def expected_remaining_api_request_quota(self):
+        return 1000 - self.num_api_requests_sent
+
+    def api_results_iter(self) -> TikTokApiClientFetchResult:
+        """Fetches all results from API (ie requests until API indicates query results have been
+        fully delivered (has_more == False)). Yielding each API response individually.
+        """
+        crawl = Crawl.from_query(
+            query=self._config.query,
+            crawl_tags=self._config.crawl_tags,
+            # Set has_more to True since we have not yet made an API request
+            has_more=True,
+        )
+        logging.debug("Crawl: %s", crawl)
+
+        logging.info("Beginning API results fetch.")
+        while crawl.has_more:
+            request = TiktokRequest.from_config(
+                config=self._config,
+                cursor=crawl.cursor,
+                search_id=crawl.search_id,
+            )
+            api_response = self._request_client.fetch(request)
+
+            if api_response.data:
+                logging.debug(
+                    "api_response.data: cursor: %s, has_more: %s, search_id: %s",
+                    api_response.data.get("cursor"),
+                    api_response.data.get("has_more"),
+                    api_response.data.get("search_id"),
+                )
+                logging.debug("API response error section: %s", api_response.error)
+                logging.debug("API response videos results:\n%s", api_response.videos)
+
+            update_crawl_from_api_response(
+                crawl=crawl,
+                api_response=api_response,
+                num_videos_requested=self._config.max_count,
+            )
+
+            yield TikTokApiClientFetchResult(videos=api_response.videos, crawl=crawl)
+
+            if not api_response.videos and crawl.has_more:
+                logging.log(
+                    logging.ERROR,
+                    f"No videos in response but there's still data to Crawl - Query: {self._config.query} \n api_response.data: {api_response.data}",
+                )
+            if self._config.stop_after_one_request:
+                logging.info("Stopping after one request")
+                break
+
+        logging.info(
+            "Crawl completed. Num api requests: %s. Expected remaining API request quota: %s",
+            self.num_api_requests_sent,
+            self.expected_remaining_api_request_quota,
+        )
+
+    def fetch_all(
+        self, *, store_results_after_each_response: bool = False
+    ) -> TikTokApiClientFetchResult:
+        """Fetches all results from API (ie sends requests until API indicates query results have
+        been fully delivered (has_more == False))
+
+        Args:
+            store_results_after_each_response: bool, if true used database engine from config to
+            store api results in database after each response is received (and before requesting
+            next page of results).
+        """
+        video_data = []
+        for api_response in self.api_results_iter():
+            video_data.extend(api_response.videos)
+            if store_results_after_each_response and video_data:
+                self.store_fetch_result(api_response)
+
+        logging.debug("fetch_all video results:\n%s", video_data)
+        return TikTokApiClientFetchResult(videos=video_data, crawl=api_response.crawl)
+
+    def store_fetch_result(self, fetch_result: TikTokApiClientFetchResult):
+        """Stores API results to database."""
+        logging.debug("Putting crawl to database: %s", fetch_result.crawl)
+        fetch_result.crawl.upload_self_to_db(self._config.engine)
+        logging.debug("Upserting videos")
+        upsert_videos(
+            video_data=fetch_result.videos,
+            crawl_id=fetch_result.crawl.id,
+            crawl_tags=self._config.crawl_tags,
+            engine=self._config.engine,
+        )
+
+    def fetch_and_store_all(self) -> TikTokApiClientFetchResult:
+        return self.fetch_all(store_results_after_each_response=True)
