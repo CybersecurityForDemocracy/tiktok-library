@@ -492,7 +492,7 @@ def update_crawl_from_api_response(
     crawl.cursor = api_response.data["cursor"]
     crawl.has_more = api_response.data["has_more"]
 
-    if api_response.data["search_id"] != crawl.search_id:
+    if "search_id" in api_response.data and api_response.data["search_id"] != crawl.search_id:
         if crawl.search_id is not None:
             logging.log(
                 logging.ERROR,
@@ -618,7 +618,7 @@ class TikTokApiClient:
         video_data = []
         for api_response in self.api_results_iter():
             video_data.extend(api_response.videos)
-            if store_results_after_each_response:
+            if store_results_after_each_response and video_data:
                 self.store_fetch_result(api_response)
 
         logging.debug("fetch_all video results:\n%s", video_data)
