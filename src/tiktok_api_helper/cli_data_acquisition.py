@@ -14,8 +14,6 @@ from tiktok_api_helper.api_client import (
     ApiClientConfig,
     ApiRateLimitWaitStrategy,
     TikTokApiClient,
-    TikTokApiRequestClient,
-    TiktokRequest,
 )
 from tiktok_api_helper.custom_types import (
     ApiCredentialsFileType,
@@ -47,29 +45,14 @@ from tiktok_api_helper.query import (
     generate_query,
 )
 from tiktok_api_helper.sql import (
-    Crawl,
     get_engine_and_create_tables,
     get_sqlite_engine_and_create_tables,
-    upsert_videos,
 )
 
 APP = typer.Typer(rich_markup_mode="markdown")
 
 _DAYS_PER_ITER = 28
 _DEFAULT_CREDENTIALS_FILE_PATH = Path("./secrets.yaml")
-
-
-def insert_videos_from_response(
-    videos: Sequence[dict],
-    crawl_id: int,
-    engine: Engine,
-    crawl_tags: Optional[list] = None,
-) -> None:
-    try:
-        upsert_videos(videos, crawl_id=crawl_id, crawl_tags=crawl_tags, engine=engine)
-    except Exception as e:
-        logging.log(logging.ERROR, f"Error with upsert! Videos: {videos}\n Error: {e}")
-        logging.log(logging.ERROR, "Skipping Upsert")
 
 
 def run_long_query(config: ApiClientConfig):
@@ -169,11 +152,11 @@ def get_query_file_json(query_file: Path):
     try:
         return json.loads(file_contents)
     except json.JSONDecodeError as e:
-        raise typer.BadParameter(f"Unable to parse {query_file} as JSON: {e}")
+        raise typer.BadParameter(f"Unable to parse {query_file} as JSON: {e}") from None
 
 
 def validate_mutually_exclusive_flags(
-    flags_names_to_values: Mapping[str, Any], at_least_one_required: bool = False
+    flags_names_to_values: Mapping[str, Any], *, at_least_one_required: bool = False
 ):
     """Takes a dict of flag names -> flag values, and raises an exception if more than one or none
     specified."""

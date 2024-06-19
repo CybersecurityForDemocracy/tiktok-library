@@ -8,21 +8,10 @@ import itertools
 import pytest
 import requests
 import pendulum
-from sqlalchemy import (
-    select,
-)
 from sqlalchemy.orm import Session
 
 from tiktok_api_helper import api_client
 from tiktok_api_helper import query
-from tiktok_api_helper.sql import (
-    Crawl,
-    Video,
-    Hashtag,
-    Effect,
-    CrawlTag,
-    upsert_videos,
-)
 from tests.test_utils import (
     test_database_engine,
     testdata_api_response_json,
@@ -341,9 +330,7 @@ def test_tiktok_api_client_api_results_iter(
     )
     for i, response in enumerate(client.api_results_iter()):
         assert response.videos == mock_tiktok_responses[i].videos
-        assert response.crawl.has_more == (
-            True if i < 2 else False
-        ), f"hash_more: {response.crawl.has_more}, i: {i}"
+        assert response.crawl.has_more == (i < 2), f"hash_more: {response.crawl.has_more}, i: {i}"
         assert response.crawl.cursor == basic_acquisition_config.max_count * (i + 1)
 
     assert mock_tiktok_request_client.fetch.call_count == len(mock_tiktok_responses)
@@ -365,7 +352,7 @@ def test_tiktok_api_client_fetch_all(
     assert fetch_result.videos == list(
         itertools.chain.from_iterable([r.videos for r in mock_tiktok_responses])
     )
-    assert fetch_result.crawl.has_more == False
+    assert not fetch_result.crawl.has_more
     assert fetch_result.crawl.cursor == basic_acquisition_config.max_count * len(
         mock_tiktok_responses
     )
@@ -390,7 +377,7 @@ def test_tiktok_api_client_fetch_all_do_not_store_after_each_response(
     assert fetch_result.videos == list(
         itertools.chain.from_iterable([r.videos for r in mock_tiktok_responses])
     )
-    assert fetch_result.crawl.has_more == False
+    assert not fetch_result.crawl.has_more
     assert fetch_result.crawl.cursor == basic_acquisition_config.max_count * len(
         mock_tiktok_responses
     )
@@ -436,7 +423,7 @@ def test_tiktok_api_client_fetch_all_store_after_each_response(
     assert fetch_result.videos == list(
         itertools.chain.from_iterable([r.videos for r in mock_tiktok_responses])
     )
-    assert fetch_result.crawl.has_more == False
+    assert not fetch_result.crawl.has_more
     assert fetch_result.crawl.cursor == basic_acquisition_config.max_count * len(
         mock_tiktok_responses
     )
