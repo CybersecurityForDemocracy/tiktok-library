@@ -11,7 +11,7 @@ from typing_extensions import Annotated
 
 from tiktok_api_helper import region_codes, utils
 from tiktok_api_helper.api_client import (
-    AcquitionConfig,
+    ApiClientConfig,
     ApiRateLimitWaitStrategy,
     TikTokApiClient,
     TikTokApiRequestClient,
@@ -72,7 +72,7 @@ def insert_videos_from_response(
         logging.log(logging.ERROR, "Skipping Upsert")
 
 
-def run_long_query(config: AcquitionConfig):
+def run_long_query(config: ApiClientConfig):
     """Runs a "long" query, defined as one that may need multiple requests to get all the data.
 
     Unless you have a good reason to believe otherwise, queries should default to be considered "long".
@@ -81,7 +81,7 @@ def run_long_query(config: AcquitionConfig):
     api_client.fetch_and_store_all()
 
 
-def driver_single_day(config: AcquitionConfig):
+def driver_single_day(config: ApiClientConfig):
     """Simpler driver for a single day of query"""
     assert (
         config.start_date == config.final_date
@@ -90,7 +90,7 @@ def driver_single_day(config: AcquitionConfig):
     run_long_query(config)
 
 
-def main_driver(config: AcquitionConfig):
+def main_driver(config: ApiClientConfig):
     days_per_iter = utils.int_to_days(_DAYS_PER_ITER)
 
     start_date = copy(config.start_date)
@@ -100,7 +100,7 @@ def main_driver(config: AcquitionConfig):
         local_end_date = start_date + days_per_iter
         local_end_date = min(local_end_date, config.final_date)
 
-        new_config = AcquitionConfig(
+        new_config = ApiClientConfig(
             query=config.query,
             start_date=start_date,
             final_date=local_end_date,
@@ -148,7 +148,7 @@ def test(
 
     engine = get_sqlite_engine_and_create_tables(db_file)
 
-    config = AcquitionConfig(
+    config = ApiClientConfig(
         query=test_query,
         start_date=start_date_datetime,
         final_date=end_date_datetime,
@@ -417,7 +417,7 @@ def run(
     elif db_file:
         engine = get_sqlite_engine_and_create_tables(db_file)
 
-    config = AcquitionConfig(
+    config = ApiClientConfig(
         query=query,
         start_date=start_date_datetime,
         final_date=end_date_datetime,

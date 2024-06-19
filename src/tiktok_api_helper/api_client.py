@@ -80,7 +80,7 @@ class TikTokApiClientFetchResult:
 
 
 @attrs.define
-class AcquitionConfig:
+class ApiClientConfig:
     query: Query
     start_date: datetime
     final_date: datetime
@@ -114,7 +114,7 @@ class TiktokRequest:
     search_id: Optional[str] = None
 
     @classmethod
-    def from_config(cls, config: AcquitionConfig, **kwargs) -> TiktokRequest:
+    def from_config(cls, config: ApiClientConfig, **kwargs) -> TiktokRequest:
         return cls(
             query=config.query,
             max_count=config.max_count,
@@ -526,12 +526,12 @@ class TikTokApiClient:
     """
 
     _request_client: TikTokApiRequestClient = attrs.field()
-    _config: AcquitionConfig = attrs.field(
-        validator=[attrs.validators.instance_of(AcquitionConfig), field_is_not_empty]
+    _config: ApiClientConfig = attrs.field(
+        validator=[attrs.validators.instance_of(ApiClientConfig), field_is_not_empty]
     )
 
     @classmethod
-    def from_config(cls, config: AcquitionConfig, *args, **kwargs) -> TikTokApiClient:
+    def from_config(cls, config: ApiClientConfig, *args, **kwargs) -> TikTokApiClient:
         return cls(
             *args,
             **kwargs,

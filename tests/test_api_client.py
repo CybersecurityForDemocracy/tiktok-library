@@ -282,7 +282,7 @@ def mock_tiktok_request_client(mock_tiktok_responses):
 
 @pytest.fixture
 def basic_acquisition_config():
-    return api_client.AcquitionConfig(
+    return api_client.ApiClientConfig(
         query=query.generate_query(include_any_hashtags="test1,test2"),
         start_date=pendulum.parse("20240601"),
         final_date=pendulum.parse("20240601"),
