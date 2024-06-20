@@ -79,3 +79,11 @@ check = [
 fmt = [
   "black src/",
 ]
+
+[tool.hatch.envs.jupyter]
+extra-dependencies = [
+  "notebook"
+]
+
+[tool.hatch.envs.jupyter.scripts]
+notebook = "jupyter-notebook"
