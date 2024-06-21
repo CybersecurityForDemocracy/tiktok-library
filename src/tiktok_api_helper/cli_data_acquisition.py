@@ -126,8 +126,8 @@ def test(
 
     logging.log(logging.INFO, f"Query: {test_query}")
 
-    start_date_datetime = datetime.strptime("20220101", "%Y%m%d")
-    end_date_datetime = datetime.strptime("20220101", "%Y%m%d")
+    start_date_datetime = utils.str_tiktok_date_format_to_datetime("20220101")
+    end_date_datetime = utils.str_tiktok_date_format_to_datetime("20220101")
 
     engine = get_sqlite_engine_and_create_tables(db_file)
 
@@ -316,8 +316,8 @@ def run(
 
     # Using an actual datetime object instead of a string would not allows to
     # specify the CLI help docs in the format %Y%m%d
-    start_date_datetime = datetime.strptime(start_date_str, "%Y%m%d")
-    end_date_datetime = datetime.strptime(end_date_str, "%Y%m%d")
+    start_date_datetime = utils.str_tiktok_date_format_to_datetime(start_date_str)
+    end_date_datetime = utils.str_tiktok_date_format_to_datetime(end_date_str)
 
     validate_mutually_exclusive_flags(
         {"--db-url": db_url, "--db-file": db_file}, at_least_one_required=True
