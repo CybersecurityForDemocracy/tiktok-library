@@ -1,22 +1,20 @@
-from pathlib import Path
-import unittest
-from unittest.mock import Mock, call, MagicMock
-import json
 import copy
 import itertools
+import json
+import unittest
+from pathlib import Path
+from unittest.mock import MagicMock, Mock, call
 
+import pendulum
 import pytest
 import requests
-import pendulum
 from sqlalchemy.orm import Session
 
-from tiktok_api_helper import api_client
-from tiktok_api_helper import query
 from tests.test_utils import (
-    all_videos,
     all_crawls,
+    all_videos,
 )
-from tiktok_api_helper import utils
+from tiktok_api_helper import api_client, query, utils
 
 FAKE_SECRETS_YAML_FILE = Path("tests/testdata/fake_secrets.yaml")
 
