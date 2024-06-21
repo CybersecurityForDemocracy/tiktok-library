@@ -18,6 +18,7 @@ from tests.test_utils import (
     all_videos,
     all_crawls,
 )
+from tiktok_api_helper import utils
 
 FAKE_SECRETS_YAML_FILE = Path("tests/testdata/fake_secrets.yaml")
 
@@ -286,8 +287,8 @@ def expected_fetch_calls(basic_acquisition_config, mock_tiktok_responses):
         call(
             api_client.TiktokRequest(
                 query=basic_acquisition_config.query,
-                start_date=basic_acquisition_config.start_date.strftime("%Y%m%d"),
-                end_date=basic_acquisition_config.end_date.strftime("%Y%m%d"),
+                start_date=utils.date_to_tiktok_str_format(basic_acquisition_config.start_date),
+                end_date=utils.date_to_tiktok_str_format(basic_acquisition_config.end_date),
                 max_count=basic_acquisition_config.max_count,
                 is_random=False,
                 cursor=None,
@@ -297,8 +298,8 @@ def expected_fetch_calls(basic_acquisition_config, mock_tiktok_responses):
         call(
             api_client.TiktokRequest(
                 query=basic_acquisition_config.query,
-                start_date=basic_acquisition_config.start_date.strftime("%Y%m%d"),
-                end_date=basic_acquisition_config.end_date.strftime("%Y%m%d"),
+                start_date=utils.date_to_tiktok_str_format(basic_acquisition_config.start_date),
+                end_date=utils.date_to_tiktok_str_format(basic_acquisition_config.end_date),
                 max_count=basic_acquisition_config.max_count,
                 is_random=False,
                 cursor=basic_acquisition_config.max_count,
@@ -308,8 +309,8 @@ def expected_fetch_calls(basic_acquisition_config, mock_tiktok_responses):
         call(
             api_client.TiktokRequest(
                 query=basic_acquisition_config.query,
-                start_date=basic_acquisition_config.start_date.strftime("%Y%m%d"),
-                end_date=basic_acquisition_config.end_date.strftime("%Y%m%d"),
+                start_date=utils.date_to_tiktok_str_format(basic_acquisition_config.start_date),
+                end_date=utils.date_to_tiktok_str_format(basic_acquisition_config.end_date),
                 max_count=basic_acquisition_config.max_count,
                 is_random=False,
                 cursor=basic_acquisition_config.max_count * 2,

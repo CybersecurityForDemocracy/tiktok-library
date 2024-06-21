@@ -18,6 +18,7 @@ from sqlalchemy import Engine
 
 from tiktok_api_helper.query import Query, QueryJSONEncoder
 from tiktok_api_helper.sql import Crawl, upsert_videos
+from tiktok_api_helper import utils
 
 ALL_VIDEO_DATA_URL = "https://open.tiktokapis.com/v2/research/video/query/?fields=id,video_description,create_time,region_code,share_count,view_count,like_count,comment_count,music_id,hashtag_names,username,effect_ids,voice_to_text,playlist_id"
 
@@ -118,8 +119,8 @@ class TiktokRequest:
         return cls(
             query=config.query,
             max_count=config.max_count,
-            start_date=config.start_date.strftime("%Y%m%d"),
-            end_date=config.end_date.strftime("%Y%m%d"),
+            start_date=utils.date_to_tiktok_str_format(config.start_date),
+            end_date=utils.date_to_tiktok_str_format(config.end_date),
             **kwargs,
         )
 
