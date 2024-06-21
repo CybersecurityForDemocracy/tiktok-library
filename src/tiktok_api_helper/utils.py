@@ -5,13 +5,14 @@ from pathlib import Path
 from rich.console import Console
 from rich.logging import RichHandler
 
+TIKTOK_DATE_FORMAT = '%Y%m%d'
 
 def int_to_days(x: int) -> datetime.timedelta:
     return datetime.timedelta(days=x)
 
 
-def str_to_datetime(string: str) -> datetime.datetime:
-    return datetime.datetime.strptime(string, "%Y%m%d")
+def str_tiktok_date_format_to_datetime(string: str) -> datetime.datetime:
+    return datetime.datetime.strptime(string, TIKTOK_DATE_FORMAT)
 
 
 def setup_logging(file_level=logging.INFO, rich_level=logging.INFO) -> None:
