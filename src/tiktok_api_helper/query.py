@@ -1,7 +1,7 @@
 import enum
 import json
 from collections.abc import Callable, Mapping, Sequence
-from typing import Any, Optional
+from typing import Any
 
 import attrs
 
@@ -109,7 +109,7 @@ def make_conditions_dict(
     return [condition.as_dict() for condition in conditions]
 
 
-OptionalCondOrCondSeq = Optional[Condition | Sequence[Condition]]
+OptionalCondOrCondSeq = Condition | Sequence[Condition] | None
 
 
 def convert_optional_cond_or_condseq_to_condseq(
