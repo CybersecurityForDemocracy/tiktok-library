@@ -396,9 +396,9 @@ def run(
     only_from_usernames: Optional[OnlyUsernamesListType] = None,
     exclude_from_usernames: Optional[ExcludeUsernamesListType] = None,
     debug: Optional[bool] = False,
-    # TODO(macpd): hide this from --help, and maybe rename
-    # Skips logging init/setup, used for other commands that setup logging and then call this as a function
-    init_logging: [bool] = True,
+    # Skips logging init/setup. Hidden because this is intended for other commands that setup
+    # logging and then call this as a function.
+    init_logging: Annotated[bool, typer.Option(hidden=True)] = True,
 ) -> None:
     """
     Queries TikTok API and stores the results in specified database.
