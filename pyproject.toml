@@ -89,7 +89,3 @@ ignore=[
   # Do not suggest ternary operator
   "SIM108",
 ]
-
-[tool.ruff.lint.per-file-ignores]
-# Allow use of assert in tests, since pytest relies on assert
-"tests/*.py" = ["S101"]
