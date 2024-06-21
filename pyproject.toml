@@ -68,7 +68,7 @@ postgres-integration-test-docker-as-sudo = [
 # Hatch uses ruff for linting and formatting (hatch fmt ...)
 [tool.ruff]
 line-length=100
-exclude = ["alembic"]
+exclude = ["./alembic"]
 
 [tool.ruff.lint]
 select = [
