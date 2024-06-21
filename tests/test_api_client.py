@@ -1,24 +1,20 @@
-from pathlib import Path
-import unittest
-from unittest.mock import Mock, call, MagicMock
-import json
 import copy
 import itertools
+import json
+import unittest
+from pathlib import Path
+from unittest.mock import MagicMock, Mock, call
 
+import pendulum
 import pytest
 import requests
-import pendulum
 from sqlalchemy.orm import Session
 
-from tiktok_api_helper import api_client
-from tiktok_api_helper import query
 from tests.test_utils import (
-    test_database_engine,
-    testdata_api_response_json,
-    all_videos,
     all_crawls,
+    all_videos,
 )
-from tiktok_api_helper import utils
+from tiktok_api_helper import api_client, query, utils
 
 FAKE_SECRETS_YAML_FILE = Path("tests/testdata/fake_secrets.yaml")
 
@@ -207,8 +203,8 @@ def test_tiktok_api_request_client_wait_til_next_utc_midnight_on_rate_limit_wait
                 api_client.TiktokRequest(query={}, start_date=None, end_date=None),
                 max_api_rate_limit_retries=num_retries,
             )
-        # Confirm that code retried the post request and json extraction twice (ie retried once after
-        # the decode error before the exception is re-raised)
+        # Confirm that code retried the post request and json extraction twice (ie retried once
+        # after the decode error before the exception is re-raised)
         assert mock_request_session_rate_limit_error.post.call_count == num_retries
         assert (
             mock_request_session_rate_limit_error.post.return_value.json.call_count
