@@ -429,32 +429,6 @@ class Crawl(Base):
                 session.add(self)
             session.commit()
 
-    def update_crawl(self, next_res_data: Mapping, videos: Sequence[str], engine: Engine):
-        self.cursor = next_res_data["cursor"]
-        self.has_more = next_res_data["has_more"]
-
-        if next_res_data["search_id"] != self.search_id:
-            logging.log(
-                logging.ERROR,
-                f"search_id changed! Was {self.search_id} now {next_res_data['search_id']}",
-            )
-            self.search_id = next_res_data["search_id"]
-
-        self.updated_at = datetime.datetime.now()
-
-        # Update the number of videos that were possibly deleted
-        if self.extra_data is None:
-            current_deleted_count = 0
-        else:
-            current_deleted_count = self.extra_data.get("possibly_deleted", 0)
-
-        n_videos = len(videos)
-
-        # assumes we're using the maximum 100 videos per request
-        self.extra_data = {"possibly_deleted": (100 - n_videos) + current_deleted_count}
-
-        self.upload_self_to_db(engine)
-
 
 def get_sqlite_engine_and_create_tables(db_path: Path, **kwargs) -> Engine:
     return get_engine_and_create_tables(f"sqlite:///{db_path.absolute()}", **kwargs)
