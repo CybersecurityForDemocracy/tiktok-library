@@ -326,8 +326,8 @@ def run_scheduled(
         start_date, end_date = make_crawl_span(num_days_crawl_span=num_days_crawl_span, num_days_lag=num_days_lag)
         logging.info("Starting scheduled run. start_date: %s, end_date: %s", start_date, end_date)
         execution_start_time = pendulum.now()
-        run(start_date_str=start_date.strftime(utils.TIKTOK_DATE_FORMAT),
-            end_date_str=end_date.strftime(utils.TIKTOK_DATE_FORMAT),
+        run(start_date_str=utils.date_to_tiktok_str_format(start_date),
+            end_date_str=utils.date_to_tiktok_str_format(end_date),
             db_file=db_file,
             db_url=db_url,
             crawl_tag=crawl_tag,
