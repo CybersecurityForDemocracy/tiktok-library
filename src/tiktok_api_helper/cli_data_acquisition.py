@@ -1,13 +1,15 @@
 import json
 import logging
 from copy import copy
-from datetime import datetime
+from datetime import datetime, date, timedelta
 from pathlib import Path
 from typing import Any, Mapping, Optional, Sequence
+import time
 
 import typer
 from sqlalchemy import Engine
 from typing_extensions import Annotated
+import pendulum
 
 from tiktok_api_helper import region_codes, utils
 from tiktok_api_helper.api_client import (
@@ -53,6 +55,12 @@ APP = typer.Typer(rich_markup_mode="markdown")
 
 _DAYS_PER_ITER = 28
 _DEFAULT_CREDENTIALS_FILE_PATH = Path("./secrets.yaml")
+
+def setup_logging(*, debug: bool):
+    if debug:
+        utils.setup_logging(file_level=logging.DEBUG, rich_level=logging.DEBUG)
+    else:
+        utils.setup_logging(file_level=logging.INFO, rich_level=logging.INFO)
 
 
 def run_long_query(config: ApiClientConfig):
@@ -303,14 +311,15 @@ def run(
     only_from_usernames: Optional[OnlyUsernamesListType] = None,
     exclude_from_usernames: Optional[ExcludeUsernamesListType] = None,
     debug: Optional[bool] = False,
+    # TODO(macpd): hide this from --help, and maybe rename
+    # Skips logging init/setup, used for other commands that setup logging and then call this as a function
+    init_logging[bool] = True,
 ) -> None:
     """
     Queries TikTok API and stores the results in specified database.
     """
-    if debug:
-        utils.setup_logging(file_level=logging.DEBUG, rich_level=logging.DEBUG)
-    else:
-        utils.setup_logging(file_level=logging.INFO, rich_level=logging.INFO)
+    if init_logging:
+        setup_logging(debug=debug)
 
     logging.log(logging.INFO, f"Arguments: {locals()}")
 
