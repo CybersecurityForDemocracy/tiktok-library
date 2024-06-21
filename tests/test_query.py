@@ -219,7 +219,7 @@ def test_normalized_hashtag_set(test_input, expected):
 
 
 @pytest.mark.parametrize(
-    "test_input,expected",
+    ("test_input", "expected"),
     [
         ("cheese", set(["cheese"])),
         ("cheese,cheese", set(["cheese"])),
@@ -235,7 +235,7 @@ def test_normalized_keyword_set(test_input, expected):
 
 
 @pytest.mark.parametrize(
-    "test_input,expected",
+    ("test_input", "expected"),
     [
         ("cheese", set(["cheese"])),
         ("cheese,cheese", set(["cheese"])),
