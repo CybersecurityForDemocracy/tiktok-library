@@ -2,7 +2,6 @@ import datetime
 import logging
 from pathlib import Path
 
-
 from rich.console import Console
 from rich.logging import RichHandler
 
@@ -45,9 +44,7 @@ def setup_logging(file_level=logging.INFO, rich_level=logging.INFO) -> None:
         datefmt="%Y-%m-%d %H:%M:%S",
         level=min(file_level, rich_level),
         handlers=[
-            RichHandler(
-                rich_tracebacks=True, level=rich_level, console=Console(stderr=True)
-            ),
+            RichHandler(rich_tracebacks=True, level=rich_level, console=Console(stderr=True)),
             file_logger,
         ],
         force=True,

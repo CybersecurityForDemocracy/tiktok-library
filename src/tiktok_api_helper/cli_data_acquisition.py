@@ -1,14 +1,13 @@
 import json
 import logging
+from collections.abc import Mapping, Sequence
 from copy import copy
 from datetime import datetime, date, timedelta
 from pathlib import Path
-from typing import Any, Mapping, Optional, Sequence
 import time
+from typing import Annotated, Any
 
 import typer
-from sqlalchemy import Engine
-from typing_extensions import Annotated
 import pendulum
 
 from tiktok_api_helper import region_codes, utils
@@ -66,8 +65,8 @@ def setup_logging(*, debug: bool):
 def run_long_query(config: ApiClientConfig):
     """Runs a "long" query, defined as one that may need multiple requests to get all the data.
 
-    Unless you have a good reason to believe otherwise, queries should default to be considered "long".
-    """
+    Unless you have a good reason to believe otherwise, queries should default to be considered
+    "long".  """
     api_client = TikTokApiClient.from_config(config)
     api_client.fetch_and_store_all()
 
@@ -169,21 +168,17 @@ def validate_mutually_exclusive_flags(
     """Takes a dict of flag names -> flag values, and raises an exception if more than one or none
     specified."""
 
-    num_values_not_none = len(
-        list(filter(lambda x: x is not None, flags_names_to_values.values()))
-    )
+    num_values_not_none = len(list(filter(lambda x: x is not None, flags_names_to_values.values())))
     flag_names_str = ", ".join(flags_names_to_values.keys())
 
     if num_values_not_none > 1:
-        raise typer.BadParameter(
-            f"{flag_names_str} are mutually exclusive. Please use only one."
-        )
+        raise typer.BadParameter(f"{flag_names_str} are mutually exclusive. Please use only one.")
 
     if at_least_one_required and num_values_not_none == 0:
         raise typer.BadParameter(f"Must specify one of {flag_names_str}")
 
 
-def validate_region_code_flag_value(region_code_list: Optional[Sequence[str]]):
+def validate_region_code_flag_value(region_code_list: Sequence[str] | None):
     if region_code_list is None or not region_code_list:
         return
 
@@ -195,16 +190,16 @@ def validate_region_code_flag_value(region_code_list: Optional[Sequence[str]]):
 @APP.command()
 def print_query(
     region: RegionCodeListType = None,
-    include_any_hashtags: Optional[IncludeAnyHashtagListType] = None,
-    exclude_any_hashtags: Optional[ExcludeAnyHashtagListType] = None,
-    include_all_hashtags: Optional[IncludeAllHashtagListType] = None,
-    exclude_all_hashtags: Optional[ExcludeAllHashtagListType] = None,
-    include_any_keywords: Optional[IncludeAnyKeywordListType] = None,
-    exclude_any_keywords: Optional[ExcludeAnyKeywordListType] = None,
-    include_all_keywords: Optional[IncludeAllKeywordListType] = None,
-    exclude_all_keywords: Optional[ExcludeAllKeywordListType] = None,
-    only_from_usernames: Optional[OnlyUsernamesListType] = None,
-    exclude_from_usernames: Optional[ExcludeUsernamesListType] = None,
+    include_any_hashtags: IncludeAnyHashtagListType | None = None,
+    exclude_any_hashtags: ExcludeAnyHashtagListType | None = None,
+    include_all_hashtags: IncludeAllHashtagListType | None = None,
+    exclude_all_hashtags: ExcludeAllHashtagListType | None = None,
+    include_any_keywords: IncludeAnyKeywordListType | None = None,
+    exclude_any_keywords: ExcludeAnyKeywordListType | None = None,
+    include_all_keywords: IncludeAllKeywordListType | None = None,
+    exclude_all_keywords: ExcludeAllKeywordListType | None = None,
+    only_from_usernames: OnlyUsernamesListType | None = None,
+    exclude_from_usernames: ExcludeUsernamesListType | None = None,
 ) -> None:
     """Prints to stdout the query generated from flags. Useful for creating a base from which to
     build more complex custom JSON queries."""
@@ -369,33 +364,37 @@ def run(
     # breaks the documentation of CLI Arguments for some reason
     start_date_str: TikTokStartDateFormat,
     end_date_str: TikTokEndDateFormat,
-    db_file: Optional[DBFileType] = None,
-    db_url: Optional[DBUrlType] = None,
+    db_file: DBFileType | None = None,
+    db_url: DBUrlType | None = None,
     stop_after_one_request: Annotated[
         bool, typer.Option(help="Stop after the first request - Useful for testing")
     ] = False,
     crawl_tag: Annotated[
         str,
         typer.Option(
-            help="Extra metadata for tagging the crawl of the data with a name (e.g. `Experiment_1_test_acquisition`)"
+            help=(
+                "Extra metadata for tagging the crawl of the data with a name (e.g. "
+                "`Experiment_1_test_acquisition`)"
+            ),
         ),
     ] = "",
-    raw_responses_output_dir: Optional[RawResponsesOutputDir] = None,
-    query_file_json: Optional[JsonQueryFileType] = None,
+    raw_responses_output_dir: RawResponsesOutputDir | None = None,
+    query_file_json: JsonQueryFileType | None = None,
     api_credentials_file: ApiCredentialsFileType = _DEFAULT_CREDENTIALS_FILE_PATH,
-    rate_limit_wait_strategy: ApiRateLimitWaitStrategyType = ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS,
-    region: RegionCodeListType = None,
-    include_any_hashtags: Optional[IncludeAnyHashtagListType] = None,
-    exclude_any_hashtags: Optional[ExcludeAnyHashtagListType] = None,
-    include_all_hashtags: Optional[IncludeAllHashtagListType] = None,
-    exclude_all_hashtags: Optional[ExcludeAllHashtagListType] = None,
-    include_any_keywords: Optional[IncludeAnyKeywordListType] = None,
-    exclude_any_keywords: Optional[ExcludeAnyKeywordListType] = None,
-    include_all_keywords: Optional[IncludeAllKeywordListType] = None,
-    exclude_all_keywords: Optional[ExcludeAllKeywordListType] = None,
-    only_from_usernames: Optional[OnlyUsernamesListType] = None,
-    exclude_from_usernames: Optional[ExcludeUsernamesListType] = None,
-    debug: Optional[bool] = False,
+    rate_limit_wait_strategy: ApiRateLimitWaitStrategyType = (
+            ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS),
+    region: RegionCodeListType | None = None,
+    include_any_hashtags: IncludeAnyHashtagListType | None = None,
+    exclude_any_hashtags: ExcludeAnyHashtagListType | None = None,
+    include_all_hashtags: IncludeAllHashtagListType | None = None,
+    exclude_all_hashtags: ExcludeAllHashtagListType | None = None,
+    include_any_keywords: IncludeAnyKeywordListType | None = None,
+    exclude_any_keywords: ExcludeAnyKeywordListType | None = None,
+    include_all_keywords: IncludeAllKeywordListType | None = None,
+    exclude_all_keywords: ExcludeAllKeywordListType | None = None,
+    only_from_usernames: OnlyUsernamesListType | None = None,
+    exclude_from_usernames: ExcludeUsernamesListType | None = None,
+    debug: bool = False,
     # Skips logging init/setup. Hidden because this is intended for other commands that setup
     # logging and then call this as a function.
     init_logging: Annotated[bool, typer.Option(hidden=True)] = True,
