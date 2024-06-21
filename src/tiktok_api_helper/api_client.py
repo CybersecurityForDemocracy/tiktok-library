@@ -136,6 +136,8 @@ class TiktokRequest:
             request_obj["cursor"] = self.cursor
         return json.dumps(request_obj, cls=QueryJSONEncoder, indent=indent)
 
+def is_json_decode_error(exception):
+    return isinstance(exception, rq.exceptions.JSONDecodeError | json.JSONDecodeError):
 
 def retry_json_decoding_error_once(
     retry_state,
@@ -143,7 +145,7 @@ def retry_json_decoding_error_once(
     exception = retry_state.outcome.exception()
 
     # Retry once if JSON decoding response fails
-    if isinstance(exception, (rq.exceptions.JSONDecodeError, json.JSONDecodeError)):
+    if is_json_decode_error(exception):
         return retry_state.attempt_number <= 1
 
     return None
@@ -178,7 +180,7 @@ def json_decoding_error_retry_immediately(
 ):
     exception = retry_state.outcome.exception()
     # If JSON decoding fails retry immediately
-    if isinstance(exception, (rq.exceptions.JSONDecodeError, json.JSONDecodeError)):
+    if is_json_decode_error(exception):
         return 0
 
     logging.warning("Unknown exception in wait callback: %r", exception)
