@@ -277,21 +277,19 @@ def print_query(
     print(json.dumps(query, cls=QueryJSONEncoder, indent=2))
 
 
-def make_crawl_span(num_days_crawl_span, num_days_lag):
-    end_date = date.today() - timedelta(days=num_days_lag)
-    start_date = end_date - timedelta(days=num_days_crawl_span)
+def make_crawl_span(crawl_span, crawl_lag):
+    end_date = date.today() - timedelta(days=crawl_lag)
+    start_date = end_date - timedelta(days=crawl_span)
     return start_date, end_date
 
 
 @APP.command()
 def run_scheduled(
-    num_days_crawl_span: Annotated[
-        int, typer.Option(help="How many days between start and end dates")
-    ],
+    crawl_span: Annotated[int, typer.Option(help="How many days between start and end dates")],
     crawl_interval: Annotated[
         int, typer.Option(help="How many days between crawls.")
     ],  # TODO(macpd): sentinel value for start next crawl immediately
-    num_days_lag: Annotated[
+    crawl_lag: Annotated[
         int,
         typer.Option(
             help=(
@@ -323,18 +321,16 @@ def run_scheduled(
     debug: EnableDebugLoggingFlag = False,
 ) -> None:
     # TODO(macpd): decide what format to use for schedule input. maybe crontiter
-    if num_days_crawl_span < 0:
+    if crawl_span < 0:
         raise typer.BadParameter("Number of days for crawl span must be positive")
     if crawl_interval < 0:
         raise typer.BadParameter("Crawl interval must be positive")
-    if num_days_lag < 0:
+    if crawl_lag < 0:
         raise typer.BadParameter("Lag must be positive")
 
     setup_logging(debug=debug)
     while True:
-        start_date, end_date = make_crawl_span(
-            num_days_crawl_span=num_days_crawl_span, num_days_lag=num_days_lag
-        )
+        start_date, end_date = make_crawl_span(crawl_span=crawl_span, crawl_lag=crawl_lag)
         logging.info("Starting scheduled run. start_date: %s, end_date: %s", start_date, end_date)
         execution_start_time = pendulum.now()
         run(
