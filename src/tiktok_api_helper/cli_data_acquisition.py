@@ -323,39 +323,6 @@ def run(
         {"--db-url": db_url, "--db-file": db_file}, at_least_one_required=True
     )
 
-    validate_mutually_exclusive_flags(
-        {
-            "--include-any-hashtags": include_any_hashtags,
-            "--include-all-hashtags": include_all_hashtags,
-        }
-    )
-    validate_mutually_exclusive_flags(
-        {
-            "--exclude-any-hashtags": exclude_any_hashtags,
-            "--exclude-all-hashtags": exclude_all_hashtags,
-        }
-    )
-    validate_mutually_exclusive_flags(
-        {
-            "--include-any-keywords": include_any_keywords,
-            "--include-all-keywords": include_all_keywords,
-        }
-    )
-    validate_mutually_exclusive_flags(
-        {
-            "--exclude-any-keywords": exclude_any_keywords,
-            "--exclude-all-keywords": exclude_all_keywords,
-        }
-    )
-    validate_mutually_exclusive_flags(
-        {
-            "--only-from-usernames": only_from_usernames,
-            "--exclude-from-usernames": exclude_from_usernames,
-        }
-    )
-
-    validate_region_code_flag_value(region)
-
     if query_file_json:
         if any(
             [
@@ -369,6 +336,7 @@ def run(
                 exclude_all_keywords,
                 only_from_usernames,
                 exclude_from_usernames,
+                region,
             ]
         ):
             raise typer.BadParameter(
@@ -379,6 +347,39 @@ def run(
 
         query = get_query_file_json(query_file_json)
     else:
+        validate_mutually_exclusive_flags(
+            {
+                "--include-any-hashtags": include_any_hashtags,
+                "--include-all-hashtags": include_all_hashtags,
+            }
+        )
+        validate_mutually_exclusive_flags(
+            {
+                "--exclude-any-hashtags": exclude_any_hashtags,
+                "--exclude-all-hashtags": exclude_all_hashtags,
+            }
+        )
+        validate_mutually_exclusive_flags(
+            {
+                "--include-any-keywords": include_any_keywords,
+                "--include-all-keywords": include_all_keywords,
+            }
+        )
+        validate_mutually_exclusive_flags(
+            {
+                "--exclude-any-keywords": exclude_any_keywords,
+                "--exclude-all-keywords": exclude_all_keywords,
+            }
+        )
+        validate_mutually_exclusive_flags(
+            {
+                "--only-from-usernames": only_from_usernames,
+                "--exclude-from-usernames": exclude_from_usernames,
+            }
+        )
+
+        validate_region_code_flag_value(region)
+
         query = generate_query(
             region_codes=region,
             include_any_hashtags=include_any_hashtags,
