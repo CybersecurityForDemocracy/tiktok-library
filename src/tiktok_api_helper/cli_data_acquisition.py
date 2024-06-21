@@ -289,7 +289,7 @@ def run(
     api_credentials_file: ApiCredentialsFileType = _DEFAULT_CREDENTIALS_FILE_PATH,
     rate_limit_wait_strategy: ApiRateLimitWaitStrategyType = (
             ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS),
-    region: RegionCodeListType = None,
+    region: RegionCodeListType | None = None,
     include_any_hashtags: IncludeAnyHashtagListType | None = None,
     exclude_any_hashtags: ExcludeAnyHashtagListType | None = None,
     include_all_hashtags: IncludeAllHashtagListType | None = None,
@@ -300,7 +300,7 @@ def run(
     exclude_all_keywords: ExcludeAllKeywordListType | None = None,
     only_from_usernames: OnlyUsernamesListType | None = None,
     exclude_from_usernames: ExcludeUsernamesListType | None = None,
-    debug: bool | None = False,
+    debug: bool = False,
 ) -> None:
     """
     Queries TikTok API and stores the results in specified database.

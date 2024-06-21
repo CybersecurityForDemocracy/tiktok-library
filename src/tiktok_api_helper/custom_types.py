@@ -76,7 +76,7 @@ ApiRateLimitWaitStrategyType = Annotated[
     ),
 ]
 
-RegionCodeListType = Annotated[list[SupportedRegions] | None, typer.Option()]
+RegionCodeListType = Annotated[list[SupportedRegions], typer.Option()]
 
 IncludeAnyHashtagListType = Annotated[
     str,
