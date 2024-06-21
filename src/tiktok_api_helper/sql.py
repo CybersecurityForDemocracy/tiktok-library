@@ -402,9 +402,7 @@ class Crawl(Base):
             has_more=has_more,
             query=json.dumps(query, cls=QueryJSONEncoder),
             search_id=search_id,
-            crawl_tags=(
-                {CrawlTag(name=name) for name in crawl_tags} if crawl_tags else set()
-            ),
+            crawl_tags=({CrawlTag(name=name) for name in crawl_tags} if crawl_tags else set()),
         )
 
     def upload_self_to_db(self, engine: Engine) -> None:

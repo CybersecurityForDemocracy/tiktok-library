@@ -1,14 +1,14 @@
 import json
 import logging
+import time
 from collections.abc import Mapping, Sequence
 from copy import copy
-from datetime import datetime, date, timedelta
+from datetime import date, timedelta
 from pathlib import Path
-import time
 from typing import Annotated, Any
 
-import typer
 import pendulum
+import typer
 
 from tiktok_api_helper import region_codes, utils
 from tiktok_api_helper.api_client import (
@@ -19,6 +19,7 @@ from tiktok_api_helper.api_client import (
 from tiktok_api_helper.custom_types import (
     ApiCredentialsFileType,
     ApiRateLimitWaitStrategyType,
+    CrawlTagType,
     DBFileType,
     DBUrlType,
     ExcludeAllHashtagListType,
@@ -55,6 +56,7 @@ APP = typer.Typer(rich_markup_mode="markdown")
 _DAYS_PER_ITER = 28
 _DEFAULT_CREDENTIALS_FILE_PATH = Path("./secrets.yaml")
 
+
 def setup_logging(*, debug: bool):
     if debug:
         utils.setup_logging(file_level=logging.DEBUG, rich_level=logging.DEBUG)
@@ -66,7 +68,7 @@ def run_long_query(config: ApiClientConfig):
     """Runs a "long" query, defined as one that may need multiple requests to get all the data.
 
     Unless you have a good reason to believe otherwise, queries should default to be considered
-    "long".  """
+    "long"."""
     api_client = TikTokApiClient.from_config(config)
     api_client.fetch_and_store_all()
 
@@ -272,6 +274,7 @@ def print_query(
 
     print(json.dumps(query, cls=QueryJSONEncoder, indent=2))
 
+
 def make_crawl_span(num_days_crawl_span, num_days_lag):
     end_date = date.today() - timedelta(days=num_days_lag)
     start_date = end_date - timedelta(days=num_days_crawl_span)
@@ -280,33 +283,42 @@ def make_crawl_span(num_days_crawl_span, num_days_lag):
 
 @APP.command()
 def run_scheduled(
-    num_days_crawl_span: Annotated[int, typer.Option(help="How many days between start and end dates")],
-    crawl_interval: Annotated[int, typer.Option(help="How many days between crawls.")], # TODO(macpd): sentinel value for start next crawl immediately
-    num_days_lag: Annotated[int, typer.Option(help="Number of days behind/prior current date for start date. eg if 3 and crawl execution begins 2024-06-04, crawl would use start date 2024-06-01")] = 1,
-    db_file: Optional[DBFileType] = None,
-    db_url: Optional[DBUrlType] = None,
-    crawl_tag: Annotated[
-        str,
+    num_days_crawl_span: Annotated[
+        int, typer.Option(help="How many days between start and end dates")
+    ],
+    crawl_interval: Annotated[
+        int, typer.Option(help="How many days between crawls.")
+    ],  # TODO(macpd): sentinel value for start next crawl immediately
+    num_days_lag: Annotated[
+        int,
         typer.Option(
-            help="Extra metadata for tagging the crawl of the data with a name (e.g. `Experiment_1_test_acquisition`)"
+            help=(
+                "Number of days behind/prior current date for start date. eg if 3 and crawl "
+                "execution begins 2024-06-04, crawl would use start date 2024-06-01"
+            )
         ),
-    ] = "",
-    raw_responses_output_dir: Optional[RawResponsesOutputDir] = None,
-    query_file_json: Optional[JsonQueryFileType] = None,
+    ] = 1,
+    db_file: DBFileType | None = None,
+    db_url: DBUrlType | None = None,
+    crawl_tag: CrawlTagType = "",
+    raw_responses_output_dir: RawResponsesOutputDir | None = None,
+    query_file_json: JsonQueryFileType | None = None,
     api_credentials_file: ApiCredentialsFileType = _DEFAULT_CREDENTIALS_FILE_PATH,
-    rate_limit_wait_strategy: ApiRateLimitWaitStrategyType = ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS,
+    rate_limit_wait_strategy: ApiRateLimitWaitStrategyType = (
+        ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS
+    ),
     region: RegionCodeListType = None,
-    include_any_hashtags: Optional[IncludeAnyHashtagListType] = None,
-    exclude_any_hashtags: Optional[ExcludeAnyHashtagListType] = None,
-    include_all_hashtags: Optional[IncludeAllHashtagListType] = None,
-    exclude_all_hashtags: Optional[ExcludeAllHashtagListType] = None,
-    include_any_keywords: Optional[IncludeAnyKeywordListType] = None,
-    exclude_any_keywords: Optional[ExcludeAnyKeywordListType] = None,
-    include_all_keywords: Optional[IncludeAllKeywordListType] = None,
-    exclude_all_keywords: Optional[ExcludeAllKeywordListType] = None,
-    only_from_usernames: Optional[OnlyUsernamesListType] = None,
-    exclude_from_usernames: Optional[ExcludeUsernamesListType] = None,
-    debug: Optional[bool] = False,
+    include_any_hashtags: IncludeAnyHashtagListType | None = None,
+    exclude_any_hashtags: ExcludeAnyHashtagListType | None = None,
+    include_all_hashtags: IncludeAllHashtagListType | None = None,
+    exclude_all_hashtags: ExcludeAllHashtagListType | None = None,
+    include_any_keywords: IncludeAnyKeywordListType | None = None,
+    exclude_any_keywords: ExcludeAnyKeywordListType | None = None,
+    include_all_keywords: IncludeAllKeywordListType | None = None,
+    exclude_all_keywords: ExcludeAllKeywordListType | None = None,
+    only_from_usernames: OnlyUsernamesListType | None = None,
+    exclude_from_usernames: ExcludeUsernamesListType | None = None,
+    debug: bool | None = False,
 ) -> None:
     # TODO(macpd): decide what format to use for schedule input. maybe crontiter
     if num_days_crawl_span < 0:
@@ -318,10 +330,13 @@ def run_scheduled(
 
     setup_logging(debug=debug)
     while True:
-        start_date, end_date = make_crawl_span(num_days_crawl_span=num_days_crawl_span, num_days_lag=num_days_lag)
+        start_date, end_date = make_crawl_span(
+            num_days_crawl_span=num_days_crawl_span, num_days_lag=num_days_lag
+        )
         logging.info("Starting scheduled run. start_date: %s, end_date: %s", start_date, end_date)
         execution_start_time = pendulum.now()
-        run(start_date_str=utils.date_to_tiktok_str_format(start_date),
+        run(
+            start_date_str=utils.date_to_tiktok_str_format(start_date),
             end_date_str=utils.date_to_tiktok_str_format(end_date),
             db_file=db_file,
             db_url=db_url,
@@ -343,19 +358,26 @@ def run_scheduled(
             exclude_from_usernames=exclude_from_usernames,
             debug=debug,
             # Do not setup logging again so that we keep the current log file.
-            init_logging=False)
+            init_logging=False,
+        )
         next_execution = execution_start_time + timedelta(days=crawl_interval)
         now = pendulum.now()
         seconds_to_next_execution = (next_execution - now).seconds
-        logging.debug('now: %s, next_execution: %s, seconds_to_next_execution: %s', now,
-                        next_execution, seconds_to_next_execution)
+        logging.debug(
+            "now: %s, next_execution: %s, seconds_to_next_execution: %s",
+            now,
+            next_execution,
+            seconds_to_next_execution,
+        )
         if seconds_to_next_execution > 0:
-            logging.info('Sleeping %s seconds', seconds_to_next_execution)
+            logging.info("Sleeping %s seconds", seconds_to_next_execution)
             time.sleep(seconds_to_next_execution)
         else:
-            logging.warning('Previous crawl started at %s and took longer than crawl_interval %s.  starting now', execution_start_time, crawl_interval)
-
-
+            logging.warning(
+                "Previous crawl started at %s and took longer than crawl_interval %s. starting now",
+                execution_start_time,
+                crawl_interval,
+            )
 
 
 @APP.command()
@@ -369,20 +391,13 @@ def run(
     stop_after_one_request: Annotated[
         bool, typer.Option(help="Stop after the first request - Useful for testing")
     ] = False,
-    crawl_tag: Annotated[
-        str,
-        typer.Option(
-            help=(
-                "Extra metadata for tagging the crawl of the data with a name (e.g. "
-                "`Experiment_1_test_acquisition`)"
-            ),
-        ),
-    ] = "",
+    crawl_tag: CrawlTagType = "",
     raw_responses_output_dir: RawResponsesOutputDir | None = None,
     query_file_json: JsonQueryFileType | None = None,
     api_credentials_file: ApiCredentialsFileType = _DEFAULT_CREDENTIALS_FILE_PATH,
     rate_limit_wait_strategy: ApiRateLimitWaitStrategyType = (
-            ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS),
+        ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS
+    ),
     region: RegionCodeListType | None = None,
     include_any_hashtags: IncludeAnyHashtagListType | None = None,
     exclude_any_hashtags: ExcludeAnyHashtagListType | None = None,
