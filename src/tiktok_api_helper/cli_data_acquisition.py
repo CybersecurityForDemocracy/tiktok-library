@@ -277,6 +277,91 @@ def print_query(
 
     print(json.dumps(query, cls=QueryJSONEncoder, indent=2))
 
+def make_crawl_span(num_days_crawl_span, num_days_lag):
+    end_date = date.today() - timedelta(days=num_days_lag)
+    start_date = end_date - timedelta(days=num_days_crawl_span)
+    return start_date, end_date
+
+
+@APP.command()
+def run_scheduled(
+    num_days_crawl_span: Annotated[int, typer.Option(help="How many days between start and end dates")],
+    crawl_interval: Annotated[int, typer.Option(help="How many days between crawls.")], # TODO(macpd): sentinel value for start next crawl immediately
+    num_days_lag: Annotated[int, typer.Option(help="Number of days behind/prior current date for start date. eg if 3 and crawl execution begins 2024-06-04, crawl would use start date 2024-06-01")] = 1,
+    db_file: Optional[DBFileType] = None,
+    db_url: Optional[DBUrlType] = None,
+    crawl_tag: Annotated[
+        str,
+        typer.Option(
+            help="Extra metadata for tagging the crawl of the data with a name (e.g. `Experiment_1_test_acquisition`)"
+        ),
+    ] = "",
+    raw_responses_output_dir: Optional[RawResponsesOutputDir] = None,
+    query_file_json: Optional[JsonQueryFileType] = None,
+    api_credentials_file: ApiCredentialsFileType = _DEFAULT_CREDENTIALS_FILE_PATH,
+    rate_limit_wait_strategy: ApiRateLimitWaitStrategyType = ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS,
+    region: RegionCodeListType = None,
+    include_any_hashtags: Optional[IncludeAnyHashtagListType] = None,
+    exclude_any_hashtags: Optional[ExcludeAnyHashtagListType] = None,
+    include_all_hashtags: Optional[IncludeAllHashtagListType] = None,
+    exclude_all_hashtags: Optional[ExcludeAllHashtagListType] = None,
+    include_any_keywords: Optional[IncludeAnyKeywordListType] = None,
+    exclude_any_keywords: Optional[ExcludeAnyKeywordListType] = None,
+    include_all_keywords: Optional[IncludeAllKeywordListType] = None,
+    exclude_all_keywords: Optional[ExcludeAllKeywordListType] = None,
+    only_from_usernames: Optional[OnlyUsernamesListType] = None,
+    exclude_from_usernames: Optional[ExcludeUsernamesListType] = None,
+    debug: Optional[bool] = False,
+) -> None:
+    # TODO(macpd): decide what format to use for schedule input. maybe crontiter
+    if num_days_crawl_span < 0:
+        raise typer.BadParameter("Number of days for crawl span must be positive")
+    if crawl_interval < 0:
+        raise typer.BadParameter("Crawl interval must be positive")
+    if num_days_lag < 0:
+        raise typer.BadParameter("Lag must be positive")
+
+    setup_logging(debug=debug)
+    while True:
+        start_date, end_date = make_crawl_span(num_days_crawl_span=num_days_crawl_span, num_days_lag=num_days_lag)
+        logging.info("Starting scheduled run. start_date: %s, end_date: %s", start_date, end_date)
+        execution_start_time = pendulum.now()
+        run(start_date_str=start_date.strftime(utils.TIKTOK_DATE_FORMAT),
+            end_date_str=end_date.strftime(utils.TIKTOK_DATE_FORMAT),
+            db_file=db_file,
+            db_url=db_url,
+            crawl_tag=crawl_tag,
+            raw_responses_output_dir=raw_responses_output_dir,
+            query_file_json=query_file_json,
+            api_credentials_file=api_credentials_file,
+            rate_limit_wait_strategy=rate_limit_wait_strategy,
+            region=region,
+            include_any_hashtags=include_any_hashtags,
+            exclude_any_hashtags=exclude_any_hashtags,
+            include_all_hashtags=include_all_hashtags,
+            exclude_all_hashtags=exclude_all_hashtags,
+            include_any_keywords=include_any_keywords,
+            exclude_any_keywords=exclude_any_keywords,
+            include_all_keywords=include_all_keywords,
+            exclude_all_keywords=exclude_all_keywords,
+            only_from_usernames=only_from_usernames,
+            exclude_from_usernames=exclude_from_usernames,
+            debug=debug,
+            # Do not setup logging again so that we keep the current log file.
+            init_logging=False)
+        next_execution = execution_start_time + timedelta(days=crawl_interval)
+        now = pendulum.now()
+        seconds_to_next_execution = (next_execution - now).seconds
+        logging.debug('now: %s, next_execution: %s, seconds_to_next_execution: %s', now,
+                        next_execution, seconds_to_next_execution)
+        if seconds_to_next_execution > 0:
+            logging.info('Sleeping %s seconds', seconds_to_next_execution)
+            time.sleep(seconds_to_next_execution)
+        else:
+            logging.warning('Previous crawl started at %s and took longer than crawl_interval %s.  starting now', execution_start_time, crawl_interval)
+
+
+
 
 @APP.command()
 def run(
@@ -313,7 +398,7 @@ def run(
     debug: Optional[bool] = False,
     # TODO(macpd): hide this from --help, and maybe rename
     # Skips logging init/setup, used for other commands that setup logging and then call this as a function
-    init_logging[bool] = True,
+    init_logging: [bool] = True,
 ) -> None:
     """
     Queries TikTok API and stores the results in specified database.
