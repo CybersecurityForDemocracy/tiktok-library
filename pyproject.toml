@@ -71,7 +71,24 @@ line-length=100
 exclude = ["alembic"]
 
 [tool.ruff.lint]
-ignore=["SIM108"]
+select = [
+    # pycodestyle
+    "E",
+    # Pyflakes
+    "F",
+    # pyupgrade
+    "UP",
+    # flake8-bugbear
+    "B",
+    # flake8-simplify
+    "SIM",
+    # isort
+    "I",
+]
+ignore=[
+  # Do not suggest ternary operator
+  "SIM108",
+]
 
 [tool.ruff.lint.per-file-ignores]
 # Allow use of assert in tests, since pytest relies on assert
