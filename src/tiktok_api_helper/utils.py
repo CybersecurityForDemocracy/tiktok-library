@@ -2,20 +2,28 @@ import datetime
 import logging
 from pathlib import Path
 
+
 from rich.console import Console
 from rich.logging import RichHandler
+
+TIKTOK_DATE_FORMAT = "%Y%m%d"
 
 
 def int_to_days(x: int) -> datetime.timedelta:
     return datetime.timedelta(days=x)
 
 
-def str_to_datetime(string: str) -> datetime.datetime:
-    return datetime.datetime.strptime(string, "%Y%m%d")
+def str_tiktok_date_format_to_datetime(string: str) -> datetime.datetime:
+    return datetime.datetime.strptime(string, TIKTOK_DATE_FORMAT)
+
+
+def date_to_tiktok_str_format(d: datetime.date | datetime.datetime) -> str:
+    return d.strftime(TIKTOK_DATE_FORMAT)
 
 
 def setup_logging(file_level=logging.INFO, rich_level=logging.INFO) -> None:
-    """"""
+    """Creates a new log file in ./logs/ with current date as filename, and configures logging
+    format and levels."""
 
     file_dir = Path("./logs/")
     if not file_dir.exists():

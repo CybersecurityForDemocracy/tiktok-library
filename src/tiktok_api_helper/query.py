@@ -7,6 +7,7 @@ from typing import Any, Optional, Union
 import attrs
 
 from tiktok_api_helper.region_codes import SupportedRegions
+from tiktok_api_helper import utils
 
 _QUERY_AND_ARG_NAME = "and_"
 _QUERY_NOT_ARG_NAME = "not_"
@@ -23,7 +24,7 @@ class Operations(enum.StrEnum):
 
 def check_can_convert_date(inst, attr, value: str) -> None:
     # We check by directly trying to convert; will raise an error otherwise
-    datetime.strptime(value, "%Y%m%d")
+    utils.str_tiktok_date_format_to_datetime(value)
 
 
 # The duration of the video SHORT: <15s MID: 15 ~60s LONG: 1~5min EXTRA_LONG: >5min

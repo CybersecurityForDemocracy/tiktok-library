@@ -373,7 +373,7 @@ class Crawl(Base):
     def __repr__(self) -> str:
         return (
             f"Crawl id={self.id}, crawl_tags={self.crawl_tags!r}, "
-            f"started_at={self.crawl_started_at!r}, "
+            f"started_at={self.crawl_started_at!r}, cursor={self.cursor}, "
             f"has_more={self.has_more!r}, search_id={self.search_id!r}\n"
             f"query='{self.query!r}'"
         )
@@ -388,6 +388,24 @@ class Crawl(Base):
             search_id=res_data["search_id"],
             query=json.dumps(query, cls=QueryJSONEncoder),
             crawl_tags=({CrawlTag(name=name) for name in crawl_tags} if crawl_tags else set()),
+        )
+
+    # TODO(macpd): rename this to explain it's intent of being used before fetch starts
+    @classmethod
+    def from_query(
+        cls,
+        query: Query,
+        crawl_tags: Optional[Sequence[str]] = None,
+        has_more: bool = True,
+        search_id: [int | None] = None,
+    ) -> "Crawl":
+        return cls(
+            has_more=has_more,
+            query=json.dumps(query, cls=QueryJSONEncoder),
+            search_id=search_id,
+            crawl_tags=(
+                {CrawlTag(name=name) for name in crawl_tags} if crawl_tags else set()
+            ),
         )
 
     def upload_self_to_db(self, engine: Engine) -> None:
