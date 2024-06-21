@@ -3,11 +3,11 @@ from __future__ import annotations
 import enum
 import json
 import logging
+import re
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Optional
-import re
+from typing import Any
 
 import attrs
 import certifi
@@ -17,9 +17,9 @@ import tenacity
 import yaml
 from sqlalchemy import Engine
 
+from tiktok_api_helper import utils
 from tiktok_api_helper.query import Query, QueryJSONEncoder
 from tiktok_api_helper.sql import Crawl, upsert_videos
-from tiktok_api_helper import utils
 
 ALL_VIDEO_DATA_URL = "https://open.tiktokapis.com/v2/research/video/query/?fields=id,video_description,create_time,region_code,share_count,view_count,like_count,comment_count,music_id,hashtag_names,username,effect_ids,voice_to_text,playlist_id"
 
@@ -86,8 +86,8 @@ class ApiClientConfig:
     api_credentials_file: Path
     max_count: int = 100
     stop_after_one_request: bool = False
-    crawl_tags: Optional[list[str]] = None
-    raw_responses_output_dir: Optional[Path] = None
+    crawl_tags: list[str] | None = None
+    raw_responses_output_dir: Path | None = None
     api_rate_limit_wait_strategy: ApiRateLimitWaitStrategy = attrs.field(
         default=ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS,
         validator=attrs.validators.instance_of(ApiRateLimitWaitStrategy),  # type: ignore - Attrs overload
@@ -108,8 +108,8 @@ class TiktokRequest:
     max_count: int = 100
     is_random: bool = False
 
-    cursor: Optional[int] = None
-    search_id: Optional[str] = None
+    cursor: int | None = None
+    search_id: str | None = None
 
     @classmethod
     def from_config(cls, config: ApiClientConfig, **kwargs) -> TiktokRequest:
@@ -259,7 +259,7 @@ class TikTokApiRequestClient:
     )
     _access_token_fetcher_session: rq.Session = attrs.field()
     _api_request_session: rq.Session = attrs.field()
-    _raw_responses_output_dir: Optional[Path] = None
+    _raw_responses_output_dir: Path | None = None
     _api_rate_limit_wait_strategy: ApiRateLimitWaitStrategy = attrs.field(
         default=ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS,
         validator=attrs.validators.instance_of(ApiRateLimitWaitStrategy),  # type: ignore - Attrs overload
@@ -349,8 +349,8 @@ class TikTokApiRequestClient:
     def _refresh_token(
         self,
         r,
-        *unused_args: Optional[Sequence],
-        **unused_kwargs: Optional[Mapping[Any, Any]],
+        *unused_args: Sequence | None,
+        **unused_kwargs: Mapping[Any, Any] | None,
     ) -> rq.Response | None:
         # Adapted from https://stackoverflow.com/questions/37094419/python-requests-retry-request-after-re-authentication
         if r.status_code == 401:
@@ -457,7 +457,7 @@ class TikTokApiRequestClient:
         return None
 
     @staticmethod
-    def _parse_response(response: Optional[rq.Response]) -> TikTokResponse:
+    def _parse_response(response: rq.Response | None) -> TikTokResponse:
         if response is None:
             raise ValueError("Response is None")
 

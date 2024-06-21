@@ -1,13 +1,12 @@
 import enum
 import json
 from collections.abc import Callable, Mapping, Sequence
-from datetime import datetime
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 import attrs
 
-from tiktok_api_helper.region_codes import SupportedRegions
 from tiktok_api_helper import utils
+from tiktok_api_helper.region_codes import SupportedRegions
 
 _QUERY_AND_ARG_NAME = "and_"
 _QUERY_NOT_ARG_NAME = "not_"
@@ -65,7 +64,7 @@ class Fields:
     create_date = _Field("create_date", validator=check_can_convert_date)
 
 
-def convert_str_or_strseq_to_strseq(element_or_list: Union[str, Sequence[str]]) -> Sequence[str]:
+def convert_str_or_strseq_to_strseq(element_or_list: str | Sequence[str]) -> Sequence[str]:
     """We purposely keep this function separate to the one optional_condition_or_list
     one below to avoid the edgecase that isinstance("any string", Sequence) = True
     """
@@ -78,7 +77,7 @@ def convert_str_or_strseq_to_strseq(element_or_list: Union[str, Sequence[str]]) 
 @attrs.define
 class Condition:
     field: _Field
-    field_values: Union[str, Sequence[str]] = attrs.field(
+    field_values: str | Sequence[str] = attrs.field(
         converter=convert_str_or_strseq_to_strseq,
         validator=attrs.validators.instance_of((str, Sequence)),
     )
@@ -98,7 +97,7 @@ class Condition:
 
 
 def make_conditions_dict(
-    conditions: Optional[Union[Sequence[Condition], Condition]],
+    conditions: Sequence[Condition] | Condition | None,
 ) -> Sequence[Mapping[str, Any]] | None | str:
     if conditions is None:
         return None
@@ -110,12 +109,12 @@ def make_conditions_dict(
     return [condition.as_dict() for condition in conditions]
 
 
-OptionalCondOrCondSeq = Optional[Union[Condition, Sequence[Condition]]]
+OptionalCondOrCondSeq = Optional[Condition | Sequence[Condition]]
 
 
 def convert_optional_cond_or_condseq_to_condseq(
     optional_cond_or_seq: OptionalCondOrCondSeq,
-) -> Union[Sequence[Condition], None]:
+) -> Sequence[Condition] | None:
     """"""
 
     if optional_cond_or_seq is None:
@@ -206,17 +205,17 @@ def any_usernames_condition(usernames):
 
 
 def generate_query(
-    region_codes: Optional[list[SupportedRegions]] = None,
-    include_any_hashtags: Optional[str] = None,
-    include_all_hashtags: Optional[str] = None,
-    exclude_any_hashtags: Optional[str] = None,
-    exclude_all_hashtags: Optional[str] = None,
-    include_any_keywords: Optional[str] = None,
-    include_all_keywords: Optional[str] = None,
-    exclude_any_keywords: Optional[str] = None,
-    exclude_all_keywords: Optional[str] = None,
-    only_from_usernames: Optional[str] = None,
-    exclude_from_usernames: Optional[str] = None,
+    region_codes: list[SupportedRegions] | None = None,
+    include_any_hashtags: str | None = None,
+    include_all_hashtags: str | None = None,
+    exclude_any_hashtags: str | None = None,
+    exclude_all_hashtags: str | None = None,
+    include_any_keywords: str | None = None,
+    include_all_keywords: str | None = None,
+    exclude_any_keywords: str | None = None,
+    exclude_all_keywords: str | None = None,
+    only_from_usernames: str | None = None,
+    exclude_from_usernames: str | None = None,
 ) -> Query:
     query_args = {_QUERY_AND_ARG_NAME: [], _QUERY_NOT_ARG_NAME: []}
 

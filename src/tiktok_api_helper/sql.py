@@ -5,7 +5,7 @@ import json
 import logging
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from sqlalchemy import (
     JSON,
@@ -154,26 +154,26 @@ class Video(Base):
 
     username: Mapped[str]
     region_code: Mapped[str] = mapped_column(String(2))
-    video_description: Mapped[Optional[str]]
-    music_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    video_description: Mapped[str | None]
+    music_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
 
-    like_count: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
-    comment_count: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
-    share_count: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
-    view_count: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    like_count: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    comment_count: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    share_count: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    view_count: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
 
     effects: Mapped[set[Effect]] = relationship(secondary=videos_to_effect_ids_association_table)
     hashtags: Mapped[set[Hashtag]] = relationship(secondary=videos_to_hashtags_association_table)
 
-    playlist_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
-    voice_to_text: Mapped[Optional[str]]
+    playlist_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    voice_to_text: Mapped[str | None]
 
     # Columns here are not returned by the API, but are added by us
     crawled_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
 
-    crawled_updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+    crawled_updated_at: Mapped[datetime.datetime | None] = mapped_column(
         DateTime(timezone=True),
         onupdate=func.now(),
     )
@@ -232,7 +232,7 @@ def _get_hashtag_name_to_hashtag_object_map(
 
 
 def _get_crawl_tag_name_to_crawl_tag_object_map(
-    session: Session, crawl_tags: Optional[Sequence[str]]
+    session: Session, crawl_tags: Sequence[str] | None
 ) -> set[CrawlTag]:
     """Gets crawl_tag name -> CrawlTag object map, pulling existing CrawlTag objects from database
     and creating new CrawlTag objects for new crawl_tag names.
@@ -287,7 +287,7 @@ def upsert_videos(
     video_data: Sequence[dict[str, Any]],
     crawl_id: int,
     engine: Engine,
-    crawl_tags: Optional[Sequence[str]] = None,
+    crawl_tags: Sequence[str] | None = None,
 ):
     """
     Columns must be the same when doing a upsert which is annoying since we have
@@ -361,7 +361,7 @@ class Crawl(Base):
     search_id: Mapped[str]
     query: Mapped[str]
 
-    updated_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+    updated_at: Mapped[datetime.datetime | None] = mapped_column(
         DateTime(timezone=True), onupdate=func.now(), server_default=func.now()
     )
 
@@ -380,7 +380,7 @@ class Crawl(Base):
 
     @classmethod
     def from_request(
-        cls, res_data: Mapping, query: Query, crawl_tags: Optional[Sequence[str]] = None
+        cls, res_data: Mapping, query: Query, crawl_tags: Sequence[str] | None = None
     ) -> "Crawl":
         return cls(
             cursor=res_data["cursor"],
@@ -395,7 +395,7 @@ class Crawl(Base):
     def from_query(
         cls,
         query: Query,
-        crawl_tags: Optional[Sequence[str]] = None,
+        crawl_tags: Sequence[str] | None = None,
         has_more: bool = True,
         search_id: [int | None] = None,
     ) -> "Crawl":
