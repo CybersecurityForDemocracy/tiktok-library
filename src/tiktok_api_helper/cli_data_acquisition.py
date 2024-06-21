@@ -22,6 +22,7 @@ from tiktok_api_helper.custom_types import (
     CrawlTagType,
     DBFileType,
     DBUrlType,
+    EnableDebugLoggingFlag,
     ExcludeAllHashtagListType,
     ExcludeAllKeywordListType,
     ExcludeAnyHashtagListType,
@@ -35,6 +36,7 @@ from tiktok_api_helper.custom_types import (
     OnlyUsernamesListType,
     RawResponsesOutputDir,
     RegionCodeListType,
+    StopAfterOneRequestFlag,
     TikTokEndDateFormat,
     TikTokStartDateFormat,
 )
@@ -318,7 +320,7 @@ def run_scheduled(
     exclude_all_keywords: ExcludeAllKeywordListType | None = None,
     only_from_usernames: OnlyUsernamesListType | None = None,
     exclude_from_usernames: ExcludeUsernamesListType | None = None,
-    debug: bool | None = False,
+    debug: EnableDebugLoggingFlag = False,
 ) -> None:
     # TODO(macpd): decide what format to use for schedule input. maybe crontiter
     if num_days_crawl_span < 0:
@@ -388,9 +390,7 @@ def run(
     end_date_str: TikTokEndDateFormat,
     db_file: DBFileType | None = None,
     db_url: DBUrlType | None = None,
-    stop_after_one_request: Annotated[
-        bool, typer.Option(help="Stop after the first request - Useful for testing")
-    ] = False,
+    stop_after_one_request: StopAfterOneRequestFlag = False,
     crawl_tag: CrawlTagType = "",
     raw_responses_output_dir: RawResponsesOutputDir | None = None,
     query_file_json: JsonQueryFileType | None = None,
@@ -409,7 +409,7 @@ def run(
     exclude_all_keywords: ExcludeAllKeywordListType | None = None,
     only_from_usernames: OnlyUsernamesListType | None = None,
     exclude_from_usernames: ExcludeUsernamesListType | None = None,
-    debug: bool = False,
+    debug: EnableDebugLoggingFlag = False,
     # Skips logging init/setup. Hidden because this is intended for other commands that setup
     # logging and then call this as a function.
     init_logging: Annotated[bool, typer.Option(hidden=True)] = True,

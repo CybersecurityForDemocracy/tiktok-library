@@ -190,3 +190,9 @@ CrawlTagType = Annotated[
         )
     ),
 ]
+
+StopAfterOneRequestFlag = Annotated[
+    bool, typer.Option(help="Stop after the first request - Useful for testing")
+]
+
+EnableDebugLoggingFlag = Annotated[bool, typer.Option(help="Enable debug level logging")]
