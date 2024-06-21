@@ -178,6 +178,7 @@ To check if ruff would change code (but not actually make changes):
 `hatch fmt --check`
 To apply changes from ruff
 `hatch fmt`
+NOTE: formating fixes will not be applied if linter finds errors.
 
 ## Alembic database schema migrations
 Alembic is a tool/framework for database schema migrations. For instructions on
