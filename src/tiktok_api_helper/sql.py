@@ -234,8 +234,8 @@ def _get_hashtag_name_to_hashtag_object_map(
 def _get_crawl_tag_name_to_crawl_tag_object_map(
     session: Session, crawl_tags: Optional[Sequence[str]]
 ) -> set[CrawlTag]:
-    """Gets crawl_tag name -> CrawlTag object map, pulling existing CrawlTag objects from database and
-    creating new CrawlTag objects for new crawl_tag names.
+    """Gets crawl_tag name -> CrawlTag object map, pulling existing CrawlTag objects from database
+    and creating new CrawlTag objects for new crawl_tag names.
     """
     if not crawl_tags:
         return set()

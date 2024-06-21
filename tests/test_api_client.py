@@ -203,8 +203,8 @@ def test_tiktok_api_request_client_wait_til_next_utc_midnight_on_rate_limit_wait
                 api_client.TiktokRequest(query={}, start_date=None, end_date=None),
                 max_api_rate_limit_retries=num_retries,
             )
-        # Confirm that code retried the post request and json extraction twice (ie retried once after
-        # the decode error before the exception is re-raised)
+        # Confirm that code retried the post request and json extraction twice (ie retried once
+        # after the decode error before the exception is re-raised)
         assert mock_request_session_rate_limit_error.post.call_count == num_retries
         assert (
             mock_request_session_rate_limit_error.post.return_value.json.call_count

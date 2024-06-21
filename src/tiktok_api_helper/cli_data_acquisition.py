@@ -2,13 +2,10 @@ import json
 import logging
 from collections.abc import Mapping, Sequence
 from copy import copy
-from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Any, Optional
 
 import typer
-from sqlalchemy import Engine
-from typing_extensions import Annotated
 
 from tiktok_api_helper import region_codes, utils
 from tiktok_api_helper.api_client import (
@@ -59,8 +56,8 @@ _DEFAULT_CREDENTIALS_FILE_PATH = Path("./secrets.yaml")
 def run_long_query(config: ApiClientConfig):
     """Runs a "long" query, defined as one that may need multiple requests to get all the data.
 
-    Unless you have a good reason to believe otherwise, queries should default to be considered "long".
-    """
+    Unless you have a good reason to believe otherwise, queries should default to be considered
+    "long".  """
     api_client = TikTokApiClient.from_config(config)
     api_client.fetch_and_store_all()
 
@@ -281,13 +278,17 @@ def run(
     crawl_tag: Annotated[
         str,
         typer.Option(
-            help="Extra metadata for tagging the crawl of the data with a name (e.g. `Experiment_1_test_acquisition`)"
+            help=(
+                "Extra metadata for tagging the crawl of the data with a name (e.g. "
+                "`Experiment_1_test_acquisition`)"
+            ),
         ),
     ] = "",
     raw_responses_output_dir: Optional[RawResponsesOutputDir] = None,
     query_file_json: Optional[JsonQueryFileType] = None,
     api_credentials_file: ApiCredentialsFileType = _DEFAULT_CREDENTIALS_FILE_PATH,
-    rate_limit_wait_strategy: ApiRateLimitWaitStrategyType = ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS,
+    rate_limit_wait_strategy: ApiRateLimitWaitStrategyType = (
+            ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS),
     region: RegionCodeListType = None,
     include_any_hashtags: Optional[IncludeAnyHashtagListType] = None,
     exclude_any_hashtags: Optional[ExcludeAnyHashtagListType] = None,

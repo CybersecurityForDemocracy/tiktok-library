@@ -13,7 +13,8 @@ TikTokStartDateFormat = Annotated[
 TikTokEndDateFormat = Annotated[
     str,
     typer.Argument(
-        help="End date in the format %Y%m%d (e.g. 20210101) NOT INCLUSIVE (ie start date 20210101 and end date 20210102 will only include API results from 20210101.)"
+        help=("End date in the format %Y%m%d (e.g. 20210101) NOT INCLUSIVE (ie start date 20210101 "
+              "and end date 20210102 will only include API results from 20210101.)")
     ),
 ]
 
@@ -65,7 +66,13 @@ RawResponsesOutputDir = Annotated[
 ApiRateLimitWaitStrategyType = Annotated[
     ApiRateLimitWaitStrategy,
     typer.Option(
-        help=f"Retry wait strategy when API rate limit encountered. Wait for one hour or wait til next UTC midnight (when API rate limit quota resets). NOTE: if machine goes to sleep (ie close lid on laptop) the wait time is also paused. So if you use {ApiRateLimitWaitStrategy.WAIT_NEXT_UTC_MIDNIGHT.value} and the machine goes to sleep retry will likely wait past upcoming midnight by however long the machine was asleep"
+        help=(
+            "Retry wait strategy when API rate limit encountered. Wait for one hour or wait til "
+            "next UTC midnight (when API rate limit quota resets). NOTE: if machine goes to sleep "
+            "(ie close lid on laptop) the wait time is also paused. So if you use "
+            f"{ApiRateLimitWaitStrategy.WAIT_NEXT_UTC_MIDNIGHT.value} and the machine goes to "
+            "sleep retry will likely wait past upcoming midnight by however long the machine was "
+            "asleep"),
     ),
 ]
 

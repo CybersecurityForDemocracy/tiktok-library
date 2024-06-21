@@ -216,7 +216,8 @@ def api_rate_limi_wait_until_next_utc_midnight(
     if isinstance(exception, ApiRateLimitError):
         next_utc_midnight = pendulum.tomorrow("UTC")
         logging.warning(
-            "Response indicates rate limit exceeded: %r\nSleeping until next UTC midnight: %s (local time %s). Will resume in approx %s",
+            "Response indicates rate limit exceeded: %r\n"
+            "Sleeping until next UTC midnight: %s (local time %s). Will resume in approx %s",
             exception,
             next_utc_midnight,
             next_utc_midnight.in_tz("local"),
@@ -251,7 +252,8 @@ class TikTokApiRequestClient:
 
     _credentials: TiktokCredentials = attrs.field(
         validator=[attrs.validators.instance_of(TiktokCredentials), field_is_not_empty],
-        alias="credentials",  # Attrs removes underscores from field names but the static type checker doesn't know that
+        # Attrs removes underscores from field names but the static type checker doesn't know that
+        alias="credentials",
     )
     _access_token_fetcher_session: rq.Session = attrs.field()
     _api_request_session: rq.Session = attrs.field()
@@ -327,9 +329,9 @@ class TikTokApiRequestClient:
         return self._num_api_requests_sent
 
     def _configure_request_sessions(self):
-        """Gets access token for authorization, sets token in headers for all requests, and registers
-        a hook to refresh token when response indicates it has expired. Configures access token
-        fetcher and api fetcher sessions to verify certs using certifi."""
+        """Gets access token for authorization, sets token in headers for all requests, and
+        registers a hook to refresh token when response indicates it has expired. Configures access
+        token fetcher and api fetcher sessions to verify certs using certifi."""
         self._access_token_fetcher_session.verify = certifi.where()
 
         token = self._get_client_access_token()
@@ -446,8 +448,8 @@ class TikTokApiRequestClient:
             logging.info("API responded 500. This happens occasionally")
         else:
             logging.warning(
-                f"Request failed, status code {response.status_code} - text {response.text} - data {data}",
-            )
+                f"Request failed, status code {response.status_code} - text {response.text} - data "
+                "{data}",)
         response.raise_for_status()
         # In case raise_for_status does not raise an exception we return None
         return None
@@ -586,8 +588,8 @@ class TikTokApiClient:
             if not api_response.videos and crawl.has_more:
                 logging.log(
                     logging.ERROR,
-                    f"No videos in response but there's still data to Crawl - Query: {self._config.query} \n api_response.data: {api_response.data}",
-                )
+                    "No videos in response but there's still data to Crawl - Query: "
+                    f"{self._config.query} \n api_response.data: {api_response.data}",)
             if self._config.stop_after_one_request:
                 logging.info("Stopping after one request")
                 break
