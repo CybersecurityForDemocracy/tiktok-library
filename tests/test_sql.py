@@ -1,6 +1,5 @@
 import datetime
 import itertools
-import json
 
 import pytest
 from sqlalchemy import (
@@ -8,21 +7,19 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Session
 
+from tests.test_utils import (
+    all_crawls,
+    all_hashtag_names_sorted,
+    all_hashtags,
+    all_videos,
+)
 from tiktok_api_helper.sql import (
     Crawl,
-    Video,
-    Hashtag,
-    Effect,
     CrawlTag,
+    Effect,
+    Hashtag,
+    Video,
     upsert_videos,
-)
-from tests.test_utils import (
-    test_database_engine,
-    testdata_api_response_json,
-    all_videos,
-    all_hashtags,
-    all_hashtag_names_sorted,
-    all_crawls,
 )
 
 
