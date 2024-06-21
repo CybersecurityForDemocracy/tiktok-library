@@ -74,4 +74,5 @@ exclude = ["alembic"]
 ignore=["SIM108"]
 
 [tool.ruff.lint.per-file-ignores]
-"src/tiktok_api_helper/test_*.py" = ["S101"]
+# Allow use of assert in tests, since pytest relies on assert
+"tests/*.py" = ["S101"]
