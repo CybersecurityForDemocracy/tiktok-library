@@ -175,9 +175,9 @@ hatch run test:postgres-integration-test-docker-as-sudo
 
 ## Automatic formatting and linting with ruff
 To check if ruff would change code (but not actually make changes):
-`hatch fmt --check`
+```hatch fmt --check```
 To apply changes from ruff
-`hatch fmt`
+```hatch fmt```
 NOTE: formating fixes will not be applied if linter finds errors.
 
 ## Alembic database schema migrations
