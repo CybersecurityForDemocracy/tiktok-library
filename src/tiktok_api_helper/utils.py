@@ -1,7 +1,6 @@
 import datetime
 import logging
 from pathlib import Path
-from typing import Union
 
 
 from rich.console import Console
@@ -18,7 +17,7 @@ def str_tiktok_date_format_to_datetime(string: str) -> datetime.datetime:
     return datetime.datetime.strptime(string, TIKTOK_DATE_FORMAT)
 
 
-def date_to_tiktok_str_format(d: Union[datetime.date, datetime.datetime]) -> str:
+def date_to_tiktok_str_format(d: datetime.date | datetime.datetime) -> str:
     return d.strftime(TIKTOK_DATE_FORMAT)
 
 
