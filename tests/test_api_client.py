@@ -13,8 +13,6 @@ from sqlalchemy.orm import Session
 from tiktok_api_helper import api_client
 from tiktok_api_helper import query
 from tests.test_utils import (
-    test_database_engine,
-    testdata_api_response_json,
     all_videos,
     all_crawls,
 )

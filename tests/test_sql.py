@@ -470,12 +470,12 @@ def test_upsert_updates_existing_and_inserts_new_video_data(
             (
                 mock_videos[1].id,
                 200,
-                datetime.datetime.fromtimestamp(utcnow),
+                datetime.datetime.fromtimestamp(utcnow, tz=None),
             ),
             (
                 api_response_videos[0]["id"],
                 api_response_videos[0]["comment_count"],
-                datetime.datetime.fromtimestamp(api_response_videos[0]["create_time"]),
+                datetime.datetime.fromtimestamp(api_response_videos[0]["create_time"], tz=None),
             ),
         ]
 
