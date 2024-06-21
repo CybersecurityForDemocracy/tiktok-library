@@ -137,7 +137,7 @@ class TiktokRequest:
         return json.dumps(request_obj, cls=QueryJSONEncoder, indent=indent)
 
 def is_json_decode_error(exception):
-    return isinstance(exception, rq.exceptions.JSONDecodeError | json.JSONDecodeError):
+    return isinstance(exception, rq.exceptions.JSONDecodeError | json.JSONDecodeError)
 
 def retry_json_decoding_error_once(
     retry_state,
