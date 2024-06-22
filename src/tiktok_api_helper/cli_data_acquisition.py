@@ -286,9 +286,6 @@ def make_crawl_span(crawl_span, crawl_lag):
 @APP.command()
 def run_scheduled(
     crawl_span: Annotated[int, typer.Option(help="How many days between start and end dates")],
-    crawl_interval: Annotated[
-        int, typer.Option(help="How many days between crawls.")
-    ],  # TODO(macpd): sentinel value for start next crawl immediately
     crawl_lag: Annotated[
         int,
         typer.Option(
@@ -298,6 +295,7 @@ def run_scheduled(
             )
         ),
     ] = 1,
+    crawl_interval: Annotated[int, typer.Option(help="How many days between crawls.")] = 1,
     db_file: DBFileType | None = None,
     db_url: DBUrlType | None = None,
     crawl_tag: CrawlTagType = "",
