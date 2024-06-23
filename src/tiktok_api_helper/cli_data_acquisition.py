@@ -61,7 +61,7 @@ def run_long_query(config: ApiClientConfig):
     """Runs a "long" query, defined as one that may need multiple requests to get all the data.
 
     Unless you have a good reason to believe otherwise, queries should default to be considered
-    "long".  """
+    "long"."""
     api_client = TikTokApiClient.from_config(config)
     fetch_results = api_client.fetch_and_store_all()
     if config.spider_top_n_music_ids is None:
@@ -313,7 +313,8 @@ def run(
     query_file_json: JsonQueryFileType | None = None,
     api_credentials_file: ApiCredentialsFileType = _DEFAULT_CREDENTIALS_FILE_PATH,
     rate_limit_wait_strategy: ApiRateLimitWaitStrategyType = (
-            ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS),
+        ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS
+    ),
     region: RegionCodeListType | None = None,
     include_any_hashtags: IncludeAnyHashtagListType | None = None,
     exclude_any_hashtags: ExcludeAnyHashtagListType | None = None,

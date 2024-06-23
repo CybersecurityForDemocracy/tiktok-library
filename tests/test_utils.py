@@ -2,6 +2,7 @@
 pytest plugins in conftest.py. If this module is moved conftest.py pytest_plugins will also need to
 be updated.
 """
+
 import json
 
 import pytest

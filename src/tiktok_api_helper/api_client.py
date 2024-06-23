@@ -23,9 +23,7 @@ from tiktok_api_helper.sql import Crawl, upsert_videos
 
 ALL_VIDEO_DATA_URL = "https://open.tiktokapis.com/v2/research/video/query/?fields=id,video_description,create_time,region_code,share_count,view_count,like_count,comment_count,music_id,hashtag_names,username,effect_ids,voice_to_text,playlist_id"
 
-SEARCH_ID_INVALID_ERROR_MESSAGE_REGEX = re.compile(
-    r"Search Id \d+ is invalid or expired"
-)
+SEARCH_ID_INVALID_ERROR_MESSAGE_REGEX = re.compile(r"Search Id \d+ is invalid or expired")
 
 INVALID_SEARCH_ID_ERROR_RETRY_WAIT = 5
 INVALID_SEARCH_ID_ERROR_MAX_NUM_RETRIES = 5
@@ -136,8 +134,10 @@ class TiktokRequest:
             request_obj["cursor"] = self.cursor
         return json.dumps(request_obj, cls=QueryJSONEncoder, indent=indent)
 
+
 def is_json_decode_error(exception):
     return isinstance(exception, rq.exceptions.JSONDecodeError | json.JSONDecodeError)
+
 
 def retry_json_decoding_error_once(
     retry_state,
@@ -451,7 +451,8 @@ class TikTokApiRequestClient:
         else:
             logging.warning(
                 f"Request failed, status code {response.status_code} - text {response.text} - data "
-                "{data}",)
+                "{data}",
+            )
         response.raise_for_status()
         # In case raise_for_status does not raise an exception we return None
         return None
@@ -476,9 +477,7 @@ class TikTokApiRequestClient:
 
         videos = response_data_section.get("videos", [])
 
-        return TikTokResponse(
-            data=response_data_section, videos=videos, error=error_data
-        )
+        return TikTokResponse(data=response_data_section, videos=videos, error=error_data)
 
 
 def update_crawl_from_api_response(
@@ -487,10 +486,7 @@ def update_crawl_from_api_response(
     crawl.cursor = api_response.data["cursor"]
     crawl.has_more = api_response.data["has_more"]
 
-    if (
-        "search_id" in api_response.data
-        and api_response.data["search_id"] != crawl.search_id
-    ):
+    if "search_id" in api_response.data and api_response.data["search_id"] != crawl.search_id:
         if crawl.search_id is not None:
             logging.log(
                 logging.ERROR,
@@ -591,7 +587,8 @@ class TikTokApiClient:
                 logging.log(
                     logging.ERROR,
                     "No videos in response but there's still data to Crawl - Query: "
-                    f"{self._config.query} \n api_response.data: {api_response.data}",)
+                    f"{self._config.query} \n api_response.data: {api_response.data}",
+                )
             if self._config.stop_after_one_request:
                 logging.info("Stopping after one request")
                 break

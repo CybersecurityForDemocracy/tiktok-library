@@ -363,9 +363,9 @@ def test_upsert_videos_to_crawls_association(test_database_engine, mock_crawl, a
         engine=test_database_engine,
     )
     with Session(test_database_engine) as session:
-        assert {
-            v.id: {crawl.id for crawl in v.crawls} for v in all_videos(session)
-        } == {v["id"]: {expected_crawl_id} for v in api_response_videos}
+        assert {v.id: {crawl.id for crawl in v.crawls} for v in all_videos(session)} == {
+            v["id"]: {expected_crawl_id} for v in api_response_videos
+        }
 
 
 def test_upsert_existing_hashtags_names_gets_same_id(
@@ -397,9 +397,7 @@ def test_upsert_existing_hashtags_names_gets_same_id(
             engine=test_database_engine,
         )
 
-        original_hashtags = {
-            hashtag.id: hashtag.name for hashtag in all_hashtags(session)
-        }
+        original_hashtags = {hashtag.id: hashtag.name for hashtag in all_hashtags(session)}
         assert set(original_hashtags.values()) == {"hashtag1", "hashtag2"}
 
         upsert_videos(

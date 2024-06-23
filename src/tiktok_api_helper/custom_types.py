@@ -13,8 +13,10 @@ TikTokStartDateFormat = Annotated[
 TikTokEndDateFormat = Annotated[
     str,
     typer.Argument(
-        help=("End date in the format %Y%m%d (e.g. 20210101) NOT INCLUSIVE (ie start date 20210101 "
-              "and end date 20210102 will only include API results from 20210101.)")
+        help=(
+            "End date in the format %Y%m%d (e.g. 20210101) NOT INCLUSIVE (ie start date 20210101 "
+            "and end date 20210102 will only include API results from 20210101.)"
+        )
     ),
 ]
 
@@ -72,7 +74,8 @@ ApiRateLimitWaitStrategyType = Annotated[
             "(ie close lid on laptop) the wait time is also paused. So if you use "
             f"{ApiRateLimitWaitStrategy.WAIT_NEXT_UTC_MIDNIGHT.value} and the machine goes to "
             "sleep retry will likely wait past upcoming midnight by however long the machine was "
-            "asleep"),
+            "asleep"
+        ),
     ),
 ]
 
