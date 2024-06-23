@@ -73,7 +73,7 @@ exclude = ["./alembic"]
 [tool.ruff.lint]
 select = [
     # pycodestyle
-    "E",
+    "E", "W",
     # Pyflakes
     "F",
     # pyupgrade
