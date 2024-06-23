@@ -284,7 +284,7 @@ def make_crawl_span(crawl_span, crawl_lag):
 
 
 @APP.command()
-def run_continuous(
+def run_repeated(
     crawl_span: Annotated[int, typer.Option(help="How many days between start and end dates")],
     crawl_lag: Annotated[
         int,
