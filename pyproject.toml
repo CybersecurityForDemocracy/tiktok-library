@@ -23,6 +23,7 @@ dependencies = [
   "tqdm",
   "typer",
   "tenacity",
+  "pause",
   "pendulum",
   "psycopg2-binary"
 ]

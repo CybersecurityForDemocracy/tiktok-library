@@ -1,12 +1,12 @@
 import json
 import logging
-import time
 from collections.abc import Mapping, Sequence
 from copy import copy
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Annotated, Any
 
+import pause
 import pendulum
 import typer
 
@@ -318,7 +318,10 @@ def run_continuous(
     exclude_from_usernames: ExcludeUsernamesListType | None = None,
     debug: EnableDebugLoggingFlag = False,
 ) -> None:
-    # TODO(macpd): decide what format to use for schedule input. maybe crontiter
+    """
+    Repeatedly queries TikTok API and stores the results in specified database, advancing the crawl
+    window (ie start and end dates) for each new crawl.
+    """
     if crawl_span < 0:
         raise typer.BadParameter("Number of days for crawl span must be positive")
     if crawl_interval < 0:
@@ -356,18 +359,11 @@ def run_continuous(
             # Do not setup logging again so that we keep the current log file.
             init_logging=False,
         )
-        next_execution = execution_start_time + timedelta(days=crawl_interval)
-        now = pendulum.now()
-        seconds_to_next_execution = (next_execution - now).seconds
-        logging.debug(
-            "now: %s, next_execution: %s, seconds_to_next_execution: %s",
-            now,
-            next_execution,
-            seconds_to_next_execution,
-        )
-        if seconds_to_next_execution > 0:
-            logging.info("Sleeping %s seconds", seconds_to_next_execution)
-            time.sleep(seconds_to_next_execution)
+        next_execution = execution_start_time.add(days=crawl_interval)
+        logging.debug("next_execution: %s, %s", next_execution, next_execution.diff_for_humans())
+        if pendulum.now() < next_execution:
+            logging.info("Sleeping until %s", next_execution)
+            pause.until(next_execution)
         else:
             logging.warning(
                 "Previous crawl started at %s and took longer than crawl_interval %s. starting now",
