@@ -458,8 +458,8 @@ def test_generate_query_exclude_from_usernames():
         ]
     }
 
-def test_generate_query_include_any_music_ids():
-    assert generate_query(include_any_music_ids="2,1,3").as_dict() == {
+def test_generate_query_include_music_ids():
+    assert generate_query(include_music_ids="2,1,3").as_dict() == {
         "and": [
             {
                 "field_name": "music_id",
@@ -474,8 +474,8 @@ def test_generate_query_include_any_music_ids():
     }
 
 
-def test_generate_query_exclude_any_music_ids():
-    assert generate_query(exclude_any_music_ids="2,1,3").as_dict() == {
+def test_generate_query_exclude_music_ids():
+    assert generate_query(exclude_music_ids="2,1,3").as_dict() == {
         "not": [
             {
                 "field_name": "music_id",

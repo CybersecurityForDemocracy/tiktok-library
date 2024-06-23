@@ -27,6 +27,8 @@ from tiktok_api_helper.custom_types import (
     IncludeAllKeywordListType,
     IncludeAnyHashtagListType,
     IncludeAnyKeywordListType,
+    IncludeMusicIdListType,
+    ExcludeMusicIdListType,
     JsonQueryFileType,
     OnlyUsernamesListType,
     RawResponsesOutputDir,
@@ -300,6 +302,8 @@ def run(
     exclude_all_keywords: ExcludeAllKeywordListType | None = None,
     only_from_usernames: OnlyUsernamesListType | None = None,
     exclude_from_usernames: ExcludeUsernamesListType | None = None,
+    include_music_ids: IncludeMusicIdListType | None = None,
+    exclude_music_ids: ExcludeMusicIdListType | None = None,
     debug: bool = False,
 ) -> None:
     """
@@ -365,6 +369,8 @@ def run(
                 exclude_any_keywords,
                 include_all_keywords,
                 exclude_all_keywords,
+                include_music_ids,
+                exclude_music_ids,
                 only_from_usernames,
                 exclude_from_usernames,
             ]
@@ -389,6 +395,8 @@ def run(
             exclude_all_keywords=exclude_all_keywords,
             only_from_usernames=only_from_usernames,
             exclude_from_usernames=exclude_from_usernames,
+            include_music_ids=include_music_ids,
+            exclude_music_ids=exclude_music_ids,
         )
 
     logging.log(logging.INFO, f"Query: {query}")

@@ -177,3 +177,23 @@ ExcludeUsernamesListType = Annotated[
         )
     ),
 ]
+
+IncludeMusicIdListType = Annotated[
+    str,
+    typer.Option(
+        help=(
+            "A comma separated list of music_ids. Will query API for videos that have these "
+            "music_ids."
+        )
+    ),
+]
+
+ExcludeMusicIdListType = Annotated[
+    str,
+    typer.Option(
+        help=(
+            "A comma separated list of music_ids. Will query API for videos that DO NOT "
+            "have these music_ids."
+        )
+    ),
+]

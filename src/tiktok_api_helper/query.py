@@ -225,8 +225,8 @@ def generate_query(
     exclude_all_keywords: str | None = None,
     only_from_usernames: str | None = None,
     exclude_from_usernames: str | None = None,
-    include_any_music_ids: str | None = None,
-    exclude_any_music_ids: str | None = None,
+    include_music_ids: str | None = None,
+    exclude_music_ids: str | None = None,
 ) -> Query:
     query_args = {_QUERY_AND_ARG_NAME: [], _QUERY_NOT_ARG_NAME: []}
 
@@ -256,11 +256,11 @@ def generate_query(
     if exclude_from_usernames:
         query_args[_QUERY_NOT_ARG_NAME].append(any_usernames_condition(exclude_from_usernames))
 
-    if include_any_music_ids:
-        query_args[_QUERY_AND_ARG_NAME].append(any_music_ids_condition(include_any_music_ids))
+    if include_music_ids:
+        query_args[_QUERY_AND_ARG_NAME].append(any_music_ids_condition(include_music_ids))
 
-    if exclude_any_music_ids:
-        query_args[_QUERY_NOT_ARG_NAME].append(any_music_ids_condition(exclude_any_music_ids))
+    if exclude_music_ids:
+        query_args[_QUERY_NOT_ARG_NAME].append(any_music_ids_condition(exclude_music_ids))
 
     if region_codes:
         query_args[_QUERY_AND_ARG_NAME].append(
