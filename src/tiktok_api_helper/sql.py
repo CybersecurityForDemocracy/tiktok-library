@@ -18,6 +18,7 @@ from sqlalchemy import (
     Table,
     UniqueConstraint,
     create_engine,
+    desc,
     func,
     select,
 )
@@ -200,6 +201,20 @@ class Video(Base):
     @property
     def effect_ids(self):
         return {effect.effect_id for effect in self.effects}
+
+
+def top_n_music_id(session: Session, n: int):
+    return (
+        session.execute(
+            select(Video.music_id, func.count(Video.id).label("num_videos"))
+            .where(Video.music_id is not None)
+            .group_by(Video.music_id)
+            .order_by(desc("num_videos"), Video.music_id)
+            .limit(n)
+        )
+        .mappings()
+        .all()
+    )
 
 
 # TODO(macpd): make generic method for this and use for all many-to-many objects inserted with video
