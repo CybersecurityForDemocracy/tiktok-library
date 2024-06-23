@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Annotated, Any
 
 import typer
+from sqlalchemy.orm import Session
 
 from tiktok_api_helper import region_codes, utils
 from tiktok_api_helper.api_client import (
@@ -47,6 +48,7 @@ from tiktok_api_helper.query import (
 from tiktok_api_helper.sql import (
     get_engine_and_create_tables,
     get_sqlite_engine_and_create_tables,
+    most_used_music_ids
 )
 
 APP = typer.Typer(rich_markup_mode="markdown")
@@ -61,7 +63,23 @@ def run_long_query(config: ApiClientConfig):
     Unless you have a good reason to believe otherwise, queries should default to be considered
     "long".  """
     api_client = TikTokApiClient.from_config(config)
-    api_client.fetch_and_store_all()
+    fetch_results = api_client.fetch_and_store_all()
+    if config.spider_top_n_music_ids is None:
+        return
+
+    crawl_id = fetch_results.crawl.id
+    potentially_remaining_qutoa = api_client.expected_remaining_api_request_quota
+    with Session(config.engine) as session:
+        top_music_ids = most_used_music_ids(session, limit=None if config.spider_top_n_music_ids ==
+                                            0 else config.spider_top_n_music_ids, crawl_id=crawl_id)
+    new_query = generate_query(include_music_ids=top_music_ids)
+    config.query = new_query
+    if config.crawl_tags:
+        config.crawl_tags = [f'{tag}-music-id-spidering' for tag in config.crawl_tags]
+
+    api_client = TikTokApiClient.from_config(config)
+    fetch_results = api_client.fetch_and_store_all(max_requests=potentially_remaining_qutoa)
+
 
 
 def driver_single_day(config: ApiClientConfig):
@@ -93,6 +111,7 @@ def main_driver(config: ApiClientConfig):
             raw_responses_output_dir=config.raw_responses_output_dir,
             api_credentials_file=config.api_credentials_file,
             api_rate_limit_wait_strategy=config.api_rate_limit_wait_strategy,
+            spider_top_n_music_ids=config.spider_top_n_music_ids,
         )
         run_long_query(new_config)
 
@@ -193,6 +212,8 @@ def print_query(
     exclude_all_keywords: ExcludeAllKeywordListType | None = None,
     only_from_usernames: OnlyUsernamesListType | None = None,
     exclude_from_usernames: ExcludeUsernamesListType | None = None,
+    include_music_ids: IncludeMusicIdListType | None = None,
+    exclude_music_ids: ExcludeMusicIdListType | None = None,
 ) -> None:
     """Prints to stdout the query generated from flags. Useful for creating a base from which to
     build more complex custom JSON queries."""
@@ -208,6 +229,8 @@ def print_query(
             exclude_all_keywords,
             only_from_usernames,
             exclude_from_usernames,
+            include_music_ids,
+            exclude_music_ids,
         ]
     ):
         raise typer.BadParameter(
@@ -215,7 +238,7 @@ def print_query(
             "--include-all-hashtags, --exclude-all-hashtags, --include-any-keywords, "
             "--include-all-keywords, --exclude-any-keywords, --exclude-all-keywords, "
             "--include-any-usernames, --include-all-usernames, --exclude-any-usernames, "
-            "--exclude-all-usernames]"
+            "--exclude-all-usernames, --include-music-ids, --exclude-musid-ids]"
         )
     validate_mutually_exclusive_flags(
         {
@@ -304,6 +327,10 @@ def run(
     exclude_from_usernames: ExcludeUsernamesListType | None = None,
     include_music_ids: IncludeMusicIdListType | None = None,
     exclude_music_ids: ExcludeMusicIdListType | None = None,
+    # TODO(macpd): flag to spider music id, with 0 being all, or postive N being the limit. maybe
+    # only use remaining API quota.
+    spider_top_n_music_ids: Annotated[int, typer.Option(help="After fetching all query results from API, compute most common music_id from results and search for videos with the same music_id. Arg should be a positive integer which is the max number of most common music_ids to search, while 0 will search for all music IDs from the latest crawl.")
+                                      ] | None = None,
     debug: bool = False,
 ) -> None:
     """
@@ -369,10 +396,10 @@ def run(
                 exclude_any_keywords,
                 include_all_keywords,
                 exclude_all_keywords,
-                include_music_ids,
-                exclude_music_ids,
                 only_from_usernames,
                 exclude_from_usernames,
+                include_music_ids,
+                exclude_music_ids,
             ]
         ):
             raise typer.BadParameter(
@@ -416,6 +443,7 @@ def run(
         raw_responses_output_dir=raw_responses_output_dir,
         api_credentials_file=api_credentials_file,
         api_rate_limit_wait_strategy=rate_limit_wait_strategy,
+        spider_top_n_music_ids=spider_top_n_music_ids,
     )
     logging.log(logging.INFO, f"Config: {config}")
 
@@ -427,4 +455,4 @@ def run(
         driver_single_day(config)
     else:
         logging.log(logging.INFO, "Running main driver")
-        main_driver(config)
+        main_driver(config, spider_top_n_music_ids=spider_top_n_music_ids)
