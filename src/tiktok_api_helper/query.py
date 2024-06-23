@@ -52,7 +52,7 @@ class Fields:
     keyword = _Field("keyword", validator=attrs.validators.instance_of(str))
 
     video_id = _Field("video_id", validator=attrs.validators.instance_of(str))
-    music_id = _Field("music_id", validator=attrs.validators.instance_of(str))
+    music_id = _Field("music_id", validator=attrs.validators.instance_of(int))
     effect_id = _Field("effect_id", validator=attrs.validators.instance_of(str))
 
     region_code = _Field(
@@ -178,6 +178,12 @@ def get_normalized_username_set(comma_separated_usernames: str) -> set[str]:
     return {username.strip("@").lower() for username in comma_separated_usernames.split(",")}
 
 
+def get_normalized_music_id_set(comma_separated_music_ids: str) -> set[int]:
+    """Takes a string of comma separated music_ids and returns a set of int music_ids
+    """
+    return {int(music_id) for music_id in comma_separated_music_ids.split(",")}
+
+
 def any_hashtags_condition(hashtags):
     return Cond(Fields.hashtag_name, sorted(get_normalized_hashtag_set(hashtags)), Op.IN)
 
@@ -203,6 +209,9 @@ def all_keywords_condition_list(keywords):
 def any_usernames_condition(usernames):
     return Cond(Fields.username, sorted(get_normalized_username_set(usernames)), Op.IN)
 
+def any_music_ids_condition(music_ids):
+    return Cond(Fields.music_id, sorted(get_normalized_music_id_set(music_ids)), Op.IN)
+
 
 def generate_query(
     region_codes: list[SupportedRegions] | None = None,
@@ -216,6 +225,8 @@ def generate_query(
     exclude_all_keywords: str | None = None,
     only_from_usernames: str | None = None,
     exclude_from_usernames: str | None = None,
+    include_any_music_ids: str | None = None,
+    exclude_any_music_ids: str | None = None,
 ) -> Query:
     query_args = {_QUERY_AND_ARG_NAME: [], _QUERY_NOT_ARG_NAME: []}
 
@@ -244,6 +255,12 @@ def generate_query(
 
     if exclude_from_usernames:
         query_args[_QUERY_NOT_ARG_NAME].append(any_usernames_condition(exclude_from_usernames))
+
+    if include_any_music_ids:
+        query_args[_QUERY_AND_ARG_NAME].append(any_music_ids_condition(include_any_music_ids))
+
+    if exclude_any_music_ids:
+        query_args[_QUERY_NOT_ARG_NAME].append(any_music_ids_condition(exclude_any_music_ids))
 
     if region_codes:
         query_args[_QUERY_AND_ARG_NAME].append(

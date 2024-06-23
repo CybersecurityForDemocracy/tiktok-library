@@ -12,6 +12,7 @@ from tiktok_api_helper.query import (
     get_normalized_hashtag_set,
     get_normalized_keyword_set,
     get_normalized_username_set,
+    get_normalized_music_id_set,
 )
 
 
@@ -323,6 +324,20 @@ def test_normalized_keyword_set(test_input, expected):
 def test_normalized_username_set(test_input, expected):
     assert get_normalized_username_set(test_input) == expected
 
+@pytest.mark.parametrize(
+    ("test_input", "expected"),
+    [
+        ("1", set([1])),
+        ("1,1", set([1])),
+        ("1,2", set([1, 2])),
+        ("1,2,3", set([1, 2, 3])),
+        ("2,1,3", set([1, 2, 3])),
+        ("1,3,2", set([1, 2, 3])),
+    ],
+)
+def test_normalized_music_id_set(test_input, expected):
+    assert get_normalized_music_id_set(test_input) == expected
+
 
 def test_generate_query_include_any_hashtags():
     assert generate_query(include_any_hashtags="this,that,other").as_dict() == {
@@ -437,6 +452,37 @@ def test_generate_query_exclude_from_usernames():
                     "kai",
                     "mark",
                     "sally",
+                ],
+                "operation": "IN",
+            }
+        ]
+    }
+
+def test_generate_query_include_any_music_ids():
+    assert generate_query(include_any_music_ids="2,1,3").as_dict() == {
+        "and": [
+            {
+                "field_name": "music_id",
+                "field_values": [
+                    1,
+                    2,
+                    3,
+                ],
+                "operation": "IN",
+            }
+        ]
+    }
+
+
+def test_generate_query_exclude_any_music_ids():
+    assert generate_query(exclude_any_music_ids="2,1,3").as_dict() == {
+        "not": [
+            {
+                "field_name": "music_id",
+                "field_values": [
+                    1,
+                    2,
+                    3,
                 ],
                 "operation": "IN",
             }
