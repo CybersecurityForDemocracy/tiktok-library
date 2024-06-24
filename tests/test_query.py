@@ -273,7 +273,7 @@ def test_query_json_decoder_exclude_some_hashtags(mock_query_exclude_some_hashta
 
 
 @pytest.mark.parametrize(
-    "test_input,expected",
+    ("test_input", "expected"),
     [
         ("cheese", set(["cheese"])),
         ("cheese,cheese", set(["cheese"])),
