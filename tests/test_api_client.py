@@ -3,7 +3,7 @@ import itertools
 import json
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, call, PropertyMock
+from unittest.mock import MagicMock, Mock, PropertyMock, call
 
 import pendulum
 import pytest
@@ -256,7 +256,9 @@ def mock_tiktok_request_client(mock_tiktok_responses):
     mock_request_client = MagicMock(autospec=api_client.TikTokApiRequestClient)
     mock_request_client.fetch = Mock(side_effect=mock_tiktok_responses)
     # Make property return fetch mock call count (emulating real behavior)
-    type(mock_request_client).num_api_requests_sent = PropertyMock(side_effect=lambda: mock_request_client.fetch.call_count)
+    type(mock_request_client).num_api_requests_sent = PropertyMock(
+        side_effect=lambda: mock_request_client.fetch.call_count
+    )
     return mock_request_client
 
 
@@ -464,11 +466,11 @@ def test_tiktok_api_client_fetch_and_store_all(
         acquisition_config=basic_acquisition_config,
     )
 
+
 @pytest.mark.parametrize(
     ("max_requests"),
     [1, 2, 3],
 )
-
 def test_tiktok_api_client_api_results_iter_stops_after_max_requests_exceeded(
     basic_acquisition_config,
     mock_tiktok_request_client,
@@ -477,7 +479,7 @@ def test_tiktok_api_client_api_results_iter_stops_after_max_requests_exceeded(
     max_requests,
 ):
     basic_acquisition_config.max_requests = max_requests
-    expected_responses = mock_tiktok_responses[:basic_acquisition_config.max_requests]
+    expected_responses = mock_tiktok_responses[: basic_acquisition_config.max_requests]
     client = api_client.TikTokApiClient(
         request_client=mock_tiktok_request_client, config=basic_acquisition_config
     )
@@ -485,14 +487,15 @@ def test_tiktok_api_client_api_results_iter_stops_after_max_requests_exceeded(
     fetch_result = client.fetch_all()
 
     assert fetch_result.videos == list(
-        itertools.chain.from_iterable([r.videos for r in expected_responses]))
+        itertools.chain.from_iterable([r.videos for r in expected_responses])
+    )
     # When max_requests is less than the number of mock_tiktok_responses crawl should stop when
     # has_more is True because the last mock_tiktok_responses has has_more False, but crawl stops
     # before getting there.
     assert fetch_result.crawl.has_more == (max_requests < len(mock_tiktok_responses))
-    assert fetch_result.crawl.cursor == basic_acquisition_config.max_count * len(
-        expected_responses
-    )
+    assert fetch_result.crawl.cursor == basic_acquisition_config.max_count * len(expected_responses)
     assert mock_tiktok_request_client.fetch.call_count == len(expected_responses)
-    assert mock_tiktok_request_client.fetch.mock_calls == (
-        expected_fetch_calls[:len(expected_responses)])
+    assert (
+        mock_tiktok_request_client.fetch.mock_calls
+        == (expected_fetch_calls[: len(expected_responses)])
+    )
