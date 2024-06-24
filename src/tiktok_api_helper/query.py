@@ -52,7 +52,7 @@ class Fields:
     keyword = _Field("keyword", validator=attrs.validators.instance_of(str))
 
     video_id = _Field("video_id", validator=attrs.validators.instance_of(str))
-    music_id = _Field("music_id", validator=attrs.validators.instance_of(int))
+    music_id = _Field("music_id", validator=attrs.validators.instance_of(str))
     effect_id = _Field("effect_id", validator=attrs.validators.instance_of(str))
 
     region_code = _Field(
@@ -178,12 +178,6 @@ def get_normalized_username_set(comma_separated_usernames: str) -> set[str]:
     return {username.strip("@").lower() for username in comma_separated_usernames.split(",")}
 
 
-def get_normalized_music_id_set(comma_separated_music_ids: str) -> set[int]:
-    """Takes a string of comma separated music_ids and returns a set of int music_ids
-    """
-    return {int(music_id) for music_id in comma_separated_music_ids.split(",")}
-
-
 def any_hashtags_condition(hashtags):
     return Cond(Fields.hashtag_name, sorted(get_normalized_hashtag_set(hashtags)), Op.IN)
 
@@ -210,7 +204,7 @@ def any_usernames_condition(usernames):
     return Cond(Fields.username, sorted(get_normalized_username_set(usernames)), Op.IN)
 
 def any_music_ids_condition(music_ids):
-    return Cond(Fields.music_id, sorted(get_normalized_music_id_set(music_ids)), Op.IN)
+    return Cond(Fields.music_id, sorted(set(music_ids.split(","))), Op.IN)
 
 
 def generate_query(
