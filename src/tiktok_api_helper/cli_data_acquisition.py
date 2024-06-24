@@ -70,16 +70,20 @@ def run_long_query(config: ApiClientConfig):
     crawl_id = fetch_results.crawl.id
     potentially_remaining_qutoa = api_client.expected_remaining_api_request_quota
     with Session(config.engine) as session:
-        top_music_ids = most_used_music_ids(session, limit=None if config.spider_top_n_music_ids ==
-                                            0 else config.spider_top_n_music_ids, crawl_id=crawl_id)
-    new_query = generate_query(include_music_ids=','.join([str(x['music_id']) for x in top_music_ids]))
+        top_music_ids = most_used_music_ids(
+            session,
+            limit=None if config.spider_top_n_music_ids == 0 else config.spider_top_n_music_ids,
+            crawl_id=crawl_id,
+        )
+    new_query = generate_query(
+        include_music_ids=",".join([str(x["music_id"]) for x in top_music_ids])
+    )
     config.query = new_query
     if config.crawl_tags:
-        config.crawl_tags = [f'{tag}-music-id-spidering' for tag in config.crawl_tags]
+        config.crawl_tags = [f"{tag}-music-id-spidering" for tag in config.crawl_tags]
 
     api_client = TikTokApiClient.from_config(config)
     fetch_results = api_client.fetch_and_store_all(max_requests=potentially_remaining_qutoa)
-
 
 
 def driver_single_day(config: ApiClientConfig):
@@ -330,8 +334,13 @@ def run(
     exclude_music_ids: ExcludeMusicIdListType | None = None,
     # TODO(macpd): flag to spider music id, with 0 being all, or postive N being the limit. maybe
     # only use remaining API quota.
-    spider_top_n_music_ids: Annotated[int, typer.Option(help="After fetching all query results from API, compute most common music_id from results and search for videos with the same music_id. Arg should be a positive integer which is the max number of most common music_ids to search, while 0 will search for all music IDs from the latest crawl.")
-                                      ] | None = None,
+    spider_top_n_music_ids: Annotated[
+        int,
+        typer.Option(
+            help="After fetching all query results from API, compute most common music_id from results and search for videos with the same music_id. Arg should be a positive integer which is the max number of most common music_ids to search, while 0 will search for all music IDs from the latest crawl."
+        ),
+    ]
+    | None = None,
     debug: bool = False,
 ) -> None:
     """

@@ -601,7 +601,7 @@ class TikTokApiClient:
         )
 
     def fetch_all(
-            self, max_requests: int | None = None, *, store_results_after_each_response: bool = False
+        self, max_requests: int | None = None, *, store_results_after_each_response: bool = False
     ) -> TikTokApiClientFetchResult:
         """Fetches all results from API (ie sends requests until API indicates query results have
         been fully delivered (has_more == False))
@@ -618,7 +618,11 @@ class TikTokApiClient:
                 self.store_fetch_result(api_response)
 
             if max_requests and self.num_api_requests_sent >= max_requests:
-                logging.info("Max requests (%d) reached (sent: %d). Discontinuing API requests regardless of has_more", max_requests, self.num_api_requests_sent)
+                logging.info(
+                    "Max requests (%d) reached (sent: %d). Discontinuing API requests regardless of has_more",
+                    max_requests,
+                    self.num_api_requests_sent,
+                )
                 break
 
         logging.debug("fetch_all video results:\n%s", video_data)

@@ -203,6 +203,7 @@ def all_keywords_condition_list(keywords):
 def any_usernames_condition(usernames):
     return Cond(Fields.username, sorted(get_normalized_username_set(usernames)), Op.IN)
 
+
 def any_music_ids_condition(music_ids):
     return Cond(Fields.music_id, sorted(set(music_ids.split(","))), Op.IN)
 

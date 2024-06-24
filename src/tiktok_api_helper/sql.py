@@ -208,15 +208,17 @@ def most_used_music_ids(session: Session, limit: int | None = None, crawl_id: in
     specified, only operates on videos associated to that video id.
     """
     if crawl_id:
-        select_stmt = select(Video.music_id,
-                             func.count(Video.id).label("num_videos")).join(Video.crawls).where(Crawl.id == crawl_id)
+        select_stmt = (
+            select(Video.music_id, func.count(Video.id).label("num_videos"))
+            .join(Video.crawls)
+            .where(Crawl.id == crawl_id)
+        )
     else:
         select_stmt = select(Video.music_id, func.count(Video.id).label("num_videos"))
     return (
         session.execute(
             #  select(Video.music_id, func.count(Video.id).label("num_videos"))
-            select_stmt
-            .where(Video.music_id is not None)
+            select_stmt.where(Video.music_id is not None)
             .group_by(Video.music_id)
             .order_by(desc("num_videos"), Video.music_id)
             .limit(limit)

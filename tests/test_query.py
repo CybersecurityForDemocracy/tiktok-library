@@ -443,6 +443,7 @@ def test_generate_query_exclude_from_usernames():
         ]
     }
 
+
 def test_generate_query_include_music_ids():
     assert generate_query(include_music_ids="2,1,3").as_dict() == {
         "and": [
