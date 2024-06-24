@@ -602,16 +602,29 @@ class TikTokApiClient:
                 break
 
         logging.info(
-            "Crawl completed. Num api requests: %s. Expected remaining API request quota: %s",
+            "Crawl completed (or reached configured max_requests). Num api requests: %s. Expected "
+            "remaining API request quota: %s",
             self.num_api_requests_sent,
             self.expected_remaining_api_request_quota,
         )
 
-    def _max_requests_exceeded(self) -> bool:
+    def _max_requests_reached(self) -> bool:
         return self._config.max_requests and self.num_api_requests_sent >= self._config.max_requests
 
     def _should_continue(self, crawl: Crawl) -> bool:
-        return crawl.has_more and not self._max_requests_exceeded()
+        should_continue = crawl.has_more and not self._max_requests_reached()
+        logging.debug(
+            "crawl.has_more: %s, max_requests_reached: %s, shoudld_continue: %s",
+            crawl.has_more,
+            self._max_requests_reached(),
+            should_continue,
+        )
+        if crawl.has_more and self._max_requests_reached():
+            logging.info(
+                "Max requests rewached. Will discontinue this crawl even though API response "
+                "indicates more results."
+            )
+        return should_continue
 
     def fetch_all(
         self, *, store_results_after_each_response: bool = False
