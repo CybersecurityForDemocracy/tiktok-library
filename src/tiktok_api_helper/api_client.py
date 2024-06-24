@@ -3,10 +3,11 @@ from __future__ import annotations
 import enum
 import json
 import logging
+import re
+from collections.abc import Mapping, Sequence
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Mapping, Optional, Sequence
-import re
+from typing import Any
 
 import attrs
 import certifi
@@ -16,15 +17,14 @@ import tenacity
 import yaml
 from sqlalchemy import Engine
 
+from tiktok_api_helper import utils
 from tiktok_api_helper.query import Query, QueryJSONEncoder
 from tiktok_api_helper.sql import Crawl, upsert_videos
 from tiktok_api_helper import utils
 
 ALL_VIDEO_DATA_URL = "https://open.tiktokapis.com/v2/research/video/query/?fields=id,video_description,create_time,region_code,share_count,view_count,like_count,comment_count,music_id,hashtag_names,username,effect_ids,voice_to_text,playlist_id"
 
-SEARCH_ID_INVALID_ERROR_MESSAGE_REGEX = re.compile(
-    r"Search Id \d+ is invalid or expired"
-)
+SEARCH_ID_INVALID_ERROR_MESSAGE_REGEX = re.compile(r"Search Id \d+ is invalid or expired")
 
 INVALID_SEARCH_ID_ERROR_RETRY_WAIT = 5
 INVALID_SEARCH_ID_ERROR_MAX_NUM_RETRIES = 5
@@ -44,9 +44,7 @@ class InvalidSearchIdError(InvalidRequestError):
 
 def field_is_not_empty(instance, attribute, value):
     if not value:
-        raise ValueError(
-            f"{instance.__class__.__name__}: {attribute.name} cannot be empty"
-        )
+        raise ValueError(f"{instance.__class__.__name__}: {attribute.name} cannot be empty")
 
 
 class ApiRateLimitWaitStrategy(enum.StrEnum):
@@ -62,9 +60,7 @@ class TiktokCredentials:
     client_secret: str = attrs.field(
         validator=[attrs.validators.instance_of(str), field_is_not_empty]
     )
-    client_key: str = attrs.field(
-        validator=[attrs.validators.instance_of(str), field_is_not_empty]
-    )
+    client_key: str = attrs.field(validator=[attrs.validators.instance_of(str), field_is_not_empty])
 
 
 @attrs.define
@@ -89,8 +85,8 @@ class ApiClientConfig:
     api_credentials_file: Path
     max_count: int = 100
     stop_after_one_request: bool = False
-    crawl_tags: Optional[list[str]] = None
-    raw_responses_output_dir: Optional[Path] = None
+    crawl_tags: list[str] | None = None
+    raw_responses_output_dir: Path | None = None
     api_rate_limit_wait_strategy: ApiRateLimitWaitStrategy = attrs.field(
         default=ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS,
         validator=attrs.validators.instance_of(ApiRateLimitWaitStrategy),  # type: ignore - Attrs overload
@@ -111,8 +107,8 @@ class TiktokRequest:
     max_count: int = 100
     is_random: bool = False
 
-    cursor: Optional[int] = None
-    search_id: Optional[str] = None
+    cursor: int | None = None
+    search_id: str | None = None
 
     @classmethod
     def from_config(cls, config: ApiClientConfig, **kwargs) -> TiktokRequest:
@@ -140,13 +136,17 @@ class TiktokRequest:
         return json.dumps(request_obj, cls=QueryJSONEncoder, indent=indent)
 
 
+def is_json_decode_error(exception):
+    return isinstance(exception, rq.exceptions.JSONDecodeError | json.JSONDecodeError)
+
+
 def retry_json_decoding_error_once(
     retry_state,
 ):
     exception = retry_state.outcome.exception()
 
     # Retry once if JSON decoding response fails
-    if isinstance(exception, (rq.exceptions.JSONDecodeError, json.JSONDecodeError)):
+    if is_json_decode_error(exception):
         return retry_state.attempt_number <= 1
 
     return None
@@ -181,7 +181,7 @@ def json_decoding_error_retry_immediately(
 ):
     exception = retry_state.outcome.exception()
     # If JSON decoding fails retry immediately
-    if isinstance(exception, (rq.exceptions.JSONDecodeError, json.JSONDecodeError)):
+    if is_json_decode_error(exception):
         return 0
 
     logging.warning("Unknown exception in wait callback: %r", exception)
@@ -219,7 +219,8 @@ def api_rate_limi_wait_until_next_utc_midnight(
     if isinstance(exception, ApiRateLimitError):
         next_utc_midnight = pendulum.tomorrow("UTC")
         logging.warning(
-            "Response indicates rate limit exceeded: %r\nSleeping until next UTC midnight: %s (local time %s). Will resume in approx %s",
+            "Response indicates rate limit exceeded: %r\n"
+            "Sleeping until next UTC midnight: %s (local time %s). Will resume in approx %s",
             exception,
             next_utc_midnight,
             next_utc_midnight.in_tz("local"),
@@ -254,11 +255,12 @@ class TikTokApiRequestClient:
 
     _credentials: TiktokCredentials = attrs.field(
         validator=[attrs.validators.instance_of(TiktokCredentials), field_is_not_empty],
-        alias="credentials",  # Attrs removes underscores from field names but the static type checker doesn't know that
+        # Attrs removes underscores from field names but the static type checker doesn't know that
+        alias="credentials",
     )
     _access_token_fetcher_session: rq.Session = attrs.field()
     _api_request_session: rq.Session = attrs.field()
-    _raw_responses_output_dir: Optional[Path] = None
+    _raw_responses_output_dir: Path | None = None
     _api_rate_limit_wait_strategy: ApiRateLimitWaitStrategy = attrs.field(
         default=ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS,
         validator=attrs.validators.instance_of(ApiRateLimitWaitStrategy),  # type: ignore - Attrs overload
@@ -285,7 +287,6 @@ class TikTokApiRequestClient:
         self,
         grant_type: str = "client_credentials",
     ) -> str:
-
         headers = {
             "Content-Type": "application/x-www-form-urlencoded",
             "Cache-Control": "no-cache",
@@ -331,9 +332,9 @@ class TikTokApiRequestClient:
         return self._num_api_requests_sent
 
     def _configure_request_sessions(self):
-        """Gets access token for authorization, sets token in headers for all requests, and registers
-        a hook to refresh token when response indicates it has expired. Configures access token
-        fetcher and api fetcher sessions to verify certs using certifi."""
+        """Gets access token for authorization, sets token in headers for all requests, and
+        registers a hook to refresh token when response indicates it has expired. Configures access
+        token fetcher and api fetcher sessions to verify certs using certifi."""
         self._access_token_fetcher_session.verify = certifi.where()
 
         token = self._get_client_access_token()
@@ -349,21 +350,17 @@ class TikTokApiRequestClient:
     def _refresh_token(
         self,
         r,
-        *unused_args: Optional[Sequence],
-        **unused_kwargs: Optional[Mapping[Any, Any]],
+        *unused_args: Sequence | None,
+        **unused_kwargs: Mapping[Any, Any] | None,
     ) -> rq.Response | None:
         # Adapted from https://stackoverflow.com/questions/37094419/python-requests-retry-request-after-re-authentication
         if r.status_code == 401:
             logging.info("Fetching new token as the previous token expired")
 
             token = self._get_client_access_token()
-            self._api_request_session.headers.update(
-                {"Authorization": f"Bearer {token}"}
-            )
+            self._api_request_session.headers.update({"Authorization": f"Bearer {token}"})
 
-            r.request.headers["Authorization"] = self._api_request_session.headers[
-                "Authorization"
-            ]
+            r.request.headers["Authorization"] = self._api_request_session.headers["Authorization"]
 
             return self._api_request_session.send(r.request)
 
@@ -404,12 +401,10 @@ class TikTokApiRequestClient:
             reraise=True,
         )
 
-    def fetch(
-        self, request: TiktokRequest, max_api_rate_limit_retries=None
-    ) -> TikTokResponse:
-        return self._fetch_retryer(
-            max_api_rate_limit_retries=max_api_rate_limit_retries
-        )(self._fetch, request)
+    def fetch(self, request: TiktokRequest, max_api_rate_limit_retries=None) -> TikTokResponse:
+        return self._fetch_retryer(max_api_rate_limit_retries=max_api_rate_limit_retries)(
+            self._fetch, request
+        )
 
     def _fetch(self, request: TiktokRequest) -> TikTokResponse:
         api_response = self._post(request)
@@ -456,14 +451,15 @@ class TikTokApiRequestClient:
             logging.info("API responded 500. This happens occasionally")
         else:
             logging.warning(
-                f"Request failed, status code {response.status_code} - text {response.text} - data {data}",
+                f"Request failed, status code {response.status_code} - text {response.text} - data "
+                "{data}",
             )
         response.raise_for_status()
         # In case raise_for_status does not raise an exception we return None
         return None
 
     @staticmethod
-    def _parse_response(response: Optional[rq.Response]) -> TikTokResponse:
+    def _parse_response(response: rq.Response | None) -> TikTokResponse:
         if response is None:
             raise ValueError("Response is None")
 
@@ -482,9 +478,7 @@ class TikTokApiRequestClient:
 
         videos = response_data_section.get("videos", [])
 
-        return TikTokResponse(
-            data=response_data_section, videos=videos, error=error_data
-        )
+        return TikTokResponse(data=response_data_section, videos=videos, error=error_data)
 
 
 def update_crawl_from_api_response(
@@ -493,10 +487,7 @@ def update_crawl_from_api_response(
     crawl.cursor = api_response.data["cursor"]
     crawl.has_more = api_response.data["has_more"]
 
-    if (
-        "search_id" in api_response.data
-        and api_response.data["search_id"] != crawl.search_id
-    ):
+    if "search_id" in api_response.data and api_response.data["search_id"] != crawl.search_id:
         if crawl.search_id is not None:
             logging.log(
                 logging.ERROR,
@@ -596,7 +587,8 @@ class TikTokApiClient:
             if not api_response.videos and crawl.has_more:
                 logging.log(
                     logging.ERROR,
-                    f"No videos in response but there's still data to Crawl - Query: {self._config.query} \n api_response.data: {api_response.data}",
+                    "No videos in response but there's still data to Crawl - Query: "
+                    f"{self._config.query} \n api_response.data: {api_response.data}",
                 )
             if self._config.stop_after_one_request:
                 logging.info("Stopping after one request")

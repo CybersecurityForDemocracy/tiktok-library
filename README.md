@@ -173,11 +173,16 @@ OR run with hatch (this runs above docker commands as sudo):
 hatch run test:postgres-integration-test-docker-as-sudo
 ```
 
-## Automatic formatting with black
-To check if black would change code (but not actually make changes):
-`hatch run style:check`
-To apply changes from black
-`hatch run style:fmt`
+## Automatic formatting and linting with ruff
+To check if ruff would change code (but not actually make changes):
+
+`hatch fmt --check`
+
+To apply changes from ruff:
+
+`hatch fmt`
+
+NOTE: formatting fixes will not be applied if linter finds errors.
 
 ## Alembic database schema migrations
 Alembic is a tool/framework for database schema migrations. For instructions on

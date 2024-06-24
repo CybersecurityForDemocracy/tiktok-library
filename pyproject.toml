@@ -54,8 +54,6 @@ extra-dependencies = [
 
 [tool.hatch.envs.alembic]
 extra-dependencies = [
-  "pytest",
-  "black",
   "alembic"
 ]
 
@@ -67,15 +65,27 @@ postgres-integration-test-docker-as-sudo = [
   "sudo docker compose down"
 ]
 
-[tool.hatch.envs.style]
-detached = true
-dependencies = [
-  "black",
+# Hatch uses ruff for linting and formatting (hatch fmt ...)
+[tool.ruff]
+line-length=100
+exclude = ["./alembic"]
+
+[tool.ruff.lint]
+select = [
+    # pycodestyle
+    "E", "W",
+    # Pyflakes
+    "F",
+    # pyupgrade
+    "UP",
+    # flake8-bugbear
+    "B",
+    # flake8-simplify
+    "SIM",
+    # isort
+    "I",
 ]
-[tool.hatch.envs.style.scripts]
-check = [
-  "black --check --diff src/",
-]
-fmt = [
-  "black src/",
+ignore=[
+  # Do not suggest ternary operator
+  "SIM108",
 ]

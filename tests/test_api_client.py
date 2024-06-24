@@ -1,24 +1,20 @@
-from pathlib import Path
-import unittest
-from unittest.mock import Mock, call, MagicMock
-import json
 import copy
 import itertools
+import json
+import unittest
+from pathlib import Path
+from unittest.mock import MagicMock, Mock, call
 
+import pendulum
 import pytest
 import requests
-import pendulum
 from sqlalchemy.orm import Session
 
-from tiktok_api_helper import api_client
-from tiktok_api_helper import query
 from tests.test_utils import (
-    test_database_engine,
-    testdata_api_response_json,
-    all_videos,
     all_crawls,
+    all_videos,
 )
-from tiktok_api_helper import utils
+from tiktok_api_helper import api_client, query, utils
 
 FAKE_SECRETS_YAML_FILE = Path("tests/testdata/fake_secrets.yaml")
 
@@ -143,15 +139,11 @@ def test_tiktok_api_request_client_retry_once_on_json_decoder_error(
         access_token_fetcher_session=mock_access_token_fetcher_session,
     )
     with pytest.raises(json.JSONDecodeError):
-        request.fetch(
-            api_client.TiktokRequest(query={}, start_date=None, end_date=None)
-        )
+        request.fetch(api_client.TiktokRequest(query={}, start_date=None, end_date=None))
     # Confirm that code retried the post request and json extraction twice (ie retried once after
     # the decode error before the exception is re-raised)
     assert mock_request_session_json_decoder_error.post.call_count == 2
-    assert (
-        mock_request_session_json_decoder_error.post.return_value.json.call_count == 2
-    )
+    assert mock_request_session_json_decoder_error.post.return_value.json.call_count == 2
     mock_sleep.assert_called_once_with(0)
 
 
@@ -174,10 +166,7 @@ def test_tiktok_api_request_client_wait_one_hour_on_rate_limit_wait_strategy(
     # Confirm that code retried the post request and json extraction twice (ie retried once after
     # the decode error before the exception is re-raised)
     assert mock_request_session_rate_limit_error.post.call_count == num_retries
-    assert (
-        mock_request_session_rate_limit_error.post.return_value.json.call_count
-        == num_retries
-    )
+    assert mock_request_session_rate_limit_error.post.return_value.json.call_count == num_retries
     # Sleep will be called once less than num_retries because it is not called after last retry
     assert mock_sleep.call_count == num_retries - 1
     assert mock_sleep.mock_calls == [
@@ -207,12 +196,11 @@ def test_tiktok_api_request_client_wait_til_next_utc_midnight_on_rate_limit_wait
                 api_client.TiktokRequest(query={}, start_date=None, end_date=None),
                 max_api_rate_limit_retries=num_retries,
             )
-        # Confirm that code retried the post request and json extraction twice (ie retried once after
-        # the decode error before the exception is re-raised)
+        # Confirm that code retried the post request and json extraction twice (ie retried once
+        # after the decode error before the exception is re-raised)
         assert mock_request_session_rate_limit_error.post.call_count == num_retries
         assert (
-            mock_request_session_rate_limit_error.post.return_value.json.call_count
-            == num_retries
+            mock_request_session_rate_limit_error.post.return_value.json.call_count == num_retries
         )
         # Sleep will be called once less than num_retries because it is not called after last retry
         assert mock_sleep.call_count == num_retries - 1
@@ -399,9 +387,7 @@ def assert_has_expected_crawl_and_videos_in_database(
         crawl = crawls[0]
         assert crawl.id == fetch_result.crawl.id
         assert crawl.cursor == len(tiktok_responses) * acquisition_config.max_count
-        assert crawl.query == json.dumps(
-            acquisition_config.query, cls=query.QueryJSONEncoder
-        )
+        assert crawl.query == json.dumps(acquisition_config.query, cls=query.QueryJSONEncoder)
         videos = all_videos(session)
         assert len(videos) == len(tiktok_responses) * len(tiktok_responses[0].videos)
         assert len(videos) == len(fetch_result.videos)
