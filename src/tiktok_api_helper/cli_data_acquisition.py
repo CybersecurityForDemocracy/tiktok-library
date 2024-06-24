@@ -9,6 +9,7 @@ from typing import Annotated, Any
 import pause
 import pendulum
 import typer
+from collection import namedtuple
 
 from tiktok_api_helper import region_codes, utils
 from tiktok_api_helper.api_client import (
@@ -57,6 +58,8 @@ APP = typer.Typer(rich_markup_mode="markdown")
 
 _DAYS_PER_ITER = 28
 _DEFAULT_CREDENTIALS_FILE_PATH = Path("./secrets.yaml")
+
+CrawlSpan = namedtuple("CrawlSpan", ["start_date", "end_date"])
 
 
 def setup_logging(*, debug: bool):
@@ -277,10 +280,10 @@ def print_query(
     print(json.dumps(query, cls=QueryJSONEncoder, indent=2))
 
 
-def make_crawl_span(crawl_span, crawl_lag):
+def make_crawl_span(crawl_span: int, crawl_lag: int) -> CrawlSpan:
     end_date = date.today() - timedelta(days=crawl_lag)
     start_date = end_date - timedelta(days=crawl_span)
-    return start_date, end_date
+    return CrawlSpan(start_date=start_date, end_date=end_date)
 
 
 @APP.command()
@@ -331,12 +334,16 @@ def run_repeated(
 
     setup_logging(debug=debug)
     while True:
-        start_date, end_date = make_crawl_span(crawl_span=crawl_span, crawl_lag=crawl_lag)
-        logging.info("Starting scheduled run. start_date: %s, end_date: %s", start_date, end_date)
+        crawl_span = make_crawl_span(crawl_span=crawl_span, crawl_lag=crawl_lag)
+        logging.info(
+            "Starting scheduled run. start_date: %s, end_date: %s",
+            crawl_span.start_date,
+            crawl_span.end_date,
+        )
         execution_start_time = pendulum.now()
         run(
-            start_date_str=utils.date_to_tiktok_str_format(start_date),
-            end_date_str=utils.date_to_tiktok_str_format(end_date),
+            start_date_str=utils.date_to_tiktok_str_format(crawl_span.start_date),
+            end_date_str=utils.date_to_tiktok_str_format(crawl_span.end_date),
             db_file=db_file,
             db_url=db_url,
             crawl_tag=crawl_tag,
