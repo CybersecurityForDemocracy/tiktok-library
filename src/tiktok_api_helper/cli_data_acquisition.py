@@ -1,6 +1,7 @@
 import json
 import logging
 from collections.abc import Mapping, Sequence
+from collections import namedtuple
 from copy import copy
 from datetime import date, timedelta
 from pathlib import Path
@@ -9,7 +10,6 @@ from typing import Annotated, Any
 import pause
 import pendulum
 import typer
-from collection import namedtuple
 
 from tiktok_api_helper import region_codes, utils
 from tiktok_api_helper.api_client import (
