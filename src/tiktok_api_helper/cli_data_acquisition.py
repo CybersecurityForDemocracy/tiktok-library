@@ -57,45 +57,55 @@ _DAYS_PER_ITER = 28
 _DEFAULT_CREDENTIALS_FILE_PATH = Path("./secrets.yaml")
 
 
-def run_long_query(config: ApiClientConfig):
+def run_long_query(config: ApiClientConfig, spider_top_n_music_ids: int | None = None):
     """Runs a "long" query, defined as one that may need multiple requests to get all the data.
 
     Unless you have a good reason to believe otherwise, queries should default to be considered
     "long"."""
     api_client = TikTokApiClient.from_config(config)
     fetch_results = api_client.fetch_and_store_all()
-    if config.spider_top_n_music_ids is None:
+
+    if spider_top_n_music_ids is None:
         return
 
-    crawl_id = fetch_results.crawl.id
     potentially_remaining_qutoa = api_client.expected_remaining_api_request_quota
+    if potentially_remaining_qutoa <= 0:
+        # TODO(macpd): if crawl takes more than one day, and thus more than 1 day of allowed
+        # requests have been made, this check will be wrong.
+        logging.info("Refusing to spider top music IDs because no API quota remaints")
+        return
+
+    config.max_requests = potentially_remaining_qutoa
+
+    crawl_id = fetch_results.crawl.id
     with Session(config.engine) as session:
         top_music_ids = most_used_music_ids(
             session,
-            limit=None if config.spider_top_n_music_ids == 0 else config.spider_top_n_music_ids,
+            limit=None if spider_top_n_music_ids == 0 else spider_top_n_music_ids,
             crawl_id=crawl_id,
         )
     new_query = generate_query(
         include_music_ids=",".join([str(x["music_id"]) for x in top_music_ids])
     )
     config.query = new_query
+
     if config.crawl_tags:
         config.crawl_tags = [f"{tag}-music-id-spidering" for tag in config.crawl_tags]
 
     api_client = TikTokApiClient.from_config(config)
-    fetch_results = api_client.fetch_and_store_all(max_requests=potentially_remaining_qutoa)
+    fetch_results = api_client.fetch_and_store_all()
 
 
-def driver_single_day(config: ApiClientConfig):
+def driver_single_day(config: ApiClientConfig, spider_top_n_music_ids):
     """Simpler driver for a single day of query"""
     assert (
         config.start_date == config.end_date
     ), "Start and final date must be the same for single day driver"
 
-    run_long_query(config)
+    run_long_query(config, spider_top_n_music_ids)
 
 
-def main_driver(config: ApiClientConfig):
+def main_driver(config: ApiClientConfig, spider_top_n_music_ids: int | None = None):
     days_per_iter = utils.int_to_days(_DAYS_PER_ITER)
 
     start_date = copy(config.start_date)
@@ -115,9 +125,8 @@ def main_driver(config: ApiClientConfig):
             raw_responses_output_dir=config.raw_responses_output_dir,
             api_credentials_file=config.api_credentials_file,
             api_rate_limit_wait_strategy=config.api_rate_limit_wait_strategy,
-            spider_top_n_music_ids=config.spider_top_n_music_ids,
         )
-        run_long_query(new_config)
+        run_long_query(new_config, spider_top_n_music_ids=spider_top_n_music_ids)
 
         start_date += days_per_iter
 
@@ -456,7 +465,6 @@ def run(
         raw_responses_output_dir=raw_responses_output_dir,
         api_credentials_file=api_credentials_file,
         api_rate_limit_wait_strategy=rate_limit_wait_strategy,
-        spider_top_n_music_ids=spider_top_n_music_ids,
     )
     logging.log(logging.INFO, f"Config: {config}")
 
@@ -465,7 +473,7 @@ def run(
             logging.INFO,
             "Start and final date are the same - running single day driver",
         )
-        driver_single_day(config)
+        driver_single_day(config, spider_top_n_music_ids)
     else:
         logging.log(logging.INFO, "Running main driver")
-        main_driver(config)
+        main_driver(config, spider_top_n_music_ids)
