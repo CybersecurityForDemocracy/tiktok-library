@@ -337,7 +337,10 @@ def run(
     spider_top_n_music_ids: Annotated[
         int,
         typer.Option(
-            help="After fetching all query results from API, compute most common music_id from results and search for videos with the same music_id. Arg should be a positive integer which is the max number of most common music_ids to search, while 0 will search for all music IDs from the latest crawl."
+            help="After fetching all query results from API, compute most common music_id from "
+            "results and search for videos with the same music_id. Arg should be a positive "
+            "integer which is the max number of most common music_ids to search, while 0 will "
+            "search for all music IDs from the latest crawl."
         ),
     ]
     | None = None,

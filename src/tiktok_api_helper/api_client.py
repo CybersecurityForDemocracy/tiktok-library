@@ -619,7 +619,8 @@ class TikTokApiClient:
 
             if max_requests and self.num_api_requests_sent >= max_requests:
                 logging.info(
-                    "Max requests (%d) reached (sent: %d). Discontinuing API requests regardless of has_more",
+                    "Max requests (%d) reached (sent: %d). Discontinuing API requests regardless "
+                    "of has_more",
                     max_requests,
                     self.num_api_requests_sent,
                 )
