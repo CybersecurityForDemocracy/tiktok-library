@@ -72,7 +72,7 @@ def run_long_query(config: ApiClientConfig):
     with Session(config.engine) as session:
         top_music_ids = most_used_music_ids(session, limit=None if config.spider_top_n_music_ids ==
                                             0 else config.spider_top_n_music_ids, crawl_id=crawl_id)
-    new_query = generate_query(include_music_ids=top_music_ids)
+    new_query = generate_query(include_music_ids=','.join([str(x['music_id']) for x in top_music_ids]))
     config.query = new_query
     if config.crawl_tags:
         config.crawl_tags = [f'{tag}-music-id-spidering' for tag in config.crawl_tags]
@@ -456,4 +456,4 @@ def run(
         driver_single_day(config)
     else:
         logging.log(logging.INFO, "Running main driver")
-        main_driver(config, spider_top_n_music_ids=spider_top_n_music_ids)
+        main_driver(config)

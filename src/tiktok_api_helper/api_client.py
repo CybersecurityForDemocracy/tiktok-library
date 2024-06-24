@@ -90,6 +90,7 @@ class ApiClientConfig:
         default=ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS,
         validator=attrs.validators.instance_of(ApiRateLimitWaitStrategy),  # type: ignore - Attrs overload
     )
+    spider_top_n_music_ids: int | None = None
 
 
 @attrs.define
