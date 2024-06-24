@@ -12,7 +12,6 @@ from tiktok_api_helper.query import (
     get_normalized_hashtag_set,
     get_normalized_keyword_set,
     get_normalized_username_set,
-    get_normalized_music_id_set,
 )
 
 

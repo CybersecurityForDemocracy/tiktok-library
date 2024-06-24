@@ -23,13 +23,13 @@ from tiktok_api_helper.custom_types import (
     ExcludeAllKeywordListType,
     ExcludeAnyHashtagListType,
     ExcludeAnyKeywordListType,
+    ExcludeMusicIdListType,
     ExcludeUsernamesListType,
     IncludeAllHashtagListType,
     IncludeAllKeywordListType,
     IncludeAnyHashtagListType,
     IncludeAnyKeywordListType,
     IncludeMusicIdListType,
-    ExcludeMusicIdListType,
     JsonQueryFileType,
     OnlyUsernamesListType,
     RawResponsesOutputDir,
@@ -48,7 +48,7 @@ from tiktok_api_helper.query import (
 from tiktok_api_helper.sql import (
     get_engine_and_create_tables,
     get_sqlite_engine_and_create_tables,
-    most_used_music_ids
+    most_used_music_ids,
 )
 
 APP = typer.Typer(rich_markup_mode="markdown")
