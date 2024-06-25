@@ -11,7 +11,7 @@ from sqlalchemy import (
     select,
 )
 
-from tiktok_research_api_lib.sql import (
+from tiktok_research_api_helper.sql import (
     Base,
     Crawl,
     Hashtag,
