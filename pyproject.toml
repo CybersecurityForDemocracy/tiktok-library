@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "tiktok_api_helper"
-version = "0.0.1"
+version = "0.0.2"
 authors = [
   { name="Bruno Coelho", email="bruno.coelho@nyu.edu" },
 ]
@@ -37,7 +37,7 @@ dependencies = [
 ]
 
 
-description = "A small package to interface with the TikTok API"
+description = "A small package to interface with the TikTok research API"
 readme = "README.md"
 requires-python = ">=3.11"
 classifiers = [
