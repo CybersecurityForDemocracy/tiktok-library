@@ -281,6 +281,10 @@ def print_query(
 
 
 def make_crawl_span(crawl_span: int, crawl_lag: int) -> CrawlSpan:
+    """Returns a CrawlSpan with an end_date crawl_lag days before today, and start_date crawl_span
+    days before end_date.
+    """
+    assert crawl_span > 0 and crawl_lag > 0, "crawl_span and crawl_lag must be non-negative"
     end_date = date.today() - timedelta(days=crawl_lag)
     start_date = end_date - timedelta(days=crawl_span)
     return CrawlSpan(start_date=start_date, end_date=end_date)
