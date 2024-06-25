@@ -1,10 +1,14 @@
 import json
 import logging
+from collections import namedtuple
 from collections.abc import Mapping, Sequence
 from copy import copy
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Annotated, Any
 
+import pause
+import pendulum
 import typer
 from sqlalchemy.orm import Session
 
@@ -17,8 +21,10 @@ from tiktok_api_helper.api_client import (
 from tiktok_api_helper.custom_types import (
     ApiCredentialsFileType,
     ApiRateLimitWaitStrategyType,
+    CrawlTagType,
     DBFileType,
     DBUrlType,
+    EnableDebugLoggingFlag,
     ExcludeAllHashtagListType,
     ExcludeAllKeywordListType,
     ExcludeAnyHashtagListType,
@@ -34,6 +40,7 @@ from tiktok_api_helper.custom_types import (
     OnlyUsernamesListType,
     RawResponsesOutputDir,
     RegionCodeListType,
+    StopAfterOneRequestFlag,
     TikTokEndDateFormat,
     TikTokStartDateFormat,
 )
@@ -55,6 +62,8 @@ APP = typer.Typer(rich_markup_mode="markdown")
 
 _DAYS_PER_ITER = 28
 _DEFAULT_CREDENTIALS_FILE_PATH = Path("./secrets.yaml")
+
+CrawlSpan = namedtuple("CrawlSpan", ["start_date", "end_date"])
 
 
 def run_long_query(config: ApiClientConfig, spider_top_n_music_ids: int | None = None):
@@ -146,7 +155,7 @@ def test(
 
     The test query is for the hashtag "snoopy" in the US.
     """
-    utils.setup_logging(file_level=logging.INFO, rich_level=logging.INFO)
+    utils.setup_logging_info_level()
     logging.log(logging.INFO, f"Arguments: {locals()}")
 
     test_query = Query(
@@ -302,6 +311,113 @@ def print_query(
     print(json.dumps(query, cls=QueryJSONEncoder, indent=2))
 
 
+def make_crawl_span(crawl_span: int, crawl_lag: int) -> CrawlSpan:
+    """Returns a CrawlSpan with an end_date crawl_lag days before today, and start_date crawl_span
+    days before end_date.
+    """
+    assert crawl_span > 0 and crawl_lag > 0, "crawl_span and crawl_lag must be non-negative"
+    end_date = date.today() - timedelta(days=crawl_lag)
+    start_date = end_date - timedelta(days=crawl_span)
+    return CrawlSpan(start_date=start_date, end_date=end_date)
+
+
+@APP.command()
+def run_repeated(
+    crawl_span: Annotated[int, typer.Option(help="How many days between start and end dates")],
+    crawl_lag: Annotated[
+        int,
+        typer.Option(
+            help=(
+                "Number of days behind/prior current date for start date. eg if 3 and crawl "
+                "execution begins 2024-06-04, crawl would use start date 2024-06-01"
+            )
+        ),
+    ] = 1,
+    crawl_interval: Annotated[int, typer.Option(help="How many days between crawls.")] = 1,
+    db_file: DBFileType | None = None,
+    db_url: DBUrlType | None = None,
+    crawl_tag: CrawlTagType = "",
+    raw_responses_output_dir: RawResponsesOutputDir | None = None,
+    query_file_json: JsonQueryFileType | None = None,
+    api_credentials_file: ApiCredentialsFileType = _DEFAULT_CREDENTIALS_FILE_PATH,
+    rate_limit_wait_strategy: ApiRateLimitWaitStrategyType = (
+        ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS
+    ),
+    region: RegionCodeListType = None,
+    include_any_hashtags: IncludeAnyHashtagListType | None = None,
+    exclude_any_hashtags: ExcludeAnyHashtagListType | None = None,
+    include_all_hashtags: IncludeAllHashtagListType | None = None,
+    exclude_all_hashtags: ExcludeAllHashtagListType | None = None,
+    include_any_keywords: IncludeAnyKeywordListType | None = None,
+    exclude_any_keywords: ExcludeAnyKeywordListType | None = None,
+    include_all_keywords: IncludeAllKeywordListType | None = None,
+    exclude_all_keywords: ExcludeAllKeywordListType | None = None,
+    only_from_usernames: OnlyUsernamesListType | None = None,
+    exclude_from_usernames: ExcludeUsernamesListType | None = None,
+    debug: EnableDebugLoggingFlag = False,
+) -> None:
+    """
+    Repeatedly queries TikTok API and stores the results in specified database, advancing the crawl
+    window (ie start and end dates) for each new crawl.
+    """
+    if crawl_span < 0:
+        raise typer.BadParameter("Number of days for crawl span must be positive")
+    if crawl_interval < 0:
+        raise typer.BadParameter("Crawl interval must be positive")
+    if crawl_lag < 0:
+        raise typer.BadParameter("Lag must be positive")
+
+    if debug:
+        utils.setup_logging_debug_level()
+    else:
+        utils.setup_logging_info_level()
+
+    while True:
+        crawl_span = make_crawl_span(crawl_span=crawl_span, crawl_lag=crawl_lag)
+        logging.info(
+            "Starting scheduled run. start_date: %s, end_date: %s",
+            crawl_span.start_date,
+            crawl_span.end_date,
+        )
+        execution_start_time = pendulum.now()
+        run(
+            start_date_str=utils.date_to_tiktok_str_format(crawl_span.start_date),
+            end_date_str=utils.date_to_tiktok_str_format(crawl_span.end_date),
+            db_file=db_file,
+            db_url=db_url,
+            crawl_tag=crawl_tag,
+            raw_responses_output_dir=raw_responses_output_dir,
+            query_file_json=query_file_json,
+            api_credentials_file=api_credentials_file,
+            rate_limit_wait_strategy=rate_limit_wait_strategy,
+            region=region,
+            include_any_hashtags=include_any_hashtags,
+            exclude_any_hashtags=exclude_any_hashtags,
+            include_all_hashtags=include_all_hashtags,
+            exclude_all_hashtags=exclude_all_hashtags,
+            include_any_keywords=include_any_keywords,
+            exclude_any_keywords=exclude_any_keywords,
+            include_all_keywords=include_all_keywords,
+            exclude_all_keywords=exclude_all_keywords,
+            only_from_usernames=only_from_usernames,
+            exclude_from_usernames=exclude_from_usernames,
+            debug=debug,
+            # Do not setup logging again so that we keep the current log file.
+            init_logging=False,
+        )
+        next_execution = execution_start_time.add(days=crawl_interval)
+        logging.debug("next_execution: %s, %s", next_execution, next_execution.diff_for_humans())
+        if pendulum.now() < next_execution:
+            logging.info("Sleeping until %s", next_execution)
+            pause.until(next_execution)
+        else:
+            logging.warning(
+                "Previous crawl started at %s and took longer than crawl_interval %s. starting now",
+                execution_start_time,
+                crawl_interval,
+            )
+
+
 @APP.command()
 def run(
     # Note to self: Importing "from __future__ import annotations"
@@ -310,18 +426,8 @@ def run(
     end_date_str: TikTokEndDateFormat,
     db_file: DBFileType | None = None,
     db_url: DBUrlType | None = None,
-    stop_after_one_request: Annotated[
-        bool, typer.Option(help="Stop after the first request - Useful for testing")
-    ] = False,
-    crawl_tag: Annotated[
-        str,
-        typer.Option(
-            help=(
-                "Extra metadata for tagging the crawl of the data with a name (e.g. "
-                "`Experiment_1_test_acquisition`)"
-            ),
-        ),
-    ] = "",
+    stop_after_one_request: StopAfterOneRequestFlag = False,
+    crawl_tag: CrawlTagType = "",
     raw_responses_output_dir: RawResponsesOutputDir | None = None,
     query_file_json: JsonQueryFileType | None = None,
     api_credentials_file: ApiCredentialsFileType = _DEFAULT_CREDENTIALS_FILE_PATH,
@@ -353,15 +459,19 @@ def run(
         ),
     ]
     | None = None,
-    debug: bool = False,
+    debug: EnableDebugLoggingFlag = False,
+    # Skips logging init/setup. Hidden because this is intended for other commands that setup
+    # logging and then call this as a function.
+    init_logging: Annotated[bool, typer.Option(hidden=True)] = True,
 ) -> None:
     """
     Queries TikTok API and stores the results in specified database.
     """
-    if debug:
-        utils.setup_logging(file_level=logging.DEBUG, rich_level=logging.DEBUG)
-    else:
-        utils.setup_logging(file_level=logging.INFO, rich_level=logging.INFO)
+    if init_logging:
+        if debug:
+            utils.setup_logging_debug_level()
+        else:
+            utils.setup_logging_info_level()
 
     logging.log(logging.INFO, f"Arguments: {locals()}")
 
@@ -373,39 +483,6 @@ def run(
     validate_mutually_exclusive_flags(
         {"--db-url": db_url, "--db-file": db_file}, at_least_one_required=True
     )
-
-    validate_mutually_exclusive_flags(
-        {
-            "--include-any-hashtags": include_any_hashtags,
-            "--include-all-hashtags": include_all_hashtags,
-        }
-    )
-    validate_mutually_exclusive_flags(
-        {
-            "--exclude-any-hashtags": exclude_any_hashtags,
-            "--exclude-all-hashtags": exclude_all_hashtags,
-        }
-    )
-    validate_mutually_exclusive_flags(
-        {
-            "--include-any-keywords": include_any_keywords,
-            "--include-all-keywords": include_all_keywords,
-        }
-    )
-    validate_mutually_exclusive_flags(
-        {
-            "--exclude-any-keywords": exclude_any_keywords,
-            "--exclude-all-keywords": exclude_all_keywords,
-        }
-    )
-    validate_mutually_exclusive_flags(
-        {
-            "--only-from-usernames": only_from_usernames,
-            "--exclude-from-usernames": exclude_from_usernames,
-        }
-    )
-
-    validate_region_code_flag_value(region)
 
     if query_file_json:
         if any(
@@ -422,6 +499,7 @@ def run(
                 exclude_from_usernames,
                 include_music_ids,
                 exclude_music_ids,
+                region,
             ]
         ):
             raise typer.BadParameter(
@@ -432,6 +510,39 @@ def run(
 
         query = get_query_file_json(query_file_json)
     else:
+        validate_mutually_exclusive_flags(
+            {
+                "--include-any-hashtags": include_any_hashtags,
+                "--include-all-hashtags": include_all_hashtags,
+            }
+        )
+        validate_mutually_exclusive_flags(
+            {
+                "--exclude-any-hashtags": exclude_any_hashtags,
+                "--exclude-all-hashtags": exclude_all_hashtags,
+            }
+        )
+        validate_mutually_exclusive_flags(
+            {
+                "--include-any-keywords": include_any_keywords,
+                "--include-all-keywords": include_all_keywords,
+            }
+        )
+        validate_mutually_exclusive_flags(
+            {
+                "--exclude-any-keywords": exclude_any_keywords,
+                "--exclude-all-keywords": exclude_all_keywords,
+            }
+        )
+        validate_mutually_exclusive_flags(
+            {
+                "--only-from-usernames": only_from_usernames,
+                "--exclude-from-usernames": exclude_from_usernames,
+            }
+        )
+
+        validate_region_code_flag_value(region)
+
         query = generate_query(
             region_codes=region,
             include_any_hashtags=include_any_hashtags,

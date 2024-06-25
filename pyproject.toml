@@ -20,15 +20,15 @@ dependencies = [
   "attrs",
   "sqlalchemy>=2.0.0",
   "rich",
-  "tqdm",
   "typer",
   "tenacity",
+  "pause",
   "pendulum",
   "psycopg2-binary"
 ]
 
 
-description = "A small package to interface with the TikTok API"
+description = "A small package to interface with the TikTok Research API"
 readme = "README.md"
 requires-python = ">=3.11"
 classifiers = [
@@ -89,3 +89,13 @@ ignore=[
   # Do not suggest ternary operator
   "SIM108",
 ]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/alembic/",
+  "/src/",
+  "/tests/",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tiktok_api_helper"]
