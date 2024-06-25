@@ -2,7 +2,7 @@
 
 ## Requirements
 
-Python3.11+ is **required**. Some newer features are directly used and earlier versions won't work (e.g. Walrus, type hinting chaining "|", etc.), `StrEnum` class
+Python3.11+ is **required**. Some newer features are directly used and earlier versions won't work (e.g. Walrus, type hinting chaining "|", etc., StrEnum) class
     
 ## Instalation and Usage
 
