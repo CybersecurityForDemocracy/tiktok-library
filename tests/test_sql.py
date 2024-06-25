@@ -13,7 +13,7 @@ from tests.test_utils import (
     all_hashtags,
     all_videos,
 )
-from tiktok_api_helper.sql import (
+from tiktok_research_api_lib.sql import (
     Crawl,
     CrawlTag,
     Effect,

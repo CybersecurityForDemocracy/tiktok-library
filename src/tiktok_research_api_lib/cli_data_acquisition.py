@@ -7,13 +7,13 @@ from typing import Annotated, Any
 
 import typer
 
-from tiktok_api_helper import region_codes, utils
-from tiktok_api_helper.api_client import (
+from tiktok_research_api_lib import region_codes, utils
+from tiktok_research_api_lib.api_client import (
     ApiClientConfig,
     ApiRateLimitWaitStrategy,
     TikTokApiClient,
 )
-from tiktok_api_helper.custom_types import (
+from tiktok_research_api_lib.custom_types import (
     ApiCredentialsFileType,
     ApiRateLimitWaitStrategyType,
     DBFileType,
@@ -34,7 +34,7 @@ from tiktok_api_helper.custom_types import (
     TikTokEndDateFormat,
     TikTokStartDateFormat,
 )
-from tiktok_api_helper.query import (
+from tiktok_research_api_lib.query import (
     Cond,
     Fields,
     Op,
@@ -42,7 +42,7 @@ from tiktok_api_helper.query import (
     QueryJSONEncoder,
     generate_query,
 )
-from tiktok_api_helper.sql import (
+from tiktok_research_api_lib.sql import (
     get_engine_and_create_tables,
     get_sqlite_engine_and_create_tables,
 )

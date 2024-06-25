@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from tiktok_api_helper.query import (
+from tiktok_research_api_lib.query import (
     Cond,
     Fields,
     Op,
