@@ -1,7 +1,7 @@
 import json
 import logging
-from collections.abc import Mapping, Sequence
 from collections import namedtuple
+from collections.abc import Mapping, Sequence
 from copy import copy
 from datetime import date, timedelta
 from pathlib import Path
@@ -60,13 +60,6 @@ _DAYS_PER_ITER = 28
 _DEFAULT_CREDENTIALS_FILE_PATH = Path("./secrets.yaml")
 
 CrawlSpan = namedtuple("CrawlSpan", ["start_date", "end_date"])
-
-
-def setup_logging(*, debug: bool):
-    if debug:
-        utils.setup_logging(file_level=logging.DEBUG, rich_level=logging.DEBUG)
-    else:
-        utils.setup_logging(file_level=logging.INFO, rich_level=logging.INFO)
 
 
 def run_long_query(config: ApiClientConfig):
@@ -128,7 +121,7 @@ def test(
 
     The test query is for the hashtag "snoopy" in the US.
     """
-    utils.setup_logging(file_level=logging.INFO, rich_level=logging.INFO)
+    utils.setup_logging_info_level()
     logging.log(logging.INFO, f"Arguments: {locals()}")
 
     test_query = Query(
@@ -336,7 +329,11 @@ def run_repeated(
     if crawl_lag < 0:
         raise typer.BadParameter("Lag must be positive")
 
-    setup_logging(debug=debug)
+    if debug:
+        utils.setup_logging_debug_level()
+    else:
+        utils.setup_logging_info_level()
+
     while True:
         crawl_span = make_crawl_span(crawl_span=crawl_span, crawl_lag=crawl_lag)
         logging.info(
@@ -419,7 +416,10 @@ def run(
     Queries TikTok API and stores the results in specified database.
     """
     if init_logging:
-        setup_logging(debug=debug)
+        if debug:
+            utils.setup_logging_debug_level()
+        else:
+            utils.setup_logging_info_level()
 
     logging.log(logging.INFO, f"Arguments: {locals()}")
 
