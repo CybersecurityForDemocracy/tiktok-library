@@ -1,4 +1,4 @@
-# tiktok-research
+# tiktok_research_api_helper
 
 ## Requirements
 
