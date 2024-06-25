@@ -20,6 +20,14 @@ def date_to_tiktok_str_format(d: datetime.date | datetime.datetime) -> str:
     return d.strftime(TIKTOK_DATE_FORMAT)
 
 
+def setup_logging_info_level() -> None:
+    setup_logging(file_level=logging.INFO, rich_level=logging.INFO)
+
+
+def setup_logging_debug_level() -> None:
+    setup_logging(file_level=logging.DEBUG, rich_level=logging.DEBUG)
+
+
 def setup_logging(file_level=logging.INFO, rich_level=logging.INFO) -> None:
     """Creates a new log file in ./logs/ with current date as filename, and configures logging
     format and levels."""

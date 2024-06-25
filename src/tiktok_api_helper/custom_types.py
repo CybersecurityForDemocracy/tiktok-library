@@ -180,3 +180,19 @@ ExcludeUsernamesListType = Annotated[
         )
     ),
 ]
+
+CrawlTagType = Annotated[
+    str,
+    typer.Option(
+        help=(
+            "Extra metadata for tagging the crawl of the data with a name (e.g. "
+            "`Experiment_1_test_acquisition`)"
+        )
+    ),
+]
+
+StopAfterOneRequestFlag = Annotated[
+    bool, typer.Option(help="Stop after the first request - Useful for testing")
+]
+
+EnableDebugLoggingFlag = Annotated[bool, typer.Option(help="Enable debug level logging")]
