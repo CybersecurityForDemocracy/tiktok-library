@@ -97,4 +97,4 @@ include = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/tiktok_api_helper"]
+packages = ["src/tiktok_research_api_lib"]
