@@ -22,12 +22,13 @@ dependencies = [
   "rich",
   "typer",
   "tenacity",
+  "pause",
   "pendulum",
   "psycopg2-binary"
 ]
 
 
-description = "A small package to interface with the TikTok research API"
+description = "A small package to interface with the TikTok Research API"
 readme = "README.md"
 requires-python = ">=3.11"
 classifiers = [
