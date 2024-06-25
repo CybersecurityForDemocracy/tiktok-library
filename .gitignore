@@ -163,7 +163,7 @@ cython_debug/
 #.idea/
 
 # ignore vim swap files
-# Vim swap files. from https://github.com/github/gitignore/blob/main/Global/Vim.gitignore
+# from https://github.com/github/gitignore/blob/main/Global/Vim.gitignore
 [._]*.s[a-v][a-z]
 !*.svg  # comment out if you don't need vector files
 [._]*.sw[a-p]
