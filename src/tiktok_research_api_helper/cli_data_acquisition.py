@@ -41,6 +41,10 @@ from tiktok_research_api_helper.custom_types import (
     TikTokEndDateFormat,
     TikTokStartDateFormat,
 )
+from tiktok_research_api_helper.models import (
+    get_engine_and_create_tables,
+    get_sqlite_engine_and_create_tables,
+)
 from tiktok_research_api_helper.query import (
     Cond,
     Fields,
@@ -48,10 +52,6 @@ from tiktok_research_api_helper.query import (
     Query,
     QueryJSONEncoder,
     generate_query,
-)
-from tiktok_research_api_helper.sql import (
-    get_engine_and_create_tables,
-    get_sqlite_engine_and_create_tables,
 )
 
 APP = typer.Typer(rich_markup_mode="markdown")
