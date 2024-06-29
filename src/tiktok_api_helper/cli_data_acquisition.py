@@ -59,7 +59,7 @@ APP = typer.Typer(rich_markup_mode="markdown")
 _DAYS_PER_ITER = 28
 _DEFAULT_CREDENTIALS_FILE_PATH = Path("./secrets.yaml")
 
-CrawlSpan = namedtuple("CrawlSpan", ["start_date", "end_date"])
+CrawlDateSpan = namedtuple("CrawlDateSpan", ["start_date", "end_date"])
 
 
 def run_long_query(config: ApiClientConfig):
@@ -273,14 +273,14 @@ def print_query(
     print(json.dumps(query, cls=QueryJSONEncoder, indent=2))
 
 
-def make_crawl_span(crawl_span: int, crawl_lag: int) -> CrawlSpan:
-    """Returns a CrawlSpan with an end_date crawl_lag days before today, and start_date crawl_span
-    days before end_date.
+def make_crawl_date_span(crawl_span: int, crawl_lag: int) -> CrawlDateSpan:
+    """Returns a CrawlDateSpan with an end_date crawl_lag days before today, and start_date
+    crawl_span days before end_date.
     """
     assert crawl_span > 0 and crawl_lag > 0, "crawl_span and crawl_lag must be non-negative"
     end_date = date.today() - timedelta(days=crawl_lag)
     start_date = end_date - timedelta(days=crawl_span)
-    return CrawlSpan(start_date=start_date, end_date=end_date)
+    return CrawlDateSpan(start_date=start_date, end_date=end_date)
 
 
 @APP.command()
@@ -335,16 +335,16 @@ def run_repeated(
         utils.setup_logging_info_level()
 
     while True:
-        crawl_span = make_crawl_span(crawl_span=crawl_span, crawl_lag=crawl_lag)
+        crawl_date_span = make_crawl_date_span(crawl_span=crawl_span, crawl_lag=crawl_lag)
         logging.info(
             "Starting scheduled run. start_date: %s, end_date: %s",
-            crawl_span.start_date,
-            crawl_span.end_date,
+            crawl_date_span.start_date,
+            crawl_date_span.end_date,
         )
         execution_start_time = pendulum.now()
         run(
-            start_date_str=utils.date_to_tiktok_str_format(crawl_span.start_date),
-            end_date_str=utils.date_to_tiktok_str_format(crawl_span.end_date),
+            start_date_str=utils.date_to_tiktok_str_format(crawl_date_span.start_date),
+            end_date_str=utils.date_to_tiktok_str_format(crawl_date_span.end_date),
             db_file=db_file,
             db_url=db_url,
             crawl_tag=crawl_tag,
