@@ -14,7 +14,7 @@ from tests.test_utils import (
     all_crawls,
     all_videos,
 )
-from tiktok_api_helper import api_client, query, utils
+from tiktok_research_api_helper import api_client, query, utils
 
 FAKE_SECRETS_YAML_FILE = Path("tests/testdata/fake_secrets.yaml")
 

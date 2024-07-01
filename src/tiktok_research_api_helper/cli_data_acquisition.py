@@ -12,13 +12,13 @@ import pendulum
 import typer
 from sqlalchemy.orm import Session
 
-from tiktok_api_helper import region_codes, utils
-from tiktok_api_helper.api_client import (
+from tiktok_research_api_helper import region_codes, utils
+from tiktok_research_api_helper.api_client import (
     ApiClientConfig,
     ApiRateLimitWaitStrategy,
     TikTokApiClient,
 )
-from tiktok_api_helper.custom_types import (
+from tiktok_research_api_helper.custom_types import (
     ApiCredentialsFileType,
     ApiRateLimitWaitStrategyType,
     CrawlTagType,
@@ -44,7 +44,12 @@ from tiktok_api_helper.custom_types import (
     TikTokEndDateFormat,
     TikTokStartDateFormat,
 )
-from tiktok_api_helper.query import (
+from tiktok_research_api_helper.models import (
+    get_engine_and_create_tables,
+    get_sqlite_engine_and_create_tables,
+    most_used_music_ids,
+)
+from tiktok_research_api_helper.query import (
     Cond,
     Fields,
     Op,
@@ -52,18 +57,13 @@ from tiktok_api_helper.query import (
     QueryJSONEncoder,
     generate_query,
 )
-from tiktok_api_helper.sql import (
-    get_engine_and_create_tables,
-    get_sqlite_engine_and_create_tables,
-    most_used_music_ids,
-)
 
 APP = typer.Typer(rich_markup_mode="markdown")
 
 _DAYS_PER_ITER = 28
 _DEFAULT_CREDENTIALS_FILE_PATH = Path("./secrets.yaml")
 
-CrawlSpan = namedtuple("CrawlSpan", ["start_date", "end_date"])
+CrawlDateWindow = namedtuple("CrawlDateWindow", ["start_date", "end_date"])
 
 
 def run_long_query(config: ApiClientConfig, spider_top_n_music_ids: int | None = None):
@@ -311,14 +311,14 @@ def print_query(
     print(json.dumps(query, cls=QueryJSONEncoder, indent=2))
 
 
-def make_crawl_span(crawl_span: int, crawl_lag: int) -> CrawlSpan:
-    """Returns a CrawlSpan with an end_date crawl_lag days before today, and start_date crawl_span
-    days before end_date.
+def make_crawl_date_window(crawl_span: int, crawl_lag: int) -> CrawlDateWindow:
+    """Returns a CrawlDateWindow with an end_date crawl_lag days before today, and start_date
+    crawl_span days before end_date.
     """
     assert crawl_span > 0 and crawl_lag > 0, "crawl_span and crawl_lag must be non-negative"
     end_date = date.today() - timedelta(days=crawl_lag)
     start_date = end_date - timedelta(days=crawl_span)
-    return CrawlSpan(start_date=start_date, end_date=end_date)
+    return CrawlDateWindow(start_date=start_date, end_date=end_date)
 
 
 @APP.command()
@@ -373,16 +373,16 @@ def run_repeated(
         utils.setup_logging_info_level()
 
     while True:
-        crawl_span = make_crawl_span(crawl_span=crawl_span, crawl_lag=crawl_lag)
+        crawl_date_window = make_crawl_date_window(crawl_span=crawl_span, crawl_lag=crawl_lag)
         logging.info(
             "Starting scheduled run. start_date: %s, end_date: %s",
-            crawl_span.start_date,
-            crawl_span.end_date,
+            crawl_date_window.start_date,
+            crawl_date_window.end_date,
         )
         execution_start_time = pendulum.now()
         run(
-            start_date_str=utils.date_to_tiktok_str_format(crawl_span.start_date),
-            end_date_str=utils.date_to_tiktok_str_format(crawl_span.end_date),
+            start_date_str=utils.date_to_tiktok_str_format(crawl_date_window.start_date),
+            end_date_str=utils.date_to_tiktok_str_format(crawl_date_window.end_date),
             db_file=db_file,
             db_url=db_url,
             crawl_tag=crawl_tag,
