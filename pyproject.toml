@@ -7,7 +7,7 @@ build-backend = "hatchling.build"
 name = "tiktok_research_api_helper"
 version = "0.0.2"
 authors = [
-  { name="Bruno Coelho", email="bruno.coelho@nyu.edu" },
+  { name="Bruno Coelho", email="bruno.coelho+c4d@nyu.edu" },
 ]
 
 dependencies = [
