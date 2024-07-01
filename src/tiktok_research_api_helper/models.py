@@ -203,15 +203,17 @@ class Video(Base):
         return {effect.effect_id for effect in self.effects}
 
 
-def most_used_music_ids(session: Session, limit: int | None = None, crawl_id: int | None = None):
-    """Returns dict of most used music_ids with count of video id with that music_id. If crawl_id
-    specified, only operates on videos associated to that video id.
+def most_used_music_ids(
+    session: Session, limit: int | None = None, crawl_ids: Sequence[int] | None = None
+):
+    """Returns dict of most used music_ids with count of video id with that music_id. If crawl_ids
+    specified, only operates on videos associated to those crawl IDs.
     """
-    if crawl_id:
+    if crawl_ids:
         select_stmt = (
             select(Video.music_id, func.count(Video.id).label("num_videos"))
             .join(Video.crawls)
-            .where(Crawl.id == crawl_id)
+            .where(Crawl.id.in_(crawl_ids))
         )
     else:
         select_stmt = select(Video.music_id, func.count(Video.id).label("num_videos"))

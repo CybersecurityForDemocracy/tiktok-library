@@ -680,7 +680,7 @@ def test_most_used_music_ids(test_database_engine, mock_crawl, api_response_vide
             key=lambda x: x["music_id"],
         )
         assert sorted(
-            most_used_music_ids(session, limit=None, crawl_id=mock_crawl_id),
+            most_used_music_ids(session, limit=None, crawl_ids=[mock_crawl_id]),
             key=lambda x: x["music_id"],
         ) == sorted(
             [{"music_id": x["music_id"], "num_videos": 1} for x in api_response_videos],
@@ -698,11 +698,11 @@ def test_most_used_music_ids(test_database_engine, mock_crawl, api_response_vide
             {"music_id": new_music_id, "num_videos": len(api_response_videos) + 1},
             {"music_id": 6817429116187314177, "num_videos": 1},
         ]
-        assert most_used_music_ids(session, limit=2, crawl_id=mock_crawl_id) == [
+        assert most_used_music_ids(session, limit=2, crawl_ids=[mock_crawl_id]) == [
             {"music_id": new_music_id, "num_videos": len(api_response_videos) + 1},
             {"music_id": 6817429116187314177, "num_videos": 1},
         ]
-        assert most_used_music_ids(session, limit=2, crawl_id=mock_crawl_id + 1) == []
+        assert most_used_music_ids(session, limit=2, crawl_ids=[mock_crawl_id + 1]) == []
 
 
 def test_remove_all(test_database_engine, mock_videos, mock_crawl):

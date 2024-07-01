@@ -28,6 +28,8 @@ SEARCH_ID_INVALID_ERROR_MESSAGE_REGEX = re.compile(r"Search Id \d+ is invalid or
 INVALID_SEARCH_ID_ERROR_RETRY_WAIT = 5
 INVALID_SEARCH_ID_ERROR_MAX_NUM_RETRIES = 5
 
+DAILY_API_REQUEST_QUOTA = 1000
+
 
 class ApiRateLimitError(Exception):
     pass
@@ -550,7 +552,7 @@ class TikTokApiClient:
 
     @property
     def expected_remaining_api_request_quota(self):
-        return 1000 - self.num_api_requests_sent
+        return DAILY_API_REQUEST_QUOTA - self.num_api_requests_sent
 
     def api_results_iter(self) -> TikTokApiClientFetchResult:
         """Fetches all results from API (ie requests until API indicates query results have been
@@ -602,8 +604,9 @@ class TikTokApiClient:
                 break
 
         logging.info(
-            "Crawl completed (or reached configured max_requests). Num api requests: %s. Expected "
+            "Crawl completed (or reached configured max_requests: %s). Num api requests: %s. Expected "
             "remaining API request quota: %s",
+            self._config.max_requests,
             self.num_api_requests_sent,
             self.expected_remaining_api_request_quota,
         )
@@ -614,14 +617,14 @@ class TikTokApiClient:
     def _should_continue(self, crawl: Crawl) -> bool:
         should_continue = crawl.has_more and not self._max_requests_reached()
         logging.debug(
-            "crawl.has_more: %s, max_requests_reached: %s, shoudld_continue: %s",
+            "crawl.has_more: %s, max_requests_reached: %s, should_continue: %s",
             crawl.has_more,
             self._max_requests_reached(),
             should_continue,
         )
         if crawl.has_more and self._max_requests_reached():
             logging.info(
-                "Max requests rewached. Will discontinue this crawl even though API response "
+                "Max requests reached. Will discontinue this crawl even though API response "
                 "indicates more results."
             )
         return should_continue

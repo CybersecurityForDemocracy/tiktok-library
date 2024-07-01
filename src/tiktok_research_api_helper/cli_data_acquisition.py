@@ -7,6 +7,7 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Annotated, Any
 
+import attrs
 import pause
 import pendulum
 import typer
@@ -14,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from tiktok_research_api_helper import region_codes, utils
 from tiktok_research_api_helper.api_client import (
+    DAILY_API_REQUEST_QUOTA,
     ApiClientConfig,
     ApiRateLimitWaitStrategy,
     TikTokApiClient,
@@ -66,55 +68,77 @@ _DEFAULT_CREDENTIALS_FILE_PATH = Path("./secrets.yaml")
 CrawlDateWindow = namedtuple("CrawlDateWindow", ["start_date", "end_date"])
 
 
-def run_long_query(config: ApiClientConfig, spider_top_n_music_ids: int | None = None):
+def run_long_query(config: ApiClientConfig) -> int:
     """Runs a "long" query, defined as one that may need multiple requests to get all the data.
 
     Unless you have a good reason to believe otherwise, queries should default to be considered
-    "long"."""
+    "long".
+
+    Returns:
+        int: number of API requests sent (ie likely amount of API quota consumed).
+    """
     api_client = TikTokApiClient.from_config(config)
     fetch_results = api_client.fetch_and_store_all()
-
-    if spider_top_n_music_ids is None:
-        return
-
-    potentially_remaining_qutoa = api_client.expected_remaining_api_request_quota
-    if potentially_remaining_qutoa <= 0:
-        # TODO(macpd): if crawl takes more than one day, and thus more than 1 day of allowed
-        # requests have been made, this check will be wrong.
-        logging.info("Refusing to spider top music IDs because no API quota remaints")
-        return
-
-    config.max_requests = potentially_remaining_qutoa
-
-    crawl_id = fetch_results.crawl.id
-    with Session(config.engine) as session:
-        top_music_ids = most_used_music_ids(
-            session,
-            limit=None if spider_top_n_music_ids == 0 else spider_top_n_music_ids,
-            crawl_id=crawl_id,
-        )
-    new_query = generate_query(
-        include_music_ids=",".join([str(x["music_id"]) for x in top_music_ids])
-    )
-    config.query = new_query
-
-    if config.crawl_tags:
-        config.crawl_tags = [f"{tag}-music-id-spidering" for tag in config.crawl_tags]
-
-    api_client = TikTokApiClient.from_config(config)
-    fetch_results = api_client.fetch_and_store_all()
+    # TODO(macpd): fix this return value structure. maybe a namedtuple
+    return {
+        "num_api_requests_sent": api_client.num_api_requests_sent,
+        "crawl_id": fetch_results.crawl.id,
+    }
 
 
-def driver_single_day(config: ApiClientConfig, spider_top_n_music_ids):
-    """Simpler driver for a single day of query"""
+def driver_single_day(config: ApiClientConfig, spider_top_n_music_ids) -> int:
+    """Simpler driver for a single day of query.
+
+    Returns:
+        int: number of API requests sent (ie likely amount of API quota consumed).
+    """
     assert (
         config.start_date == config.end_date
     ), "Start and final date must be the same for single day driver"
 
-    run_long_query(config, spider_top_n_music_ids)
+    return run_long_query(config, spider_top_n_music_ids)
+
+
+def run_spider_top_n_music_ids_query(
+    config: ApiClientConfig,
+    spider_top_n_music_ids: int,
+    crawl_ids: Sequence[int],
+    expected_remaining_api_request_quota: int,
+) -> int:
+    if expected_remaining_api_request_quota <= 0:
+        # TODO(macpd): add some way to bypass this.
+        logging.info("Refusing to spider top music IDs because no API quota remains")
+        return
+
+    with Session(config.engine) as session:
+        top_music_ids = most_used_music_ids(
+            session,
+            limit=None if spider_top_n_music_ids == 0 else spider_top_n_music_ids,
+            crawl_ids=crawl_ids,
+        )
+    new_query = generate_query(
+        include_music_ids=",".join([str(x["music_id"]) for x in top_music_ids])
+    )
+
+    new_crawl_tags = None
+    if config.crawl_tags:
+        new_crawl_tags = [f"{tag}-music-id-spidering" for tag in config.crawl_tags]
+
+    new_config = attrs.evolve(
+        config,
+        max_requests=expected_remaining_api_request_quota,
+        query=new_query,
+        crawl_tags=new_crawl_tags,
+    )
+
+    api_client = TikTokApiClient.from_config(new_config)
+    api_client.fetch_and_store_all()
+    return api_client.num_api_requests_sent
 
 
 def main_driver(config: ApiClientConfig, spider_top_n_music_ids: int | None = None):
+    num_api_requests_sent = 0
+    crawl_ids = []
     days_per_iter = utils.int_to_days(_DAYS_PER_ITER)
 
     start_date = copy(config.start_date)
@@ -124,24 +148,43 @@ def main_driver(config: ApiClientConfig, spider_top_n_music_ids: int | None = No
         local_end_date = start_date + days_per_iter
         local_end_date = min(local_end_date, config.end_date)
 
-        new_config = ApiClientConfig(
-            query=config.query,
-            start_date=start_date,
-            end_date=local_end_date,
-            engine=config.engine,
-            stop_after_one_request=config.stop_after_one_request,
-            crawl_tags=config.crawl_tags,
-            raw_responses_output_dir=config.raw_responses_output_dir,
-            api_credentials_file=config.api_credentials_file,
-            api_rate_limit_wait_strategy=config.api_rate_limit_wait_strategy,
-        )
-        run_long_query(new_config, spider_top_n_music_ids=spider_top_n_music_ids)
+        new_config = attrs.evolve(config, start_date=start_date, end_date=local_end_date)
+
+        #  ApiClientConfig(
+        #  query=config.query,
+        #  start_date=start_date,
+        #  end_date=local_end_date,
+        #  engine=config.engine,
+        #  stop_after_one_request=config.stop_after_one_request,
+        #  crawl_tags=config.crawl_tags,
+        #  raw_responses_output_dir=config.raw_responses_output_dir,
+        #  api_credentials_file=config.api_credentials_file,
+        #  api_rate_limit_wait_strategy=config.api_rate_limit_wait_strategy,
+        #  )
+        ret = run_long_query(new_config)
+        num_api_requests_sent += ret["num_api_requests_sent"]
+        crawl_ids.append(ret["crawl_id"])
 
         start_date += days_per_iter
 
         if config.stop_after_one_request:
             logging.log(logging.WARN, "Stopping after one request")
-            break
+            return
+
+    expected_remaining_api_request_quota = 0
+    if spider_top_n_music_ids:
+        if num_api_requests_sent == DAILY_API_REQUEST_QUOTA:
+            # TODO(macpd): handle no remaing quota, perhaps flag to do anyway?
+            logging.warning("Refusing to spider top music IDs because no API quota remains")
+            return
+
+        expected_remaining_api_request_quota = DAILY_API_REQUEST_QUOTA - (num_api_requests_sent % DAILY_API_REQUEST_QUOTA)
+        run_spider_top_n_music_ids_query(
+            config=config,
+            crawl_ids=crawl_ids,
+            spider_top_n_music_ids=spider_top_n_music_ids,
+            expected_remaining_api_request_quota=expected_remaining_api_request_quota,
+        )
 
 
 @APP.command()
