@@ -11,13 +11,13 @@ import pause
 import pendulum
 import typer
 
-from tiktok_api_helper import region_codes, utils
-from tiktok_api_helper.api_client import (
+from tiktok_research_api_helper import region_codes, utils
+from tiktok_research_api_helper.api_client import (
     ApiClientConfig,
     ApiRateLimitWaitStrategy,
     TikTokApiClient,
 )
-from tiktok_api_helper.custom_types import (
+from tiktok_research_api_helper.custom_types import (
     ApiCredentialsFileType,
     ApiRateLimitWaitStrategyType,
     CrawlTagType,
@@ -41,17 +41,17 @@ from tiktok_api_helper.custom_types import (
     TikTokEndDateFormat,
     TikTokStartDateFormat,
 )
-from tiktok_api_helper.query import (
+from tiktok_research_api_helper.models import (
+    get_engine_and_create_tables,
+    get_sqlite_engine_and_create_tables,
+)
+from tiktok_research_api_helper.query import (
     Cond,
     Fields,
     Op,
     Query,
     QueryJSONEncoder,
     generate_query,
-)
-from tiktok_api_helper.sql import (
-    get_engine_and_create_tables,
-    get_sqlite_engine_and_create_tables,
 )
 
 APP = typer.Typer(rich_markup_mode="markdown")

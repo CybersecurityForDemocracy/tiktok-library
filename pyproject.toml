@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 
 [project]
-name = "tiktok_api_helper"
-version = "0.0.1"
+name = "tiktok_research_api_helper"
+version = "0.0.2"
 authors = [
   { name="Bruno Coelho", email="bruno.coelho+c4d@nyu.edu" },
 ]
@@ -42,7 +42,7 @@ Homepage = "https://github.com/CybersecurityForDemocracy/tiktok-library"
 Issues = "https://github.com/CybersecurityForDemocracy/tiktok-library/issues"
 
 [project.scripts]
-tiktok-lib = "tiktok_api_helper.cli_data_acquisition:APP"
+tiktok-lib = "tiktok_research_api_helper.cli_data_acquisition:APP"
 
 #TODO: Add Sphinx documentation auto-generation
 # Libs: sphinx, sphinx-autoapi
@@ -98,4 +98,4 @@ include = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/tiktok_api_helper"]
+packages = ["src/tiktok_research_api_helper"]
