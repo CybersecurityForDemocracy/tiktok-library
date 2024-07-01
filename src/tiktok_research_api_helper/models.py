@@ -18,6 +18,7 @@ from sqlalchemy import (
     Table,
     UniqueConstraint,
     create_engine,
+    desc,
     func,
     select,
 )
@@ -200,6 +201,33 @@ class Video(Base):
     @property
     def effect_ids(self):
         return {effect.effect_id for effect in self.effects}
+
+
+def most_used_music_ids(
+    session: Session, limit: int | None = None, crawl_ids: Sequence[int] | None = None
+):
+    """Returns dict of most used music_ids with count of video id with that music_id. If crawl_ids
+    specified, only operates on videos associated to those crawl IDs.
+    """
+    if crawl_ids:
+        select_stmt = (
+            select(Video.music_id, func.count(Video.id).label("num_videos"))
+            .join(Video.crawls)
+            .where(Crawl.id.in_(crawl_ids))
+        )
+    else:
+        select_stmt = select(Video.music_id, func.count(Video.id).label("num_videos"))
+    return (
+        session.execute(
+            #  select(Video.music_id, func.count(Video.id).label("num_videos"))
+            select_stmt.where(Video.music_id is not None)
+            .group_by(Video.music_id)
+            .order_by(desc("num_videos"), Video.music_id)
+            .limit(limit)
+        )
+        .mappings()
+        .all()
+    )
 
 
 # TODO(macpd): make generic method for this and use for all many-to-many objects inserted with video

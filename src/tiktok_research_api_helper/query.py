@@ -204,6 +204,10 @@ def any_usernames_condition(usernames):
     return Cond(Fields.username, sorted(get_normalized_username_set(usernames)), Op.IN)
 
 
+def any_music_ids_condition(music_ids):
+    return Cond(Fields.music_id, sorted(set(music_ids.split(","))), Op.IN)
+
+
 def generate_query(
     region_codes: list[SupportedRegions] | None = None,
     include_any_hashtags: str | None = None,
@@ -216,6 +220,8 @@ def generate_query(
     exclude_all_keywords: str | None = None,
     only_from_usernames: str | None = None,
     exclude_from_usernames: str | None = None,
+    include_music_ids: str | None = None,
+    exclude_music_ids: str | None = None,
 ) -> Query:
     query_args = {_QUERY_AND_ARG_NAME: [], _QUERY_NOT_ARG_NAME: []}
 
@@ -244,6 +250,12 @@ def generate_query(
 
     if exclude_from_usernames:
         query_args[_QUERY_NOT_ARG_NAME].append(any_usernames_condition(exclude_from_usernames))
+
+    if include_music_ids:
+        query_args[_QUERY_AND_ARG_NAME].append(any_music_ids_condition(include_music_ids))
+
+    if exclude_music_ids:
+        query_args[_QUERY_NOT_ARG_NAME].append(any_music_ids_condition(exclude_music_ids))
 
     if region_codes:
         query_args[_QUERY_AND_ARG_NAME].append(

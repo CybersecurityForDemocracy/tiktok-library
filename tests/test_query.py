@@ -273,7 +273,7 @@ def test_query_json_decoder_exclude_some_hashtags(mock_query_exclude_some_hashta
 
 
 @pytest.mark.parametrize(
-    "test_input,expected",
+    ("test_input", "expected"),
     [
         ("cheese", set(["cheese"])),
         ("cheese,cheese", set(["cheese"])),
@@ -437,6 +437,38 @@ def test_generate_query_exclude_from_usernames():
                     "kai",
                     "mark",
                     "sally",
+                ],
+                "operation": "IN",
+            }
+        ]
+    }
+
+
+def test_generate_query_include_music_ids():
+    assert generate_query(include_music_ids="2,1,3").as_dict() == {
+        "and": [
+            {
+                "field_name": "music_id",
+                "field_values": [
+                    "1",
+                    "2",
+                    "3",
+                ],
+                "operation": "IN",
+            }
+        ]
+    }
+
+
+def test_generate_query_exclude_music_ids():
+    assert generate_query(exclude_music_ids="2,1,3").as_dict() == {
+        "not": [
+            {
+                "field_name": "music_id",
+                "field_values": [
+                    "1",
+                    "2",
+                    "3",
                 ],
                 "operation": "IN",
             }
