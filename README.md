@@ -12,6 +12,7 @@ Python3.11+ is **required**. Some newer features are directly used and earlier v
 # Python code usage
 
 ### Create secrets.yaml
+You need to put your API credentials in yaml file which the client code will use for authentication.
 Expected fields (no quotes):
 ```yaml
 client_id: 123
@@ -19,7 +20,7 @@ client_secret: abc
 client_key: abc
 ```
 
-### Using the interface:
+## Using the interface:
 #### Construct an API query
 
 A query is a combination of a "type (and, or, not)" with multiple Conditions ("Cond")
