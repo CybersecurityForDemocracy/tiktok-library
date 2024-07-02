@@ -65,6 +65,14 @@ postgres-integration-test-docker-as-sudo = [
   "sudo docker compose down"
 ]
 
+[tool.hatch.envs.jupyter]
+extra-dependencies = [
+  "notebook"
+]
+
+[tool.hatch.envs.jupyter.scripts]
+notebook = "jupyter-notebook"
+
 # Hatch uses ruff for linting and formatting (hatch fmt ...)
 [tool.ruff]
 line-length=100

@@ -184,6 +184,9 @@ To apply changes from ruff:
 
 NOTE: formatting fixes will not be applied if linter finds errors.
 
+## Running jupyter notebook via hatch
+`hatch run jupyter:notebook`
+
 ## Alembic database schema migrations
 Alembic is a tool/framework for database schema migrations. For instructions on
 how to use and and create revisions see https://alembic.sqlalchemy.org/en/latest/tutorial.html
