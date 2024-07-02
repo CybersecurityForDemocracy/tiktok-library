@@ -185,7 +185,9 @@ To apply changes from ruff:
 
 `hatch fmt`
 
-NOTE: formatting fixes will not be applied if linter finds errors.
+NOTE: formatting fixes will not be applied if linter finds errors, if this
+happens you can run the formatter only with `hatch fmt --formatter` (good for
+when there is a linter issue the formatter can fix).
 
 ## Alembic database schema migrations
 Alembic is a tool/framework for database schema migrations. For instructions on
