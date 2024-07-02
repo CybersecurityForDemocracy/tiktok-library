@@ -17,7 +17,7 @@ from tiktok_research_api_helper.api_client import (
     ApiRateLimitWaitStrategy,
     TikTokApiClient,
 )
-from tiktok_research_api_helper.custom_types import (
+from tiktok_research_api_helper.custom_cli_flag_types import (
     ApiCredentialsFileType,
     ApiRateLimitWaitStrategyType,
     CrawlTagType,
