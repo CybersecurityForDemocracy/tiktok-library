@@ -6,24 +6,6 @@ video information from the TikTok Research API.
 ## Requirements
 
 Python3.11+ is **required**. Some newer features are directly used and earlier versions won't work (e.g. Walrus, type hinting chaining "|", etc., StrEnum)
-    
-## Instalation and Usage
-
-Install with pip:
-
-```bash
-git clone <this repo>
-cd tiktok-library
-pip install .
-```
-OR you can install `hatch` (see https://hatch.pypa.io/latest/install/) and run code/tests from that:
-```bash
-git clone <this repo>
-cd tiktok-library
-hatch --env test run run # run unit tests
-hatch run tiktok-lib run --db-url ... # query API
-```
-
 
 # Basic CLI usage
 
@@ -161,6 +143,24 @@ specify the connection string.
     - At the time of creation, the library was not available.
 
 # Development
+
+## Installation
+
+Install with pip:
+
+```bash
+git clone <this repo>
+cd tiktok-library
+pip install .
+```
+OR you can install `hatch` (see https://hatch.pypa.io/latest/install/) and run code/tests from that:
+```bash
+git clone <this repo>
+cd tiktok-library
+hatch --env test run run # run unit tests
+hatch run tiktok-lib run --db-url ... # query API
+```
+
 
 ## Testing
 To run unit tests locally (requires pytest installed):
