@@ -3,9 +3,101 @@
 This package provides both a CLI application and python library for querying
 video information from the TikTok Research API.
 
+**This library requires TikTok Research API access. It does not provide any access by itself.**
+
 ## Requirements
 
 Python3.11+ is **required**. Some newer features are directly used and earlier versions won't work (e.g. Walrus, type hinting chaining "|", etc., StrEnum)
+
+# Python code usage
+
+### Create secrets.yaml
+Expected fields (no quotes):
+```yaml
+client_id: 123
+client_secret: abc
+client_key: abc
+```
+
+### Using the interface:
+#### Construct an API query
+
+A query is a combination of a "type (and, or, not)" with multiple Conditions ("Cond")
+
+Each condition is a combination of a "field" (Fields, F), "value" and a operation ("Operations", "Op").
+```python
+from tiktok_research_api_helper.query import Query, Cond, Fields, Op
+
+query = Query(
+        and_=[
+            Cond(Fields.hashtag_name, "garfield", Op.EQ),
+            Cond(Fields.region_code, "US", Op.EQ),
+
+            # Alternative version with multiple countries - Then the operation changes to "IN" instead of "EQ" (equals) as it's a list
+            # the library handles list vs str natively
+            # Cond(Fields.region_code, ["US", "UK"], Op.IN),
+        ],
+    )
+```
+
+#### TikTokApiClient provides a high-level interface to fetch all api results, and optionally store them in a database
+```python
+from pathlib import Path
+from datetime import datetime
+from tiktok_research_api_helper.query import Query, Cond, Fields, Op
+from tiktok_research_api_helper.api_client import ApiClientConfig, TikTokApiClient
+
+config = ApiClientConfig(query=query,
+                         start_date=datetime.fromisoformat("2024-03-01"),
+                         end_date=datetime.fromisoformat("2024-03-02"),
+                         engine=None,
+                         api_credentials_file=Path("./secrets.yaml"))
+api_client = TikTokApiClient.from_config(config)
+
+# api_results_iter yields each API reponse as a parsed TikTokApiClientFetchResult.
+# Iteration stops when the API indicates the query results have been fully delivered
+for result in api_client.api_results_iter():
+    # do something with the result
+    print(result.videos)
+
+
+# Alternatively fetch_all fetches all API results and returns a single TikTokApiClientFetchResult with all API results. NOTE: this blocks until all results are fetched which could be multiple days if query results exceed daily quota limit.
+api_client.fetch_all()
+
+
+# If you provide a SqlAlchemy engine in the ApiClientConfig you can use TikTokApiClient to store results as they are received
+api_client.fetch_and_store_all() # or equivalent call: fetch_all(store_results_after_each_response=True)
+```
+
+#### TikTokApiRequestClient and TikTokRequest provide a lower-level interface to API
+```python
+from pathlib import Path
+from tiktok_research_api_helper.api_client import TikTokApiRequestClient, TiktokRequest
+
+# reads from secrets.yaml in the same directory
+request_client = TikTokApiRequestClient.from_credentials_file(Path("./secrets.yaml"))
+from tiktok_research_api_helper.query import Query, Cond, Fields, Op
+
+query = Query(or_=Cond(Fields.video_id, ["7345557461438385450", "123456"], Op.IN))
+
+# sample query
+req = TiktokRequest(
+    query=query,
+    start_date="20240301",
+    end_date="20240329",
+)
+
+# then fetch the first page of results for the query. NOTE: this does not automatically fetch subsequent pages.
+result = request_client.fetch(req)
+
+# to request the next page of resuls, you must create a new request with the cursor and search_id values from previous result. NOTE: make sure to check results.data['has_more'] == true
+new_req = TiktokRequest(query=query,
+                cursor=result.data['cursor'],
+                search_id=result.data['search_id'],
+            )
+result = request_client.fetch(new_req)
+```
+
 
 # Basic CLI usage
 
