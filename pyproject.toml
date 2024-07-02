@@ -42,7 +42,7 @@ Homepage = "https://github.com/CybersecurityForDemocracy/tiktok-library"
 Issues = "https://github.com/CybersecurityForDemocracy/tiktok-library/issues"
 
 [project.scripts]
-tiktok-lib = "tiktok_research_api_helper.cli_data_acquisition:APP"
+tiktok-lib = "tiktok_research_api_helper.cli.main:APP"
 
 #TODO: Add Sphinx documentation auto-generation
 # Libs: sphinx, sphinx-autoapi
