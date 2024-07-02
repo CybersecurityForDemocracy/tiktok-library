@@ -1,5 +1,8 @@
 # tiktok_research_api_helper
 
+This package provides both a CLI application and python library for querying
+video information from the TikTok Research API.
+
 ## Requirements
 
 Python3.11+ is **required**. Some newer features are directly used and earlier versions won't work (e.g. Walrus, type hinting chaining "|", etc., StrEnum)
@@ -22,7 +25,7 @@ hatch run tiktok-lib run --db-url ... # query API
 ```
 
 
-# Basic usage
+# Basic CLI usage
 
 1. This library requires TikTok Research API access. It does not provide any access by itself.
 2. Create a new file `secrets.yaml` in the root folder you are running code from (you can specify a different file with `--api-credentials-file`). View the `sample_secrets.yaml` file for formatting. The client_id, client_secret and client_key are required. The library automatically manages the access token and refreshes it when needed.
