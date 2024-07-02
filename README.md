@@ -1,8 +1,8 @@
-# tiktok-research
+# tiktok_research_api_helper
 
 ## Requirements
 
-Python3.11+ is **required**. Some newer features are directly used and earlier versions won't work (e.g. Walrus, type hinting chaining "|", etc.), `StrEnum` class
+Python3.11+ is **required**. Some newer features are directly used and earlier versions won't work (e.g. Walrus, type hinting chaining "|", etc., StrEnum)
     
 ## Instalation and Usage
 
@@ -173,11 +173,16 @@ OR run with hatch (this runs above docker commands as sudo):
 hatch run test:postgres-integration-test-docker-as-sudo
 ```
 
-## Automatic formatting with black
-To check if black would change code (but not actually make changes):
-`hatch run style:check`
-To apply changes from black
-`hatch run style:fmt`
+## Automatic formatting and linting with ruff
+To check if ruff would change code (but not actually make changes):
+
+`hatch fmt --check`
+
+To apply changes from ruff:
+
+`hatch fmt`
+
+NOTE: formatting fixes will not be applied if linter finds errors.
 
 ## Running jupyter notebook via hatch
 `hatch run jupyter:notebook`

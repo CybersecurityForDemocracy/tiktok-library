@@ -1,25 +1,29 @@
 import json
 import logging
+from collections import namedtuple
+from collections.abc import Mapping, Sequence
 from copy import copy
-from datetime import datetime
+from datetime import date, timedelta
 from pathlib import Path
-from typing import Any, Mapping, Optional, Sequence
+from typing import Annotated, Any
 
+import pause
+import pendulum
 import typer
-from sqlalchemy import Engine
-from typing_extensions import Annotated
 
-from tiktok_api_helper import region_codes, utils
-from tiktok_api_helper.api_client import (
+from tiktok_research_api_helper import region_codes, utils
+from tiktok_research_api_helper.api_client import (
     ApiClientConfig,
     ApiRateLimitWaitStrategy,
     TikTokApiClient,
 )
-from tiktok_api_helper.custom_types import (
+from tiktok_research_api_helper.custom_types import (
     ApiCredentialsFileType,
     ApiRateLimitWaitStrategyType,
+    CrawlTagType,
     DBFileType,
     DBUrlType,
+    EnableDebugLoggingFlag,
     ExcludeAllHashtagListType,
     ExcludeAllKeywordListType,
     ExcludeAnyHashtagListType,
@@ -33,10 +37,15 @@ from tiktok_api_helper.custom_types import (
     OnlyUsernamesListType,
     RawResponsesOutputDir,
     RegionCodeListType,
+    StopAfterOneRequestFlag,
     TikTokEndDateFormat,
     TikTokStartDateFormat,
 )
-from tiktok_api_helper.query import (
+from tiktok_research_api_helper.models import (
+    get_engine_and_create_tables,
+    get_sqlite_engine_and_create_tables,
+)
+from tiktok_research_api_helper.query import (
     Cond,
     Fields,
     Op,
@@ -44,22 +53,20 @@ from tiktok_api_helper.query import (
     QueryJSONEncoder,
     generate_query,
 )
-from tiktok_api_helper.sql import (
-    get_engine_and_create_tables,
-    get_sqlite_engine_and_create_tables,
-)
 
 APP = typer.Typer(rich_markup_mode="markdown")
 
 _DAYS_PER_ITER = 28
 _DEFAULT_CREDENTIALS_FILE_PATH = Path("./secrets.yaml")
 
+CrawlDateWindow = namedtuple("CrawlDateWindow", ["start_date", "end_date"])
+
 
 def run_long_query(config: ApiClientConfig):
     """Runs a "long" query, defined as one that may need multiple requests to get all the data.
 
-    Unless you have a good reason to believe otherwise, queries should default to be considered "long".
-    """
+    Unless you have a good reason to believe otherwise, queries should default to be considered
+    "long"."""
     api_client = TikTokApiClient.from_config(config)
     api_client.fetch_and_store_all()
 
@@ -114,7 +121,7 @@ def test(
 
     The test query is for the hashtag "snoopy" in the US.
     """
-    utils.setup_logging(file_level=logging.INFO, rich_level=logging.INFO)
+    utils.setup_logging_info_level()
     logging.log(logging.INFO, f"Arguments: {locals()}")
 
     test_query = Query(
@@ -126,8 +133,8 @@ def test(
 
     logging.log(logging.INFO, f"Query: {test_query}")
 
-    start_date_datetime = datetime.strptime("20220101", "%Y%m%d")
-    end_date_datetime = datetime.strptime("20220101", "%Y%m%d")
+    start_date_datetime = utils.str_tiktok_date_format_to_datetime("20220101")
+    end_date_datetime = utils.str_tiktok_date_format_to_datetime("20220101")
 
     engine = get_sqlite_engine_and_create_tables(db_file)
 
@@ -161,21 +168,17 @@ def validate_mutually_exclusive_flags(
     """Takes a dict of flag names -> flag values, and raises an exception if more than one or none
     specified."""
 
-    num_values_not_none = len(
-        list(filter(lambda x: x is not None, flags_names_to_values.values()))
-    )
+    num_values_not_none = len(list(filter(lambda x: x is not None, flags_names_to_values.values())))
     flag_names_str = ", ".join(flags_names_to_values.keys())
 
     if num_values_not_none > 1:
-        raise typer.BadParameter(
-            f"{flag_names_str} are mutually exclusive. Please use only one."
-        )
+        raise typer.BadParameter(f"{flag_names_str} are mutually exclusive. Please use only one.")
 
     if at_least_one_required and num_values_not_none == 0:
         raise typer.BadParameter(f"Must specify one of {flag_names_str}")
 
 
-def validate_region_code_flag_value(region_code_list: Optional[Sequence[str]]):
+def validate_region_code_flag_value(region_code_list: Sequence[str] | None):
     if region_code_list is None or not region_code_list:
         return
 
@@ -187,16 +190,16 @@ def validate_region_code_flag_value(region_code_list: Optional[Sequence[str]]):
 @APP.command()
 def print_query(
     region: RegionCodeListType = None,
-    include_any_hashtags: Optional[IncludeAnyHashtagListType] = None,
-    exclude_any_hashtags: Optional[ExcludeAnyHashtagListType] = None,
-    include_all_hashtags: Optional[IncludeAllHashtagListType] = None,
-    exclude_all_hashtags: Optional[ExcludeAllHashtagListType] = None,
-    include_any_keywords: Optional[IncludeAnyKeywordListType] = None,
-    exclude_any_keywords: Optional[ExcludeAnyKeywordListType] = None,
-    include_all_keywords: Optional[IncludeAllKeywordListType] = None,
-    exclude_all_keywords: Optional[ExcludeAllKeywordListType] = None,
-    only_from_usernames: Optional[OnlyUsernamesListType] = None,
-    exclude_from_usernames: Optional[ExcludeUsernamesListType] = None,
+    include_any_hashtags: IncludeAnyHashtagListType | None = None,
+    exclude_any_hashtags: ExcludeAnyHashtagListType | None = None,
+    include_all_hashtags: IncludeAllHashtagListType | None = None,
+    exclude_all_hashtags: ExcludeAllHashtagListType | None = None,
+    include_any_keywords: IncludeAnyKeywordListType | None = None,
+    exclude_any_keywords: ExcludeAnyKeywordListType | None = None,
+    include_all_keywords: IncludeAllKeywordListType | None = None,
+    exclude_all_keywords: ExcludeAllKeywordListType | None = None,
+    only_from_usernames: OnlyUsernamesListType | None = None,
+    exclude_from_usernames: ExcludeUsernamesListType | None = None,
 ) -> None:
     """Prints to stdout the query generated from flags. Useful for creating a base from which to
     build more complex custom JSON queries."""
@@ -270,91 +273,164 @@ def print_query(
     print(json.dumps(query, cls=QueryJSONEncoder, indent=2))
 
 
+def make_crawl_date_window(crawl_span: int, crawl_lag: int) -> CrawlDateWindow:
+    """Returns a CrawlDateWindow with an end_date crawl_lag days before today, and start_date
+    crawl_span days before end_date.
+    """
+    assert crawl_span > 0 and crawl_lag > 0, "crawl_span and crawl_lag must be non-negative"
+    end_date = date.today() - timedelta(days=crawl_lag)
+    start_date = end_date - timedelta(days=crawl_span)
+    return CrawlDateWindow(start_date=start_date, end_date=end_date)
+
+
+@APP.command()
+def run_repeated(
+    crawl_span: Annotated[int, typer.Option(help="How many days between start and end dates")],
+    crawl_lag: Annotated[
+        int,
+        typer.Option(
+            help=(
+                "Number of days behind/prior current date for start date. eg if 3 and crawl "
+                "execution begins 2024-06-04, crawl would use start date 2024-06-01"
+            )
+        ),
+    ] = 1,
+    crawl_interval: Annotated[int, typer.Option(help="How many days between crawls.")] = 1,
+    db_file: DBFileType | None = None,
+    db_url: DBUrlType | None = None,
+    crawl_tag: CrawlTagType = "",
+    raw_responses_output_dir: RawResponsesOutputDir | None = None,
+    query_file_json: JsonQueryFileType | None = None,
+    api_credentials_file: ApiCredentialsFileType = _DEFAULT_CREDENTIALS_FILE_PATH,
+    rate_limit_wait_strategy: ApiRateLimitWaitStrategyType = (
+        ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS
+    ),
+    region: RegionCodeListType = None,
+    include_any_hashtags: IncludeAnyHashtagListType | None = None,
+    exclude_any_hashtags: ExcludeAnyHashtagListType | None = None,
+    include_all_hashtags: IncludeAllHashtagListType | None = None,
+    exclude_all_hashtags: ExcludeAllHashtagListType | None = None,
+    include_any_keywords: IncludeAnyKeywordListType | None = None,
+    exclude_any_keywords: ExcludeAnyKeywordListType | None = None,
+    include_all_keywords: IncludeAllKeywordListType | None = None,
+    exclude_all_keywords: ExcludeAllKeywordListType | None = None,
+    only_from_usernames: OnlyUsernamesListType | None = None,
+    exclude_from_usernames: ExcludeUsernamesListType | None = None,
+    debug: EnableDebugLoggingFlag = False,
+) -> None:
+    """
+    Repeatedly queries TikTok API and stores the results in specified database, advancing the crawl
+    window (ie start and end dates) for each new crawl.
+    """
+    if crawl_span < 0:
+        raise typer.BadParameter("Number of days for crawl span must be positive")
+    if crawl_interval < 0:
+        raise typer.BadParameter("Crawl interval must be positive")
+    if crawl_lag < 0:
+        raise typer.BadParameter("Lag must be positive")
+
+    if debug:
+        utils.setup_logging_debug_level()
+    else:
+        utils.setup_logging_info_level()
+
+    while True:
+        crawl_date_window = make_crawl_date_window(crawl_span=crawl_span, crawl_lag=crawl_lag)
+        logging.info(
+            "Starting scheduled run. start_date: %s, end_date: %s",
+            crawl_date_window.start_date,
+            crawl_date_window.end_date,
+        )
+        execution_start_time = pendulum.now()
+        run(
+            start_date_str=utils.date_to_tiktok_str_format(crawl_date_window.start_date),
+            end_date_str=utils.date_to_tiktok_str_format(crawl_date_window.end_date),
+            db_file=db_file,
+            db_url=db_url,
+            crawl_tag=crawl_tag,
+            raw_responses_output_dir=raw_responses_output_dir,
+            query_file_json=query_file_json,
+            api_credentials_file=api_credentials_file,
+            rate_limit_wait_strategy=rate_limit_wait_strategy,
+            region=region,
+            include_any_hashtags=include_any_hashtags,
+            exclude_any_hashtags=exclude_any_hashtags,
+            include_all_hashtags=include_all_hashtags,
+            exclude_all_hashtags=exclude_all_hashtags,
+            include_any_keywords=include_any_keywords,
+            exclude_any_keywords=exclude_any_keywords,
+            include_all_keywords=include_all_keywords,
+            exclude_all_keywords=exclude_all_keywords,
+            only_from_usernames=only_from_usernames,
+            exclude_from_usernames=exclude_from_usernames,
+            debug=debug,
+            # Do not setup logging again so that we keep the current log file.
+            init_logging=False,
+        )
+        next_execution = execution_start_time.add(days=crawl_interval)
+        logging.debug("next_execution: %s, %s", next_execution, next_execution.diff_for_humans())
+        if pendulum.now() < next_execution:
+            logging.info("Sleeping until %s", next_execution)
+            pause.until(next_execution)
+        else:
+            logging.warning(
+                "Previous crawl started at %s and took longer than crawl_interval %s. starting now",
+                execution_start_time,
+                crawl_interval,
+            )
+
+
 @APP.command()
 def run(
     # Note to self: Importing "from __future__ import annotations"
     # breaks the documentation of CLI Arguments for some reason
     start_date_str: TikTokStartDateFormat,
     end_date_str: TikTokEndDateFormat,
-    db_file: Optional[DBFileType] = None,
-    db_url: Optional[DBUrlType] = None,
-    stop_after_one_request: Annotated[
-        bool, typer.Option(help="Stop after the first request - Useful for testing")
-    ] = False,
-    crawl_tag: Annotated[
-        str,
-        typer.Option(
-            help="Extra metadata for tagging the crawl of the data with a name (e.g. `Experiment_1_test_acquisition`)"
-        ),
-    ] = "",
-    raw_responses_output_dir: Optional[RawResponsesOutputDir] = None,
-    query_file_json: Optional[JsonQueryFileType] = None,
+    db_file: DBFileType | None = None,
+    db_url: DBUrlType | None = None,
+    stop_after_one_request: StopAfterOneRequestFlag = False,
+    crawl_tag: CrawlTagType = "",
+    raw_responses_output_dir: RawResponsesOutputDir | None = None,
+    query_file_json: JsonQueryFileType | None = None,
     api_credentials_file: ApiCredentialsFileType = _DEFAULT_CREDENTIALS_FILE_PATH,
-    rate_limit_wait_strategy: ApiRateLimitWaitStrategyType = ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS,
-    region: RegionCodeListType = None,
-    include_any_hashtags: Optional[IncludeAnyHashtagListType] = None,
-    exclude_any_hashtags: Optional[ExcludeAnyHashtagListType] = None,
-    include_all_hashtags: Optional[IncludeAllHashtagListType] = None,
-    exclude_all_hashtags: Optional[ExcludeAllHashtagListType] = None,
-    include_any_keywords: Optional[IncludeAnyKeywordListType] = None,
-    exclude_any_keywords: Optional[ExcludeAnyKeywordListType] = None,
-    include_all_keywords: Optional[IncludeAllKeywordListType] = None,
-    exclude_all_keywords: Optional[ExcludeAllKeywordListType] = None,
-    only_from_usernames: Optional[OnlyUsernamesListType] = None,
-    exclude_from_usernames: Optional[ExcludeUsernamesListType] = None,
-    debug: Optional[bool] = False,
+    rate_limit_wait_strategy: ApiRateLimitWaitStrategyType = (
+        ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS
+    ),
+    region: RegionCodeListType | None = None,
+    include_any_hashtags: IncludeAnyHashtagListType | None = None,
+    exclude_any_hashtags: ExcludeAnyHashtagListType | None = None,
+    include_all_hashtags: IncludeAllHashtagListType | None = None,
+    exclude_all_hashtags: ExcludeAllHashtagListType | None = None,
+    include_any_keywords: IncludeAnyKeywordListType | None = None,
+    exclude_any_keywords: ExcludeAnyKeywordListType | None = None,
+    include_all_keywords: IncludeAllKeywordListType | None = None,
+    exclude_all_keywords: ExcludeAllKeywordListType | None = None,
+    only_from_usernames: OnlyUsernamesListType | None = None,
+    exclude_from_usernames: ExcludeUsernamesListType | None = None,
+    debug: EnableDebugLoggingFlag = False,
+    # Skips logging init/setup. Hidden because this is intended for other commands that setup
+    # logging and then call this as a function.
+    init_logging: Annotated[bool, typer.Option(hidden=True)] = True,
 ) -> None:
     """
     Queries TikTok API and stores the results in specified database.
     """
-    if debug:
-        utils.setup_logging(file_level=logging.DEBUG, rich_level=logging.DEBUG)
-    else:
-        utils.setup_logging(file_level=logging.INFO, rich_level=logging.INFO)
+    if init_logging:
+        if debug:
+            utils.setup_logging_debug_level()
+        else:
+            utils.setup_logging_info_level()
 
     logging.log(logging.INFO, f"Arguments: {locals()}")
 
     # Using an actual datetime object instead of a string would not allows to
     # specify the CLI help docs in the format %Y%m%d
-    start_date_datetime = datetime.strptime(start_date_str, "%Y%m%d")
-    end_date_datetime = datetime.strptime(end_date_str, "%Y%m%d")
+    start_date_datetime = utils.str_tiktok_date_format_to_datetime(start_date_str)
+    end_date_datetime = utils.str_tiktok_date_format_to_datetime(end_date_str)
 
     validate_mutually_exclusive_flags(
         {"--db-url": db_url, "--db-file": db_file}, at_least_one_required=True
     )
-
-    validate_mutually_exclusive_flags(
-        {
-            "--include-any-hashtags": include_any_hashtags,
-            "--include-all-hashtags": include_all_hashtags,
-        }
-    )
-    validate_mutually_exclusive_flags(
-        {
-            "--exclude-any-hashtags": exclude_any_hashtags,
-            "--exclude-all-hashtags": exclude_all_hashtags,
-        }
-    )
-    validate_mutually_exclusive_flags(
-        {
-            "--include-any-keywords": include_any_keywords,
-            "--include-all-keywords": include_all_keywords,
-        }
-    )
-    validate_mutually_exclusive_flags(
-        {
-            "--exclude-any-keywords": exclude_any_keywords,
-            "--exclude-all-keywords": exclude_all_keywords,
-        }
-    )
-    validate_mutually_exclusive_flags(
-        {
-            "--only-from-usernames": only_from_usernames,
-            "--exclude-from-usernames": exclude_from_usernames,
-        }
-    )
-
-    validate_region_code_flag_value(region)
 
     if query_file_json:
         if any(
@@ -369,6 +445,7 @@ def run(
                 exclude_all_keywords,
                 only_from_usernames,
                 exclude_from_usernames,
+                region,
             ]
         ):
             raise typer.BadParameter(
@@ -379,6 +456,39 @@ def run(
 
         query = get_query_file_json(query_file_json)
     else:
+        validate_mutually_exclusive_flags(
+            {
+                "--include-any-hashtags": include_any_hashtags,
+                "--include-all-hashtags": include_all_hashtags,
+            }
+        )
+        validate_mutually_exclusive_flags(
+            {
+                "--exclude-any-hashtags": exclude_any_hashtags,
+                "--exclude-all-hashtags": exclude_all_hashtags,
+            }
+        )
+        validate_mutually_exclusive_flags(
+            {
+                "--include-any-keywords": include_any_keywords,
+                "--include-all-keywords": include_all_keywords,
+            }
+        )
+        validate_mutually_exclusive_flags(
+            {
+                "--exclude-any-keywords": exclude_any_keywords,
+                "--exclude-all-keywords": exclude_all_keywords,
+            }
+        )
+        validate_mutually_exclusive_flags(
+            {
+                "--only-from-usernames": only_from_usernames,
+                "--exclude-from-usernames": exclude_from_usernames,
+            }
+        )
+
+        validate_region_code_flag_value(region)
+
         query = generate_query(
             region_codes=region,
             include_any_hashtags=include_any_hashtags,

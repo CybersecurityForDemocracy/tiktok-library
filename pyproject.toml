@@ -4,10 +4,10 @@ build-backend = "hatchling.build"
 
 
 [project]
-name = "tiktok_api_helper"
-version = "0.0.1"
+name = "tiktok_research_api_helper"
+version = "0.0.2"
 authors = [
-  { name="Bruno Coelho", email="bruno.coelho@nyu.edu" },
+  { name="Bruno Coelho", email="bruno.coelho+c4d@nyu.edu" },
 ]
 
 dependencies = [
@@ -20,15 +20,15 @@ dependencies = [
   "attrs",
   "sqlalchemy>=2.0.0",
   "rich",
-  "tqdm",
   "typer",
   "tenacity",
+  "pause",
   "pendulum",
   "psycopg2-binary"
 ]
 
 
-description = "A small package to interface with the TikTok API"
+description = "A small package to interface with the TikTok Research API"
 readme = "README.md"
 requires-python = ">=3.11"
 classifiers = [
@@ -42,7 +42,7 @@ Homepage = "https://github.com/CybersecurityForDemocracy/tiktok-library"
 Issues = "https://github.com/CybersecurityForDemocracy/tiktok-library/issues"
 
 [project.scripts]
-tiktok-lib = "tiktok_api_helper.cli_data_acquisition:APP"
+tiktok-lib = "tiktok_research_api_helper.cli_data_acquisition:APP"
 
 #TODO: Add Sphinx documentation auto-generation
 # Libs: sphinx, sphinx-autoapi
@@ -54,8 +54,6 @@ extra-dependencies = [
 
 [tool.hatch.envs.alembic]
 extra-dependencies = [
-  "pytest",
-  "black",
   "alembic"
 ]
 
@@ -67,19 +65,6 @@ postgres-integration-test-docker-as-sudo = [
   "sudo docker compose down"
 ]
 
-[tool.hatch.envs.style]
-detached = true
-dependencies = [
-  "black",
-]
-[tool.hatch.envs.style.scripts]
-check = [
-  "black --check --diff src/",
-]
-fmt = [
-  "black src/",
-]
-
 [tool.hatch.envs.jupyter]
 extra-dependencies = [
   "notebook"
@@ -87,3 +72,38 @@ extra-dependencies = [
 
 [tool.hatch.envs.jupyter.scripts]
 notebook = "jupyter-notebook"
+
+# Hatch uses ruff for linting and formatting (hatch fmt ...)
+[tool.ruff]
+line-length=100
+exclude = ["./alembic"]
+
+[tool.ruff.lint]
+select = [
+    # pycodestyle
+    "E", "W",
+    # Pyflakes
+    "F",
+    # pyupgrade
+    "UP",
+    # flake8-bugbear
+    "B",
+    # flake8-simplify
+    "SIM",
+    # isort
+    "I",
+]
+ignore=[
+  # Do not suggest ternary operator
+  "SIM108",
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/alembic/",
+  "/src/",
+  "/tests/",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tiktok_research_api_helper"]

@@ -1,18 +1,22 @@
+"""NOTE: the pytest fixtures in this module should not be imported directly. they are registered as
+pytest plugins in conftest.py. If this module is moved conftest.py pytest_plugins will also need to
+be updated.
+"""
+
 import json
 
+import pytest
 from sqlalchemy import (
     Engine,
     select,
 )
-from sqlalchemy.orm import Session
-import pytest
 
-from tiktok_api_helper.sql import (
-    get_engine_and_create_tables,
+from tiktok_research_api_helper.models import (
     Base,
+    Crawl,
     Hashtag,
     Video,
-    Crawl,
+    get_engine_and_create_tables,
 )
 
 _IN_MEMORY_SQLITE_DATABASE_URL = "sqlite://"
@@ -33,7 +37,7 @@ def test_database_engine(database_url_command_line_arg) -> Engine:
 
 @pytest.fixture
 def testdata_api_response_json():
-    with open("tests/testdata/api_response.json", "r") as f:
+    with open("tests/testdata/api_response.json") as f:
         return json.load(f)
 
 

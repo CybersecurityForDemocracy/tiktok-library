@@ -1,11 +1,12 @@
 import json
+
 import pytest
 
-from tiktok_api_helper.query import (
-    Query,
+from tiktok_research_api_helper.query import (
     Cond,
-    Op,
     Fields,
+    Op,
+    Query,
     QueryJSONEncoder,
     generate_query,
     get_normalized_hashtag_set,
@@ -179,23 +180,95 @@ def test_invalid_region_code():
 
 
 def test_query_json_decoder_us(mock_query_us):
-    assert (
-        json.dumps(mock_query_us, cls=QueryJSONEncoder)
-        == '{"and": [{"operation": "IN", "field_name": "hashtag_name", "field_values": ["hashtag", "lol", "yay"]}, {"operation": "EQ", "field_name": "region_code", "field_values": ["US"]}]}'
+    assert json.dumps(mock_query_us, cls=QueryJSONEncoder, indent=1) == (
+        """
+{
+ "and": [
+  {
+   "operation": "IN",
+   "field_name": "hashtag_name",
+   "field_values": [
+    "hashtag",
+    "lol",
+    "yay"
+   ]
+  },
+  {
+   "operation": "EQ",
+   "field_name": "region_code",
+   "field_values": [
+    "US"
+   ]
+  }
+ ]
+}
+""".strip()
     )
 
 
 def test_query_json_decoder_us_ca(mock_query_us_ca):
-    assert (
-        json.dumps(mock_query_us_ca, cls=QueryJSONEncoder)
-        == '{"and": [{"operation": "IN", "field_name": "hashtag_name", "field_values": ["hashtag", "lol", "yay"]}, {"operation": "IN", "field_name": "region_code", "field_values": ["US", "CA"]}]}'
+    assert json.dumps(mock_query_us_ca, cls=QueryJSONEncoder, indent=1) == (
+        """
+{
+ "and": [
+  {
+   "operation": "IN",
+   "field_name": "hashtag_name",
+   "field_values": [
+    "hashtag",
+    "lol",
+    "yay"
+   ]
+  },
+  {
+   "operation": "IN",
+   "field_name": "region_code",
+   "field_values": [
+    "US",
+    "CA"
+   ]
+  }
+ ]
+}
+""".strip()
     )
 
 
 def test_query_json_decoder_exclude_some_hashtags(mock_query_exclude_some_hashtags):
-    assert (
-        json.dumps(mock_query_exclude_some_hashtags, cls=QueryJSONEncoder)
-        == '{"and": [{"operation": "IN", "field_name": "hashtag_name", "field_values": ["hashtag", "lol", "yay"]}, {"operation": "IN", "field_name": "region_code", "field_values": ["US", "CA"]}], "not": [{"operation": "IN", "field_name": "hashtag_name", "field_values": ["eww", "gross"]}]}'
+    assert json.dumps(mock_query_exclude_some_hashtags, cls=QueryJSONEncoder, indent=1) == (
+        """
+{
+ "and": [
+  {
+   "operation": "IN",
+   "field_name": "hashtag_name",
+   "field_values": [
+    "hashtag",
+    "lol",
+    "yay"
+   ]
+  },
+  {
+   "operation": "IN",
+   "field_name": "region_code",
+   "field_values": [
+    "US",
+    "CA"
+   ]
+  }
+ ],
+ "not": [
+  {
+   "operation": "IN",
+   "field_name": "hashtag_name",
+   "field_values": [
+    "eww",
+    "gross"
+   ]
+  }
+ ]
+}
+""".strip()
     )
 
 
@@ -218,7 +291,7 @@ def test_normalized_hashtag_set(test_input, expected):
 
 
 @pytest.mark.parametrize(
-    "test_input,expected",
+    ("test_input", "expected"),
     [
         ("cheese", set(["cheese"])),
         ("cheese,cheese", set(["cheese"])),
@@ -234,7 +307,7 @@ def test_normalized_keyword_set(test_input, expected):
 
 
 @pytest.mark.parametrize(
-    "test_input,expected",
+    ("test_input", "expected"),
     [
         ("cheese", set(["cheese"])),
         ("cheese,cheese", set(["cheese"])),
@@ -1015,7 +1088,7 @@ def test_generate_query_include_any_keywords_with_exclude_any_keywords_with_only
     }
 
 
-def test_generate_query_include_any_keywords_with_exclude_any_keywords_with_exclude_from_usernames():
+def test_generate_query_include_any_keywords_with_exclude_any_keywords_with_exclude_from_usernames():  # noqa E501 Unfortunately long test name is too long for line
     assert generate_query(
         include_any_keywords="this,that,other",
         exclude_any_keywords="cheese,butter",
@@ -1051,7 +1124,7 @@ def test_generate_query_include_any_keywords_with_exclude_any_keywords_with_excl
     }
 
 
-def test_generate_query_include_any_keywords_with_exclude_any_keywords_with_only_from_usernames_with_exclude_from_usernames():
+def test_generate_query_include_any_keywords_with_exclude_any_keywords_with_only_from_usernames_with_exclude_from_usernames():  # noqa E501 Unfortunately long test name is too long for line
     assert generate_query(
         include_any_keywords="this,that,other",
         exclude_any_keywords="cheese,butter",
