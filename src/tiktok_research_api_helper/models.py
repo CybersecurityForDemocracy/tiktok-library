@@ -201,6 +201,21 @@ class Video(Base):
     def effect_ids(self):
         return {effect.effect_id for effect in self.effects}
 
+class User(Base):
+    __tablename__ = "user"
+
+    username: Mapped[str] = mapped_column(primary_key=True)
+    display_name: Mapped[str]
+    bio_description: Mapped[str]
+    avatar_url: Mapped[str]
+    is_verified: Mapped[bool]
+    likes_count: Mapped[int]
+    video_count: Mapped[int]
+    follower_count: Mapped[int]
+    following_count: Mapped[int]
+
+    __table_args__ = (UniqueConstraint("username"),)
+
 
 # TODO(macpd): make generic method for this and use for all many-to-many objects inserted with video
 def _get_hashtag_name_to_hashtag_object_map(
