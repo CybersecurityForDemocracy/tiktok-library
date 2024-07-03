@@ -73,7 +73,7 @@ api_client.fetch_and_store_all() # or equivalent call: fetch_all(store_results_a
 #### TikTokApiRequestClient and TikTokRequest provide a lower-level interface to API
 ```python
 from pathlib import Path
-from tiktok_research_api_helper.api_client import TikTokApiRequestClient, TiktokRequest
+from tiktok_research_api_helper.api_client import TikTokApiRequestClient, TiktokVideoRequest
 
 # reads from secrets.yaml in the same directory
 request_client = TikTokApiRequestClient.from_credentials_file(Path("./secrets.yaml"))
@@ -82,7 +82,7 @@ from tiktok_research_api_helper.query import Query, Cond, Fields, Op
 query = Query(or_=Cond(Fields.video_id, ["7345557461438385450", "123456"], Op.IN))
 
 # sample query
-req = TiktokRequest(
+req = TiktokVideoRequest(
     query=query,
     start_date="20240301",
     end_date="20240329",
@@ -92,7 +92,7 @@ req = TiktokRequest(
 result = request_client.fetch(req)
 
 # to request the next page of resuls, you must create a new request with the cursor and search_id values from previous result. NOTE: make sure to check results.data['has_more'] == true
-new_req = TiktokRequest(query=query,
+new_req = TiktokVideoRequest(query=query,
                 cursor=result.data['cursor'],
                 search_id=result.data['search_id'],
             )

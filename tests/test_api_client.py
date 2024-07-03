@@ -139,7 +139,7 @@ def test_tiktok_api_request_client_retry_once_on_json_decoder_error(
         access_token_fetcher_session=mock_access_token_fetcher_session,
     )
     with pytest.raises(json.JSONDecodeError):
-        request.fetch(api_client.TiktokRequest(query={}, start_date=None, end_date=None))
+        request.fetch(api_client.TiktokVideoRequest(query={}, start_date=None, end_date=None))
     # Confirm that code retried the post request and json extraction twice (ie retried once after
     # the decode error before the exception is re-raised)
     assert mock_request_session_json_decoder_error.post.call_count == 2
@@ -160,7 +160,7 @@ def test_tiktok_api_request_client_wait_one_hour_on_rate_limit_wait_strategy(
     )
     with pytest.raises(api_client.ApiRateLimitError):
         request.fetch(
-            api_client.TiktokRequest(query={}, start_date=None, end_date=None),
+            api_client.TiktokVideoRequest(query={}, start_date=None, end_date=None),
             max_api_rate_limit_retries=num_retries,
         )
     # Confirm that code retried the post request and json extraction twice (ie retried once after
@@ -193,7 +193,7 @@ def test_tiktok_api_request_client_wait_til_next_utc_midnight_on_rate_limit_wait
         )
         with pytest.raises(api_client.ApiRateLimitError):
             request.fetch(
-                api_client.TiktokRequest(query={}, start_date=None, end_date=None),
+                api_client.TiktokVideoRequest(query={}, start_date=None, end_date=None),
                 max_api_rate_limit_retries=num_retries,
             )
         # Confirm that code retried the post request and json extraction twice (ie retried once
@@ -273,7 +273,7 @@ def basic_acquisition_config():
 def expected_fetch_calls(basic_acquisition_config, mock_tiktok_responses):
     return [
         call(
-            api_client.TiktokRequest(
+            api_client.TiktokVideoRequest(
                 query=basic_acquisition_config.query,
                 start_date=utils.date_to_tiktok_str_format(basic_acquisition_config.start_date),
                 end_date=utils.date_to_tiktok_str_format(basic_acquisition_config.end_date),
@@ -284,7 +284,7 @@ def expected_fetch_calls(basic_acquisition_config, mock_tiktok_responses):
             )
         ),
         call(
-            api_client.TiktokRequest(
+            api_client.TiktokVideoRequest(
                 query=basic_acquisition_config.query,
                 start_date=utils.date_to_tiktok_str_format(basic_acquisition_config.start_date),
                 end_date=utils.date_to_tiktok_str_format(basic_acquisition_config.end_date),
@@ -295,7 +295,7 @@ def expected_fetch_calls(basic_acquisition_config, mock_tiktok_responses):
             )
         ),
         call(
-            api_client.TiktokRequest(
+            api_client.TiktokVideoRequest(
                 query=basic_acquisition_config.query,
                 start_date=utils.date_to_tiktok_str_format(basic_acquisition_config.start_date),
                 end_date=utils.date_to_tiktok_str_format(basic_acquisition_config.end_date),

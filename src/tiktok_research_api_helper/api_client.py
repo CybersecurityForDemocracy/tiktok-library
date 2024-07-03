@@ -93,9 +93,9 @@ class ApiClientConfig:
 
 
 @attrs.define
-class TiktokRequest:
+class TiktokVideoRequest:
     """
-    A TiktokRequest.
+    A TiktokVideoRequest.
 
     The start date is inclusive but the end date is NOT.
     """
@@ -110,7 +110,7 @@ class TiktokRequest:
     search_id: str | None = None
 
     @classmethod
-    def from_config(cls, config: ApiClientConfig, **kwargs) -> TiktokRequest:
+    def from_config(cls, config: ApiClientConfig, **kwargs) -> TiktokVideoRequest:
         return cls(
             query=config.query,
             max_count=config.max_count,
@@ -400,15 +400,15 @@ class TikTokApiRequestClient:
             reraise=True,
         )
 
-    def fetch(self, request: TiktokRequest, max_api_rate_limit_retries=None) -> TikTokVideoResponse:
+    def fetch(self, request: TiktokVideoRequest, max_api_rate_limit_retries=None) -> TikTokVideoResponse:
         return self._fetch_retryer(max_api_rate_limit_retries=max_api_rate_limit_retries)(
             self._fetch, request
         )
 
-    def _fetch(self, request: TiktokRequest) -> TikTokVideoResponse:
+    def _fetch(self, request: TiktokVideoRequest) -> TikTokVideoResponse:
         api_response = self._post(request)
         self._num_api_requests_sent += 1
-        return self._parse_video_response(api_response)
+        return _parse_video_response(api_response)
 
     @tenacity.retry(
         stop=tenacity.stop_after_attempt(10),
@@ -418,7 +418,7 @@ class TikTokApiRequestClient:
         retry=tenacity.retry_if_exception_type(rq.RequestException),
         reraise=True,
     )
-    def _post(self, request: TiktokRequest) -> rq.Response | None:
+    def _post(self, request: TiktokVideoRequest) -> rq.Response | None:
         data = request.as_json()
         logging.log(logging.INFO, f"Sending request with data: {data}")
 
@@ -457,14 +457,13 @@ class TikTokApiRequestClient:
         # In case raise_for_status does not raise an exception we return None
         return None
 
-    @staticmethod
-    def _parse_video_response(response: rq.Response | None) -> TikTokVideoResponse:
-        response_json = _extract_response_json(response)
-        error_data = response_json.get("error")
-        response_data_section = response_json.get("data", {})
-        videos = response_data_section.get("videos", [])
+def _parse_video_response(response: rq.Response | None) -> TikTokVideoResponse:
+    response_json = _extract_response_json(response)
+    error_data = response_json.get("error")
+    response_data_section = response_json.get("data", {})
+    videos = response_data_section.get("videos", [])
 
-        return TikTokVideoResponse(data=response_data_section, videos=videos, error=error_data)
+    return TikTokVideoResponse(data=response_data_section, videos=videos, error=error_data)
 
 
 def _extract_response_json(response: rq.Response | None) -> Mapping[str, Any]:
@@ -561,7 +560,7 @@ class TikTokApiClient:
 
         logging.info("Beginning API results fetch.")
         while crawl.has_more:
-            request = TiktokRequest.from_config(
+            request = TiktokVideoRequest.from_config(
                 config=self._config,
                 cursor=crawl.cursor,
                 search_id=crawl.search_id,
