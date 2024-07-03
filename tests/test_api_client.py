@@ -233,17 +233,17 @@ def mock_tiktok_responses(testdata_api_response_json):
         video["id"] += 1
 
     return [
-        api_client.TikTokResponse(
+        api_client.TikTokVideoResponse(
             data=first_page["data"],
             videos=first_page["data"]["videos"],
             error=first_page["error"],
         ),
-        api_client.TikTokResponse(
+        api_client.TikTokVideoResponse(
             data=second_page["data"],
             videos=second_page["data"]["videos"],
             error=second_page["error"],
         ),
-        api_client.TikTokResponse(
+        api_client.TikTokVideoResponse(
             data=last_page["data"],
             videos=last_page["data"]["videos"],
             error=last_page["error"],

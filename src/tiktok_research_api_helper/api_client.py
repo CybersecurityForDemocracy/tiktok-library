@@ -63,7 +63,7 @@ class TiktokCredentials:
 
 
 @attrs.define
-class TikTokResponse:
+class TikTokVideoResponse:
     data: Mapping[str, Any]
     videos: Sequence[Any]
     error: Mapping[str, Any]
@@ -400,15 +400,15 @@ class TikTokApiRequestClient:
             reraise=True,
         )
 
-    def fetch(self, request: TiktokRequest, max_api_rate_limit_retries=None) -> TikTokResponse:
+    def fetch(self, request: TiktokRequest, max_api_rate_limit_retries=None) -> TikTokVideoResponse:
         return self._fetch_retryer(max_api_rate_limit_retries=max_api_rate_limit_retries)(
             self._fetch, request
         )
 
-    def _fetch(self, request: TiktokRequest) -> TikTokResponse:
+    def _fetch(self, request: TiktokRequest) -> TikTokVideoResponse:
         api_response = self._post(request)
         self._num_api_requests_sent += 1
-        return self._parse_response(api_response)
+        return self._parse_video_response(api_response)
 
     @tenacity.retry(
         stop=tenacity.stop_after_attempt(10),
@@ -458,30 +458,33 @@ class TikTokApiRequestClient:
         return None
 
     @staticmethod
-    def _parse_response(response: rq.Response | None) -> TikTokResponse:
-        if response is None:
-            raise ValueError("Response is None")
-
-        try:
-            response_json = response.json()
-            response_data_section = response_json.get("data", {})
-            error_data = response_json.get("error")
-        except rq.exceptions.JSONDecodeError:
-            logging.info(
-                "Error parsing JSON response:\n%s\n%s\n%s",
-                response.status_code,
-                "\n".join([f"{k}: {v}" for k, v in response.headers.items()]),
-                response.text,
-            )
-            raise
-
+    def _parse_video_response(response: rq.Response | None) -> TikTokVideoResponse:
+        response_json = _extract_response_json(response)
+        error_data = response_json.get("error")
+        response_data_section = response_json.get("data", {})
         videos = response_data_section.get("videos", [])
 
-        return TikTokResponse(data=response_data_section, videos=videos, error=error_data)
+        return TikTokVideoResponse(data=response_data_section, videos=videos, error=error_data)
+
+
+def _extract_response_json(response: rq.Response | None) -> Mapping[str, Any]:
+    if response is None:
+        raise ValueError("Response is None")
+
+    try:
+        return response.json()
+    except rq.exceptions.JSONDecodeError:
+        logging.info(
+            "Error parsing JSON response:\n%s\n%s\n%s",
+            response.status_code,
+            "\n".join([f"{k}: {v}" for k, v in response.headers.items()]),
+            response.text,
+        )
+        raise
 
 
 def update_crawl_from_api_response(
-    crawl: Crawl, api_response: TikTokResponse, num_videos_requested: int = 100
+    crawl: Crawl, api_response: TikTokVideoResponse, num_videos_requested: int = 100
 ):
     crawl.cursor = api_response.data["cursor"]
     crawl.has_more = api_response.data["has_more"]
