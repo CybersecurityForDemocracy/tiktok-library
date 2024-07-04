@@ -246,6 +246,8 @@ def api_rate_limi_wait_four_hours(
     return 0
 
 
+# TODO(macpd): make this a base/abstract class with child classes for Video, UserInfo, and Comment
+# request types.
 @attrs.define
 class TikTokApiRequestClient:
     """
