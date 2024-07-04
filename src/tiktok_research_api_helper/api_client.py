@@ -55,7 +55,7 @@ class ApiRateLimitWaitStrategy(enum.StrEnum):
 
 
 @attrs.define
-class TiktokCredentials:
+class TikTokCredentials:
     client_id: str = attrs.field(
         validator=[attrs.validators.instance_of((str, int)), field_is_not_empty]
     )
@@ -107,9 +107,9 @@ class ApiClientConfig:
 
 
 @attrs.define
-class TiktokVideoRequest:
+class TikTokVideoRequest:
     """
-    A TiktokVideoRequest.
+    A TikTokVideoRequest.
 
     The start date is inclusive but the end date is NOT.
     """
@@ -124,7 +124,7 @@ class TiktokVideoRequest:
     search_id: str | None = None
 
     @classmethod
-    def from_config(cls, config: ApiClientConfig, **kwargs) -> TiktokVideoRequest:
+    def from_config(cls, config: ApiClientConfig, **kwargs) -> TikTokVideoRequest:
         return cls(
             query=config.query,
             max_count=config.max_count,
@@ -149,7 +149,7 @@ class TiktokVideoRequest:
         return json.dumps(request_obj, cls=QueryJSONEncoder, indent=indent)
 
 @attrs.define
-class TiktokUserInfoRequest:
+class TikTokUserInfoRequest:
     """
     A request for User Info TikTok research API.
     """
@@ -279,8 +279,8 @@ class TikTokApiRequestClient(metaclass=ABCMeta):
     Subclasses of this must implement _parse_response staticmethod, and _url property.
     """
 
-    _credentials: TiktokCredentials = attrs.field(
-        validator=[attrs.validators.instance_of(TiktokCredentials), field_is_not_empty],
+    _credentials: TikTokCredentials = attrs.field(
+        validator=[attrs.validators.instance_of(TikTokCredentials), field_is_not_empty],
         # Attrs removes underscores from field names but the static type checker doesn't know that
         alias="credentials",
     )
@@ -303,7 +303,7 @@ class TikTokApiRequestClient(metaclass=ABCMeta):
         return cls(
             *args,
             **kwargs,
-            credentials=TiktokCredentials(**dict_credentials),
+            credentials=TikTokCredentials(**dict_credentials),
         )
 
     def __attrs_post_init__(self):
@@ -438,13 +438,13 @@ class TikTokApiRequestClient(metaclass=ABCMeta):
         )
 
     def fetch(
-        self, request: TiktokVideoRequest, max_api_rate_limit_retries=None
+        self, request: TikTokVideoRequest, max_api_rate_limit_retries=None
     ) -> TikTokVideoResponse:
         return self._fetch_retryer(max_api_rate_limit_retries=max_api_rate_limit_retries)(
             self._fetch, request
         )
 
-    def _fetch(self, request: TiktokVideoRequest) -> TikTokVideoResponse:
+    def _fetch(self, request: TikTokVideoRequest) -> TikTokVideoResponse:
         api_response = self._post(request)
         self._num_api_requests_sent += 1
         return self._parse_response(api_response)
@@ -457,7 +457,7 @@ class TikTokApiRequestClient(metaclass=ABCMeta):
         retry=tenacity.retry_if_exception_type(rq.RequestException),
         reraise=True,
     )
-    def _post(self, request: TiktokVideoRequest) -> rq.Response | None:
+    def _post(self, request: TikTokVideoRequest) -> rq.Response | None:
         data = request.as_json()
         logging.log(logging.INFO, f"Sending request with data: {data}")
 
@@ -613,7 +613,7 @@ class TikTokApiClient:
 
         logging.info("Beginning API results fetch.")
         while crawl.has_more:
-            request = TiktokVideoRequest.from_config(
+            request = TikTokVideoRequest.from_config(
                 config=self._config,
                 cursor=crawl.cursor,
                 search_id=crawl.search_id,
