@@ -52,7 +52,7 @@ class ApiRateLimitWaitStrategy(enum.StrEnum):
 
 
 @attrs.define
-class TiktokCredentials:
+class TikTokCredentials:
     client_id: str = attrs.field(
         validator=[attrs.validators.instance_of((str, int)), field_is_not_empty]
     )
@@ -93,9 +93,9 @@ class ApiClientConfig:
 
 
 @attrs.define
-class TiktokRequest:
+class TikTokRequest:
     """
-    A TiktokRequest.
+    A TikTokRequest.
 
     The start date is inclusive but the end date is NOT.
     """
@@ -110,7 +110,7 @@ class TiktokRequest:
     search_id: str | None = None
 
     @classmethod
-    def from_config(cls, config: ApiClientConfig, **kwargs) -> TiktokRequest:
+    def from_config(cls, config: ApiClientConfig, **kwargs) -> TikTokRequest:
         return cls(
             query=config.query,
             max_count=config.max_count,
@@ -252,8 +252,8 @@ class TikTokApiRequestClient:
     A class for making authenticated requests to the TikTok API and getting a parsed response.
     """
 
-    _credentials: TiktokCredentials = attrs.field(
-        validator=[attrs.validators.instance_of(TiktokCredentials), field_is_not_empty],
+    _credentials: TikTokCredentials = attrs.field(
+        validator=[attrs.validators.instance_of(TikTokCredentials), field_is_not_empty],
         # Attrs removes underscores from field names but the static type checker doesn't know that
         alias="credentials",
     )
@@ -276,7 +276,7 @@ class TikTokApiRequestClient:
         return cls(
             *args,
             **kwargs,
-            credentials=TiktokCredentials(**dict_credentials),
+            credentials=TikTokCredentials(**dict_credentials),
         )
 
     def __attrs_post_init__(self):
@@ -400,12 +400,12 @@ class TikTokApiRequestClient:
             reraise=True,
         )
 
-    def fetch(self, request: TiktokRequest, max_api_rate_limit_retries=None) -> TikTokResponse:
+    def fetch(self, request: TikTokRequest, max_api_rate_limit_retries=None) -> TikTokResponse:
         return self._fetch_retryer(max_api_rate_limit_retries=max_api_rate_limit_retries)(
             self._fetch, request
         )
 
-    def _fetch(self, request: TiktokRequest) -> TikTokResponse:
+    def _fetch(self, request: TikTokRequest) -> TikTokResponse:
         api_response = self._post(request)
         self._num_api_requests_sent += 1
         return self._parse_response(api_response)
@@ -418,7 +418,7 @@ class TikTokApiRequestClient:
         retry=tenacity.retry_if_exception_type(rq.RequestException),
         reraise=True,
     )
-    def _post(self, request: TiktokRequest) -> rq.Response | None:
+    def _post(self, request: TikTokRequest) -> rq.Response | None:
         data = request.as_json()
         logging.log(logging.INFO, f"Sending request with data: {data}")
 
@@ -558,7 +558,7 @@ class TikTokApiClient:
 
         logging.info("Beginning API results fetch.")
         while crawl.has_more:
-            request = TiktokRequest.from_config(
+            request = TikTokRequest.from_config(
                 config=self._config,
                 cursor=crawl.cursor,
                 search_id=crawl.search_id,
