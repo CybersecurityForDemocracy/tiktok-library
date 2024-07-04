@@ -201,6 +201,7 @@ class Video(Base):
     def effect_ids(self):
         return {effect.effect_id for effect in self.effects}
 
+
 class User(Base):
     __tablename__ = "user"
 
@@ -229,10 +230,6 @@ class Comment(Base):
     like_count: Mapped[int]
     reply_count: Mapped[int]
     create_time: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=False))
-
-
-
-
 
 
 # TODO(macpd): make generic method for this and use for all many-to-many objects inserted with video

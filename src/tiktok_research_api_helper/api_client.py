@@ -402,7 +402,9 @@ class TikTokApiRequestClient:
             reraise=True,
         )
 
-    def fetch(self, request: TiktokVideoRequest, max_api_rate_limit_retries=None) -> TikTokVideoResponse:
+    def fetch(
+        self, request: TiktokVideoRequest, max_api_rate_limit_retries=None
+    ) -> TikTokVideoResponse:
         return self._fetch_retryer(max_api_rate_limit_retries=max_api_rate_limit_retries)(
             self._fetch, request
         )
@@ -458,6 +460,7 @@ class TikTokApiRequestClient:
         response.raise_for_status()
         # In case raise_for_status does not raise an exception we return None
         return None
+
 
 def _parse_video_response(response: rq.Response | None) -> TikTokVideoResponse:
     response_json = _extract_response_json(response)
