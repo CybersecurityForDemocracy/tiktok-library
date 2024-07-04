@@ -204,6 +204,7 @@ class Video(Base):
 class User(Base):
     __tablename__ = "user"
 
+    # TODO(macpd): maybe declare relationship to video.username
     username: Mapped[str] = mapped_column(primary_key=True)
     display_name: Mapped[str]
     bio_description: Mapped[str]
@@ -214,7 +215,24 @@ class User(Base):
     follower_count: Mapped[int]
     following_count: Mapped[int]
 
-    __table_args__ = (UniqueConstraint("username"),)
+
+class Comment(Base):
+    __tablename__ = "user"
+
+    id: Mapped[int] = mapped_column(
+        BigIntegerForPrimaryKeyType, autoincrement=False, primary_key=True
+    )
+    text: Mapped[str]
+    # TODO(macpd): maybe declare relationship to video.id
+    video_id: Mapped[int]
+    parent_comment_id: Mapped[int]
+    like_count: Mapped[int]
+    reply_count: Mapped[int]
+    create_time: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=False))
+
+
+
+
 
 
 # TODO(macpd): make generic method for this and use for all many-to-many objects inserted with video
