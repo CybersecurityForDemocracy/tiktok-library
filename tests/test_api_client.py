@@ -390,7 +390,7 @@ def assert_has_expected_crawl_and_videos_in_database(
         crawl = crawls[0]
         assert crawl.id == fetch_result.crawl.id
         assert crawl.cursor == len(tiktok_responses) * acquisition_config.max_count
-        assert crawl.query == json.dumps(acquisition_config.video_query, cls=query.QueryJSONEncoder)
+        assert crawl.query == json.dumps(acquisition_config.video_query, cls=query.VideoQueryJSONEncoder)
         videos = all_videos(session)
         assert len(videos) == len(tiktok_responses) * len(tiktok_responses[0].videos)
         assert len(videos) == len(fetch_result.videos)

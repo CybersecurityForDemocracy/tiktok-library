@@ -32,7 +32,7 @@ from sqlalchemy.orm import (
     synonym,
 )
 
-from tiktok_research_api_helper.query import Query, QueryJSONEncoder
+from tiktok_research_api_helper.query import VideoQuery, VideoQueryJSONEncoder
 
 # See https://amercader.net/blog/beware-of-json-fields-in-sqlalchemy/
 MUTABLE_JSON = MutableDict.as_mutable(JSON)  # type: ignore
@@ -409,13 +409,13 @@ class Crawl(Base):
 
     @classmethod
     def from_request(
-        cls, res_data: Mapping, query: Query, crawl_tags: Sequence[str] | None = None
+        cls, res_data: Mapping, query: VideoQuery, crawl_tags: Sequence[str] | None = None
     ) -> "Crawl":
         return cls(
             cursor=res_data["cursor"],
             has_more=res_data["has_more"],
             search_id=res_data["search_id"],
-            query=json.dumps(query, cls=QueryJSONEncoder),
+            query=json.dumps(query, cls=VideoQueryJSONEncoder),
             crawl_tags=({CrawlTag(name=name) for name in crawl_tags} if crawl_tags else set()),
         )
 
@@ -423,14 +423,14 @@ class Crawl(Base):
     @classmethod
     def from_query(
         cls,
-        query: Query,
+        query: VideoQuery,
         crawl_tags: Sequence[str] | None = None,
         has_more: bool = True,
         search_id: [int | None] = None,
     ) -> "Crawl":
         return cls(
             has_more=has_more,
-            query=json.dumps(query, cls=QueryJSONEncoder),
+            query=json.dumps(query, cls=VideoQueryJSONEncoder),
             search_id=search_id,
             crawl_tags=({CrawlTag(name=name) for name in crawl_tags} if crawl_tags else set()),
         )

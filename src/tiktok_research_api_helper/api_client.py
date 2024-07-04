@@ -19,7 +19,7 @@ from sqlalchemy import Engine
 
 from tiktok_research_api_helper import utils
 from tiktok_research_api_helper.models import Crawl, upsert_videos
-from tiktok_research_api_helper.query import Query, QueryJSONEncoder
+from tiktok_research_api_helper.query import VideoQuery, VideoQueryJSONEncoder
 
 ALL_VIDEO_DATA_URL = "https://open.tiktokapis.com/v2/research/video/query/?fields=id,video_description,create_time,region_code,share_count,view_count,like_count,comment_count,music_id,hashtag_names,username,effect_ids,voice_to_text,playlist_id"
 ALL_USER_INFO_DATA_URL = "https://open.tiktokapis.com/v2/research/user/info/?fields=display_name,bio_description,avatar_url,is_verified,follower_count,following_count,likes_count,video_count"
@@ -96,7 +96,7 @@ class TikTokApiClientFetchResult:
 # and/or comments for videos from latest crawl
 @attrs.define
 class ApiClientConfig:
-    video_query: Query
+    video_query: VideoQuery
     start_date: datetime
     end_date: datetime
     engine: Engine
@@ -119,7 +119,7 @@ class TikTokVideoRequest:
     The start date is inclusive but the end date is NOT.
     """
 
-    query: Query
+    query: VideoQuery
     start_date: str
     end_date: str  # The end date is NOT inclusive!
     max_count: int = 100
@@ -151,7 +151,7 @@ class TikTokVideoRequest:
 
         if self.cursor is not None:
             request_obj["cursor"] = self.cursor
-        return json.dumps(request_obj, cls=QueryJSONEncoder, indent=indent)
+        return json.dumps(request_obj, cls=VideoQueryJSONEncoder, indent=indent)
 
 
 @attrs.define
@@ -689,7 +689,7 @@ class TikTokApiClient:
             if not api_response.videos and crawl.has_more:
                 logging.log(
                     logging.ERROR,
-                    "No videos in response but there's still data to Crawl - Query: "
+                    "No videos in response but there's still data to Crawl - VideoQuery: "
                     f"{self._config.video_query} \n api_response.data: {api_response.data}",
                 )
             if self._config.stop_after_one_request:

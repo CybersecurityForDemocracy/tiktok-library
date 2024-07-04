@@ -27,9 +27,9 @@ A query is a combination of a "type (and, or, not)" with multiple Conditions ("C
 
 Each condition is a combination of a "field" (Fields, F), "value" and a operation ("Operations", "Op").
 ```python
-from tiktok_research_api_helper.query import Query, Cond, Fields, Op
+from tiktok_research_api_helper.query import VideoQuery, Cond, Fields, Op
 
-query = Query(
+query = VideoQuery(
         and_=[
             Cond(Fields.hashtag_name, "garfield", Op.EQ),
             Cond(Fields.region_code, "US", Op.EQ),
@@ -45,7 +45,7 @@ query = Query(
 ```python
 from pathlib import Path
 from datetime import datetime
-from tiktok_research_api_helper.query import Query, Cond, Fields, Op
+from tiktok_research_api_helper.query import VideoQuery, Cond, Fields, Op
 from tiktok_research_api_helper.api_client import ApiClientConfig, TikTokApiClient
 
 config = ApiClientConfig(query=query,
@@ -77,9 +77,9 @@ from tiktok_research_api_helper.api_client import TikTokApiRequestClient, TikTok
 
 # reads from secrets.yaml in the same directory
 request_client = TikTokApiRequestClient.from_credentials_file(Path("./secrets.yaml"))
-from tiktok_research_api_helper.query import Query, Cond, Fields, Op
+from tiktok_research_api_helper.query import VideoQuery, Cond, Fields, Op
 
-query = Query(or_=Cond(Fields.video_id, ["7345557461438385450", "123456"], Op.IN))
+query = VideoQuery(or_=Cond(Fields.video_id, ["7345557461438385450", "123456"], Op.IN))
 
 # sample query
 req = TikTokVideoRequest(

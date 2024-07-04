@@ -49,8 +49,8 @@ from tiktok_research_api_helper.query import (
     Cond,
     Fields,
     Op,
-    Query,
-    QueryJSONEncoder,
+    VideoQuery,
+    VideoQueryJSONEncoder,
     generate_query,
 )
 
@@ -124,14 +124,14 @@ def test(
     utils.setup_logging_info_level()
     logging.log(logging.INFO, f"Arguments: {locals()}")
 
-    test_query = Query(
+    test_query = VideoQuery(
         and_=[
             Cond(Fields.hashtag_name, "snoopy", Op.EQ),
             Cond(Fields.region_code, "US", Op.EQ),
         ]
     )
 
-    logging.log(logging.INFO, f"Query: {test_query}")
+    logging.log(logging.INFO, f"VideoQuery: {test_query}")
 
     start_date_datetime = utils.str_tiktok_date_format_to_datetime("20220101")
     end_date_datetime = utils.str_tiktok_date_format_to_datetime("20220101")
@@ -270,7 +270,7 @@ def print_query(
         exclude_from_usernames=exclude_from_usernames,
     )
 
-    print(json.dumps(query, cls=QueryJSONEncoder, indent=2))
+    print(json.dumps(query, cls=VideoQueryJSONEncoder, indent=2))
 
 
 def make_crawl_date_window(crawl_span: int, crawl_lag: int) -> CrawlDateWindow:
@@ -503,7 +503,7 @@ def run(
             exclude_from_usernames=exclude_from_usernames,
         )
 
-    logging.log(logging.INFO, f"Query: {query}")
+    logging.log(logging.INFO, f"VideoQuery: {query}")
 
     if db_url:
         engine = get_engine_and_create_tables(db_url)
