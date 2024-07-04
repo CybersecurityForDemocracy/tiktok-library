@@ -218,7 +218,7 @@ class User(Base):
 
 
 class Comment(Base):
-    __tablename__ = "user"
+    __tablename__ = "comment"
 
     id: Mapped[int] = mapped_column(
         BigIntegerForPrimaryKeyType, autoincrement=False, primary_key=True
