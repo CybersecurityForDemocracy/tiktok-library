@@ -92,16 +92,16 @@ def test_tiktok_credentials_any_value_missing_raises_value_error():
 
 def test_tiktok_api_request_client_empty_credentials_raises_value_error():
     with pytest.raises(TypeError):
-        api_client.TikTokApiVideoRequestClient(credentials=None)
+        api_client.TikTokApiRequestClient(credentials=None)
 
     with pytest.raises(TypeError):
-        api_client.TikTokApiVideoRequestClient(credentials={})
+        api_client.TikTokApiRequestClient(credentials={})
 
 
 def test_tiktok_api_request_client_from_credentials_file_factory(
     mock_request_session, mock_access_token_fetcher_session
 ):
-    request = api_client.TikTokApiVideoRequestClient.from_credentials_file(
+    request = api_client.TikTokApiRequestClient.from_credentials_file(
         FAKE_SECRETS_YAML_FILE,
         api_request_session=mock_request_session,
         access_token_fetcher_session=mock_access_token_fetcher_session,
@@ -117,7 +117,7 @@ def test_tiktok_api_request_client_attempts_token_refresh(
     mock_request_session, mock_access_token_fetcher_session
 ):
     assert "Authorization" not in mock_request_session.headers
-    api_client.TikTokApiVideoRequestClient.from_credentials_file(
+    api_client.TikTokApiRequestClient.from_credentials_file(
         FAKE_SECRETS_YAML_FILE,
         api_request_session=mock_request_session,
         access_token_fetcher_session=mock_access_token_fetcher_session,
@@ -133,13 +133,15 @@ def test_tiktok_api_request_client_retry_once_on_json_decoder_error(
     mock_request_session_json_decoder_error,
     mock_access_token_fetcher_session,
 ):
-    request = api_client.TikTokApiVideoRequestClient.from_credentials_file(
+    request = api_client.TikTokApiRequestClient.from_credentials_file(
         FAKE_SECRETS_YAML_FILE,
         api_request_session=mock_request_session_json_decoder_error,
         access_token_fetcher_session=mock_access_token_fetcher_session,
     )
     with pytest.raises(json.JSONDecodeError):
-        request.fetch(api_client.TikTokVideoRequest(query={}, start_date=None, end_date=None))
+        request.fetch_videos(
+            api_client.TikTokVideoRequest(query={}, start_date=None, end_date=None)
+        )
     # Confirm that code retried the post request and json extraction twice (ie retried once after
     # the decode error before the exception is re-raised)
     assert mock_request_session_json_decoder_error.post.call_count == 2
@@ -152,14 +154,14 @@ def test_tiktok_api_request_client_wait_one_hour_on_rate_limit_wait_strategy(
     mock_sleep, mock_request_session_rate_limit_error, mock_access_token_fetcher_session
 ):
     num_retries = 5
-    request = api_client.TikTokApiVideoRequestClient.from_credentials_file(
+    request = api_client.TikTokApiRequestClient.from_credentials_file(
         FAKE_SECRETS_YAML_FILE,
         api_request_session=mock_request_session_rate_limit_error,
         access_token_fetcher_session=mock_access_token_fetcher_session,
         api_rate_limit_wait_strategy=api_client.ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS,
     )
     with pytest.raises(api_client.ApiRateLimitError):
-        request.fetch(
+        request.fetch_videos(
             api_client.TikTokVideoRequest(query={}, start_date=None, end_date=None),
             max_api_rate_limit_retries=num_retries,
         )
@@ -185,14 +187,14 @@ def test_tiktok_api_request_client_wait_til_next_utc_midnight_on_rate_limit_wait
     with pendulum.travel(freeze=True):
         expected_sleep_duration = (pendulum.tomorrow("UTC") - pendulum.now()).seconds
         num_retries = 5
-        request = api_client.TikTokApiVideoRequestClient.from_credentials_file(
+        request = api_client.TikTokApiRequestClient.from_credentials_file(
             FAKE_SECRETS_YAML_FILE,
             api_request_session=mock_request_session_rate_limit_error,
             access_token_fetcher_session=mock_access_token_fetcher_session,
             api_rate_limit_wait_strategy=api_client.ApiRateLimitWaitStrategy.WAIT_NEXT_UTC_MIDNIGHT,
         )
         with pytest.raises(api_client.ApiRateLimitError):
-            request.fetch(
+            request.fetch_videos(
                 api_client.TikTokVideoRequest(query={}, start_date=None, end_date=None),
                 max_api_rate_limit_retries=num_retries,
             )
@@ -254,7 +256,7 @@ def mock_tiktok_responses(testdata_api_response_json):
 @pytest.fixture
 def mock_tiktok_request_client(mock_tiktok_responses):
     mock_request_client = MagicMock(autospec=api_client.TikTokApiClient)
-    mock_request_client.fetch = Mock(side_effect=mock_tiktok_responses)
+    mock_request_client.fetch_videos = Mock(side_effect=mock_tiktok_responses)
     return mock_request_client
 
 
@@ -270,7 +272,7 @@ def basic_acquisition_config():
 
 
 @pytest.fixture
-def expected_fetch_calls(basic_acquisition_config, mock_tiktok_responses):
+def expected_fetch_video_calls(basic_acquisition_config, mock_tiktok_responses):
     return [
         call(
             api_client.TikTokVideoRequest(
@@ -307,15 +309,16 @@ def expected_fetch_calls(basic_acquisition_config, mock_tiktok_responses):
         ),
     ]
 
+
 def test_tiktok_user_info_response_as_json():
-    assert api_client.TikTokUserInfoRequest('karl').as_json() == '{"username": "karl"}'
+    assert api_client.TikTokUserInfoRequest("karl").as_json() == '{"username": "karl"}'
 
 
 def test_tiktok_api_client_api_results_iter(
     basic_acquisition_config,
     mock_tiktok_request_client,
     mock_tiktok_responses,
-    expected_fetch_calls,
+    expected_fetch_video_calls,
 ):
     client = api_client.TikTokApiClient(
         request_client=mock_tiktok_request_client, config=basic_acquisition_config
@@ -325,15 +328,15 @@ def test_tiktok_api_client_api_results_iter(
         assert response.crawl.has_more == (i < 2), f"hash_more: {response.crawl.has_more}, i: {i}"
         assert response.crawl.cursor == basic_acquisition_config.max_count * (i + 1)
 
-    assert mock_tiktok_request_client.fetch.call_count == len(mock_tiktok_responses)
-    assert mock_tiktok_request_client.fetch.mock_calls == expected_fetch_calls
+    assert mock_tiktok_request_client.fetch_videos.call_count == len(mock_tiktok_responses)
+    assert mock_tiktok_request_client.fetch_videos.mock_calls == expected_fetch_video_calls
 
 
 def test_tiktok_api_client_fetch_all(
     basic_acquisition_config,
     mock_tiktok_request_client,
     mock_tiktok_responses,
-    expected_fetch_calls,
+    expected_fetch_video_calls,
 ):
     client = api_client.TikTokApiClient(
         request_client=mock_tiktok_request_client, config=basic_acquisition_config
@@ -348,8 +351,8 @@ def test_tiktok_api_client_fetch_all(
     assert fetch_result.crawl.cursor == basic_acquisition_config.max_count * len(
         mock_tiktok_responses
     )
-    assert mock_tiktok_request_client.fetch.call_count == len(mock_tiktok_responses)
-    assert mock_tiktok_request_client.fetch.mock_calls == expected_fetch_calls
+    assert mock_tiktok_request_client.fetch_videos.call_count == len(mock_tiktok_responses)
+    assert mock_tiktok_request_client.fetch_videos.mock_calls == expected_fetch_video_calls
 
 
 def test_tiktok_api_client_fetch_all_do_not_store_after_each_response(
@@ -357,7 +360,7 @@ def test_tiktok_api_client_fetch_all_do_not_store_after_each_response(
     basic_acquisition_config,
     mock_tiktok_request_client,
     mock_tiktok_responses,
-    expected_fetch_calls,
+    expected_fetch_video_calls,
 ):
     basic_acquisition_config.engine = test_database_engine
     client = api_client.TikTokApiClient(
@@ -373,8 +376,8 @@ def test_tiktok_api_client_fetch_all_do_not_store_after_each_response(
     assert fetch_result.crawl.cursor == basic_acquisition_config.max_count * len(
         mock_tiktok_responses
     )
-    assert mock_tiktok_request_client.fetch.call_count == len(mock_tiktok_responses)
-    assert mock_tiktok_request_client.fetch.mock_calls == expected_fetch_calls
+    assert mock_tiktok_request_client.fetch_videos.call_count == len(mock_tiktok_responses)
+    assert mock_tiktok_request_client.fetch_videos.mock_calls == expected_fetch_video_calls
     # Confirm nothing put to database
     with Session(test_database_engine) as session:
         assert all_crawls(session) == []
@@ -401,7 +404,7 @@ def test_tiktok_api_client_fetch_all_store_after_each_response(
     basic_acquisition_config,
     mock_tiktok_request_client,
     mock_tiktok_responses,
-    expected_fetch_calls,
+    expected_fetch_video_calls,
 ):
     basic_acquisition_config.engine = test_database_engine
     client = api_client.TikTokApiClient(
@@ -417,8 +420,8 @@ def test_tiktok_api_client_fetch_all_store_after_each_response(
     assert fetch_result.crawl.cursor == basic_acquisition_config.max_count * len(
         mock_tiktok_responses
     )
-    assert mock_tiktok_request_client.fetch.call_count == len(mock_tiktok_responses)
-    assert mock_tiktok_request_client.fetch.mock_calls == expected_fetch_calls
+    assert mock_tiktok_request_client.fetch_videos.call_count == len(mock_tiktok_responses)
+    assert mock_tiktok_request_client.fetch_videos.mock_calls == expected_fetch_video_calls
     assert_has_expected_crawl_and_videos_in_database(
         database_engine=test_database_engine,
         fetch_result=fetch_result,
