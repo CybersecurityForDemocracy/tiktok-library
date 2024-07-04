@@ -307,6 +307,9 @@ def expected_fetch_calls(basic_acquisition_config, mock_tiktok_responses):
         ),
     ]
 
+def test_tiktok_user_info_response_as_json():
+    assert api_client.TiktokUserInfoRequest('karl').as_json() == '{"username": "karl"}'
+
 
 def test_tiktok_api_client_api_results_iter(
     basic_acquisition_config,

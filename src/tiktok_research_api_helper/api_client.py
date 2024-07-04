@@ -66,18 +66,29 @@ class TiktokCredentials:
 
 
 @attrs.define
-class TikTokVideoResponse:
+class TikTokResponse:
     data: Mapping[str, Any]
+    error: Mapping[str, Any]  # ErrorStructV2 from API
+
+
+@attrs.define
+class TikTokVideoResponse(TikTokResponse):
     videos: Sequence[Any]
-    error: Mapping[str, Any]
+
+@attrs.define
+class TikTokUserInfoResponse(TikTokResponse):
+    pass
 
 
+# TODO(macpd): rename this or handle more than videos
 @attrs.define
 class TikTokApiClientFetchResult:
     videos: Sequence[Any]
     crawl: Crawl
 
 
+# TODO(macpd): add options/toggles for user info and comments. likely options to fetch use info
+# and/or comments for videos from latest crawl
 @attrs.define
 class ApiClientConfig:
     query: Query
@@ -136,6 +147,16 @@ class TiktokVideoRequest:
         if self.cursor is not None:
             request_obj["cursor"] = self.cursor
         return json.dumps(request_obj, cls=QueryJSONEncoder, indent=indent)
+
+@attrs.define
+class TiktokUserInfoRequest:
+    """
+    A request for User Info TikTok research API.
+    """
+    username: str
+
+    def as_json(self, indent=None):
+       return json.dumps(attrs.asdict(self), indent=indent)
 
 
 def is_json_decode_error(exception):
@@ -254,7 +275,8 @@ def api_rate_limi_wait_four_hours(
 @attrs.define
 class TikTokApiRequestClient(metaclass=ABCMeta):
     """
-    A class for making authenticated requests to the TikTok API and getting a parsed response.
+    A base class for making authenticated requests to the TikTok API and getting a parsed response.
+    Subclasses of this must implement _parse_response staticmethod, and _url property.
     """
 
     _credentials: TiktokCredentials = attrs.field(
@@ -286,6 +308,16 @@ class TikTokApiRequestClient(metaclass=ABCMeta):
 
     def __attrs_post_init__(self):
         self._configure_request_sessions()
+
+    @staticmethod
+    @abstractmethod
+    def _parse_response(response: rq.Response) -> TikTokResponse:
+        pass
+
+    @property
+    @abstractmethod
+    def _url(self) -> str:
+        pass
 
     def _get_client_access_token(
         self,
@@ -369,16 +401,6 @@ class TikTokApiRequestClient(metaclass=ABCMeta):
             return self._api_request_session.send(r.request)
 
         return None
-
-    @staticmethod
-    @abstractmethod
-    def _parse_response(response: rq.Response | None) -> TikTokVideoResponse:
-        pass
-
-    @property
-    @abstractmethod
-    def _url(self) -> str:
-        pass
 
     def _store_response(self, response: rq.Response) -> None:
         if self._raw_responses_output_dir is None:

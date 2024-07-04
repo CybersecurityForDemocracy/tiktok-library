@@ -127,6 +127,7 @@ def convert_optional_cond_or_condseq_to_condseq(
     return optional_cond_or_seq
 
 
+# TODO(macpd): rename this to VideoQuery
 @attrs.define
 class Query:
     and_: OptionalCondOrCondSeq = attrs.field(
@@ -154,6 +155,7 @@ class Query:
         return formatted_operands
 
 
+# TODO(macpd): rename this to VideoQueryJSONEncoder
 class QueryJSONEncoder(json.JSONEncoder):
     def default(self, o):
         if isinstance(o, Query):
