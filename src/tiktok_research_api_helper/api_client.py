@@ -96,7 +96,7 @@ class TikTokApiClientFetchResult:
 # and/or comments for videos from latest crawl
 @attrs.define
 class ApiClientConfig:
-    query: Query
+    video_query: Query
     start_date: datetime
     end_date: datetime
     engine: Engine
@@ -131,7 +131,7 @@ class TikTokVideoRequest:
     @classmethod
     def from_config(cls, config: ApiClientConfig, **kwargs) -> TikTokVideoRequest:
         return cls(
-            query=config.query,
+            query=config.video_query,
             max_count=config.max_count,
             start_date=utils.date_to_tiktok_str_format(config.start_date),
             end_date=utils.date_to_tiktok_str_format(config.end_date),
@@ -461,14 +461,14 @@ class TikTokApiRequestClient:
         self, request: TikTokUserInfoRequest, max_api_rate_limit_retries=None
     ) -> TikTokUserInfoResponse:
         return self._fetch_retryer(max_api_rate_limit_retries=max_api_rate_limit_retries)(
-            self._fetch_videos_and_parse_response, request
+            self._fetch_user_info_and_parse_response, request
         )
 
     def fetch_comments(
         self, request: TikTokCommentsRequest, max_api_rate_limit_retries=None
     ) -> TikTokCommentsResponse:
         return self._fetch_retryer(max_api_rate_limit_retries=max_api_rate_limit_retries)(
-            self._fetch_videos_and_parse_response, request
+            self._fetch_comments_and_parse_response, request
         )
 
     def _fetch_videos_and_parse_response(self, request: TikTokVideoRequest) -> TikTokVideoResponse:
@@ -652,7 +652,7 @@ class TikTokApiClient:
         fully delivered (has_more == False)). Yielding each API response individually.
         """
         crawl = Crawl.from_query(
-            query=self._config.query,
+            query=self._config.video_query,
             crawl_tags=self._config.crawl_tags,
             # Set has_more to True since we have not yet made an API request
             has_more=True,
@@ -690,7 +690,7 @@ class TikTokApiClient:
                 logging.log(
                     logging.ERROR,
                     "No videos in response but there's still data to Crawl - Query: "
-                    f"{self._config.query} \n api_response.data: {api_response.data}",
+                    f"{self._config.video_query} \n api_response.data: {api_response.data}",
                 )
             if self._config.stop_after_one_request:
                 logging.info("Stopping after one request")

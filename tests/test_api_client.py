@@ -139,9 +139,7 @@ def test_tiktok_api_request_client_retry_once_on_json_decoder_error(
         access_token_fetcher_session=mock_access_token_fetcher_session,
     )
     with pytest.raises(json.JSONDecodeError):
-        request.fetch_videos(
-            api_client.TikTokVideoRequest(query={}, start_date=None, end_date=None)
-        )
+        request.fetch_videos(api_client.TikTokVideoRequest(query={}, start_date=None, end_date=None))
     # Confirm that code retried the post request and json extraction twice (ie retried once after
     # the decode error before the exception is re-raised)
     assert mock_request_session_json_decoder_error.post.call_count == 2
@@ -263,7 +261,7 @@ def mock_tiktok_request_client(mock_tiktok_responses):
 @pytest.fixture
 def basic_acquisition_config():
     return api_client.ApiClientConfig(
-        query=query.generate_query(include_any_hashtags="test1,test2"),
+        video_query=query.generate_query(include_any_hashtags="test1,test2"),
         start_date=pendulum.parse("20240601"),
         end_date=pendulum.parse("20240601"),
         engine=None,
@@ -276,7 +274,7 @@ def expected_fetch_video_calls(basic_acquisition_config, mock_tiktok_responses):
     return [
         call(
             api_client.TikTokVideoRequest(
-                query=basic_acquisition_config.query,
+                query=basic_acquisition_config.video_query,
                 start_date=utils.date_to_tiktok_str_format(basic_acquisition_config.start_date),
                 end_date=utils.date_to_tiktok_str_format(basic_acquisition_config.end_date),
                 max_count=basic_acquisition_config.max_count,
@@ -287,7 +285,7 @@ def expected_fetch_video_calls(basic_acquisition_config, mock_tiktok_responses):
         ),
         call(
             api_client.TikTokVideoRequest(
-                query=basic_acquisition_config.query,
+                query=basic_acquisition_config.video_query,
                 start_date=utils.date_to_tiktok_str_format(basic_acquisition_config.start_date),
                 end_date=utils.date_to_tiktok_str_format(basic_acquisition_config.end_date),
                 max_count=basic_acquisition_config.max_count,
@@ -298,7 +296,7 @@ def expected_fetch_video_calls(basic_acquisition_config, mock_tiktok_responses):
         ),
         call(
             api_client.TikTokVideoRequest(
-                query=basic_acquisition_config.query,
+                query=basic_acquisition_config.video_query,
                 start_date=utils.date_to_tiktok_str_format(basic_acquisition_config.start_date),
                 end_date=utils.date_to_tiktok_str_format(basic_acquisition_config.end_date),
                 max_count=basic_acquisition_config.max_count,
@@ -309,9 +307,8 @@ def expected_fetch_video_calls(basic_acquisition_config, mock_tiktok_responses):
         ),
     ]
 
-
 def test_tiktok_user_info_response_as_json():
-    assert api_client.TikTokUserInfoRequest("karl").as_json() == '{"username": "karl"}'
+    assert api_client.TikTokUserInfoRequest('karl').as_json() == '{"username": "karl"}'
 
 
 def test_tiktok_api_client_api_results_iter(
@@ -393,7 +390,7 @@ def assert_has_expected_crawl_and_videos_in_database(
         crawl = crawls[0]
         assert crawl.id == fetch_result.crawl.id
         assert crawl.cursor == len(tiktok_responses) * acquisition_config.max_count
-        assert crawl.query == json.dumps(acquisition_config.query, cls=query.QueryJSONEncoder)
+        assert crawl.query == json.dumps(acquisition_config.video_query, cls=query.QueryJSONEncoder)
         videos = all_videos(session)
         assert len(videos) == len(tiktok_responses) * len(tiktok_responses[0].videos)
         assert len(videos) == len(fetch_result.videos)
