@@ -4,6 +4,7 @@ import enum
 import json
 import logging
 import re
+from abc import ABCMeta, abstractmethod
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -22,6 +23,8 @@ from tiktok_research_api_helper.models import Crawl, upsert_videos
 from tiktok_research_api_helper.query import Query, QueryJSONEncoder
 
 ALL_VIDEO_DATA_URL = "https://open.tiktokapis.com/v2/research/video/query/?fields=id,video_description,create_time,region_code,share_count,view_count,like_count,comment_count,music_id,hashtag_names,username,effect_ids,voice_to_text,playlist_id"
+ALL_USER_INFO_DATA_URL = "https://open.tiktokapis.com/v2/research/user/info/?fields=display_name,bio_description,avatar_url,is_verified,follower_count,following_count,likes_count,video_count"
+ALL_COMMENT_DATA_URL = "https://open.tiktokapis.com/v2/research/video/comment/list/?fields=id,like_count,create_time,text,video_id,parent_comment_id'"
 
 SEARCH_ID_INVALID_ERROR_MESSAGE_REGEX = re.compile(r"Search Id \d+ is invalid or expired")
 
@@ -249,7 +252,7 @@ def api_rate_limi_wait_four_hours(
 # TODO(macpd): make this a base/abstract class with child classes for Video, UserInfo, and Comment
 # request types.
 @attrs.define
-class TikTokApiRequestClient:
+class TikTokApiRequestClient(metaclass=ABCMeta):
     """
     A class for making authenticated requests to the TikTok API and getting a parsed response.
     """
@@ -367,6 +370,16 @@ class TikTokApiRequestClient:
 
         return None
 
+    @staticmethod
+    @abstractmethod
+    def _parse_response(response: rq.Response | None) -> TikTokVideoResponse:
+        pass
+
+    @property
+    @abstractmethod
+    def _url(self) -> str:
+        pass
+
     def _store_response(self, response: rq.Response) -> None:
         if self._raw_responses_output_dir is None:
             raise ValueError("No output directory set")
@@ -412,7 +425,7 @@ class TikTokApiRequestClient:
     def _fetch(self, request: TiktokVideoRequest) -> TikTokVideoResponse:
         api_response = self._post(request)
         self._num_api_requests_sent += 1
-        return _parse_video_response(api_response)
+        return self._parse_response(api_response)
 
     @tenacity.retry(
         stop=tenacity.stop_after_attempt(10),
@@ -426,7 +439,7 @@ class TikTokApiRequestClient:
         data = request.as_json()
         logging.log(logging.INFO, f"Sending request with data: {data}")
 
-        response = self._api_request_session.post(url=ALL_VIDEO_DATA_URL, data=data)
+        response = self._api_request_session.post(url=self._url, data=data)
         logging.debug("%s\n%s", response, response.text)
 
         if self._raw_responses_output_dir is not None:
@@ -462,13 +475,25 @@ class TikTokApiRequestClient:
         return None
 
 
-def _parse_video_response(response: rq.Response | None) -> TikTokVideoResponse:
-    response_json = _extract_response_json(response)
-    error_data = response_json.get("error")
-    response_data_section = response_json.get("data", {})
-    videos = response_data_section.get("videos", [])
+class TikTokApiVideoRequestClient(TikTokApiRequestClient):
+    """
+    A class for making authenticated requests to the TikTok API video data endpoint and getting a
+    parsed response.
+    """
 
-    return TikTokVideoResponse(data=response_data_section, videos=videos, error=error_data)
+    @staticmethod
+    def _parse_response(response: rq.Response | None) -> TikTokVideoResponse:
+        response_json = _extract_response_json(response)
+        error_data = response_json.get("error")
+        response_data_section = response_json.get("data", {})
+        videos = response_data_section.get("videos", [])
+
+        return TikTokVideoResponse(data=response_data_section, videos=videos, error=error_data)
+
+    @property
+    def _url(self):
+        logging.debug("url: %s", ALL_VIDEO_DATA_URL)
+        return ALL_VIDEO_DATA_URL
 
 
 def _extract_response_json(response: rq.Response | None) -> Mapping[str, Any]:
@@ -477,14 +502,14 @@ def _extract_response_json(response: rq.Response | None) -> Mapping[str, Any]:
 
     try:
         return response.json()
-    except rq.exceptions.JSONDecodeError:
+    except rq.exceptions.JSONDecodeError as e:
         logging.info(
             "Error parsing JSON response:\n%s\n%s\n%s",
             response.status_code,
             "\n".join([f"{k}: {v}" for k, v in response.headers.items()]),
             response.text,
         )
-        raise
+        raise e from None
 
 
 def update_crawl_from_api_response(
@@ -516,6 +541,7 @@ def update_crawl_from_api_response(
     }
 
 
+# TODO(macpd): handle different API request types (video, user, comment, etc)
 @attrs.define
 class TikTokApiClient:
     """Provides interface for interacting with TikTok research API. Handles requests to API to
@@ -537,7 +563,7 @@ class TikTokApiClient:
             *args,
             **kwargs,
             config=config,
-            request_client=TikTokApiRequestClient.from_credentials_file(
+            request_client=TikTokApiVideoRequestClient.from_credentials_file(
                 credentials_file=config.api_credentials_file,
                 raw_responses_output_dir=config.raw_responses_output_dir,
             ),

@@ -92,16 +92,16 @@ def test_tiktok_credentials_any_value_missing_raises_value_error():
 
 def test_tiktok_api_request_client_empty_credentials_raises_value_error():
     with pytest.raises(TypeError):
-        api_client.TikTokApiRequestClient(credentials=None)
+        api_client.TikTokApiVideoRequestClient(credentials=None)
 
     with pytest.raises(TypeError):
-        api_client.TikTokApiRequestClient(credentials={})
+        api_client.TikTokApiVideoRequestClient(credentials={})
 
 
 def test_tiktok_api_request_client_from_credentials_file_factory(
     mock_request_session, mock_access_token_fetcher_session
 ):
-    request = api_client.TikTokApiRequestClient.from_credentials_file(
+    request = api_client.TikTokApiVideoRequestClient.from_credentials_file(
         FAKE_SECRETS_YAML_FILE,
         api_request_session=mock_request_session,
         access_token_fetcher_session=mock_access_token_fetcher_session,
@@ -117,7 +117,7 @@ def test_tiktok_api_request_client_attempts_token_refresh(
     mock_request_session, mock_access_token_fetcher_session
 ):
     assert "Authorization" not in mock_request_session.headers
-    api_client.TikTokApiRequestClient.from_credentials_file(
+    api_client.TikTokApiVideoRequestClient.from_credentials_file(
         FAKE_SECRETS_YAML_FILE,
         api_request_session=mock_request_session,
         access_token_fetcher_session=mock_access_token_fetcher_session,
@@ -133,7 +133,7 @@ def test_tiktok_api_request_client_retry_once_on_json_decoder_error(
     mock_request_session_json_decoder_error,
     mock_access_token_fetcher_session,
 ):
-    request = api_client.TikTokApiRequestClient.from_credentials_file(
+    request = api_client.TikTokApiVideoRequestClient.from_credentials_file(
         FAKE_SECRETS_YAML_FILE,
         api_request_session=mock_request_session_json_decoder_error,
         access_token_fetcher_session=mock_access_token_fetcher_session,
@@ -152,7 +152,7 @@ def test_tiktok_api_request_client_wait_one_hour_on_rate_limit_wait_strategy(
     mock_sleep, mock_request_session_rate_limit_error, mock_access_token_fetcher_session
 ):
     num_retries = 5
-    request = api_client.TikTokApiRequestClient.from_credentials_file(
+    request = api_client.TikTokApiVideoRequestClient.from_credentials_file(
         FAKE_SECRETS_YAML_FILE,
         api_request_session=mock_request_session_rate_limit_error,
         access_token_fetcher_session=mock_access_token_fetcher_session,
@@ -185,7 +185,7 @@ def test_tiktok_api_request_client_wait_til_next_utc_midnight_on_rate_limit_wait
     with pendulum.travel(freeze=True):
         expected_sleep_duration = (pendulum.tomorrow("UTC") - pendulum.now()).seconds
         num_retries = 5
-        request = api_client.TikTokApiRequestClient.from_credentials_file(
+        request = api_client.TikTokApiVideoRequestClient.from_credentials_file(
             FAKE_SECRETS_YAML_FILE,
             api_request_session=mock_request_session_rate_limit_error,
             access_token_fetcher_session=mock_access_token_fetcher_session,
