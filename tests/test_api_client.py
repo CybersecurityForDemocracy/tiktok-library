@@ -139,7 +139,9 @@ def test_tiktok_api_request_client_retry_once_on_json_decoder_error(
         access_token_fetcher_session=mock_access_token_fetcher_session,
     )
     with pytest.raises(json.JSONDecodeError):
-        request.fetch_videos(api_client.TikTokVideoRequest(query={}, start_date=None, end_date=None))
+        request.fetch_videos(
+            api_client.TikTokVideoRequest(query={}, start_date=None, end_date=None)
+        )
     # Confirm that code retried the post request and json extraction twice (ie retried once after
     # the decode error before the exception is re-raised)
     assert mock_request_session_json_decoder_error.post.call_count == 2
@@ -147,54 +149,56 @@ def test_tiktok_api_request_client_retry_once_on_json_decoder_error(
     mock_sleep.assert_called_once_with(0)
 
 
+@pytest.mark.parametrize("num_retries", range(1, 6))
 @unittest.mock.patch("tenacity.nap.time.sleep")
 def test_tiktok_api_request_client_wait_one_hour_on_rate_limit_wait_strategy(
-    mock_sleep, mock_request_session_rate_limit_error, mock_access_token_fetcher_session
+    mock_sleep,
+    mock_request_session_rate_limit_error,
+    mock_access_token_fetcher_session,
+    num_retries,
 ):
-    num_retries = 5
     request = api_client.TikTokApiRequestClient.from_credentials_file(
         FAKE_SECRETS_YAML_FILE,
         api_request_session=mock_request_session_rate_limit_error,
         access_token_fetcher_session=mock_access_token_fetcher_session,
         api_rate_limit_wait_strategy=api_client.ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS,
+        max_api_rate_limit_retries=num_retries,
     )
     with pytest.raises(api_client.ApiRateLimitError):
         request.fetch_videos(
             api_client.TikTokVideoRequest(query={}, start_date=None, end_date=None),
-            max_api_rate_limit_retries=num_retries,
         )
     # Confirm that code retried the post request and json extraction twice (ie retried once after
     # the decode error before the exception is re-raised)
     assert mock_request_session_rate_limit_error.post.call_count == num_retries
     assert mock_request_session_rate_limit_error.post.return_value.json.call_count == num_retries
     # Sleep will be called once less than num_retries because it is not called after last retry
-    assert mock_sleep.call_count == num_retries - 1
-    assert mock_sleep.mock_calls == [
-        call(14400.0),
-        call(14400.0),
-        call(14400.0),
-        call(14400.0),
-    ]
+    expected_call_count = num_retries - 1
+    assert mock_sleep.call_count == expected_call_count
+    assert mock_sleep.mock_calls == [call(14400.0)] * expected_call_count
 
 
+@pytest.mark.parametrize("num_retries", range(1, 6))
 @unittest.mock.patch("tenacity.nap.time.sleep")
 def test_tiktok_api_request_client_wait_til_next_utc_midnight_on_rate_limit_wait_strategy(
-    mock_sleep, mock_request_session_rate_limit_error, mock_access_token_fetcher_session
+    mock_sleep,
+    mock_request_session_rate_limit_error,
+    mock_access_token_fetcher_session,
+    num_retries,
 ):
     # Freeze time so that we can predict time til midnight
     with pendulum.travel(freeze=True):
         expected_sleep_duration = (pendulum.tomorrow("UTC") - pendulum.now()).seconds
-        num_retries = 5
         request = api_client.TikTokApiRequestClient.from_credentials_file(
             FAKE_SECRETS_YAML_FILE,
             api_request_session=mock_request_session_rate_limit_error,
             access_token_fetcher_session=mock_access_token_fetcher_session,
             api_rate_limit_wait_strategy=api_client.ApiRateLimitWaitStrategy.WAIT_NEXT_UTC_MIDNIGHT,
+            max_api_rate_limit_retries=num_retries,
         )
         with pytest.raises(api_client.ApiRateLimitError):
             request.fetch_videos(
                 api_client.TikTokVideoRequest(query={}, start_date=None, end_date=None),
-                max_api_rate_limit_retries=num_retries,
             )
         # Confirm that code retried the post request and json extraction twice (ie retried once
         # after the decode error before the exception is re-raised)
@@ -203,13 +207,9 @@ def test_tiktok_api_request_client_wait_til_next_utc_midnight_on_rate_limit_wait
             mock_request_session_rate_limit_error.post.return_value.json.call_count == num_retries
         )
         # Sleep will be called once less than num_retries because it is not called after last retry
+        expected_call_count = num_retries - 1
         assert mock_sleep.call_count == num_retries - 1
-        assert mock_sleep.mock_calls == [
-            call(expected_sleep_duration),
-            call(expected_sleep_duration),
-            call(expected_sleep_duration),
-            call(expected_sleep_duration),
-        ]
+        assert mock_sleep.mock_calls == [call(expected_sleep_duration)] * expected_call_count
 
 
 @pytest.fixture
@@ -307,8 +307,9 @@ def expected_fetch_video_calls(basic_acquisition_config, mock_tiktok_responses):
         ),
     ]
 
+
 def test_tiktok_user_info_response_as_json():
-    assert api_client.TikTokUserInfoRequest('karl').as_json() == '{"username": "karl"}'
+    assert api_client.TikTokUserInfoRequest("karl").as_json() == '{"username": "karl"}'
 
 
 def test_tiktok_api_client_api_results_iter(
@@ -390,7 +391,9 @@ def assert_has_expected_crawl_and_videos_in_database(
         crawl = crawls[0]
         assert crawl.id == fetch_result.crawl.id
         assert crawl.cursor == len(tiktok_responses) * acquisition_config.max_count
-        assert crawl.query == json.dumps(acquisition_config.video_query, cls=query.VideoQueryJSONEncoder)
+        assert crawl.query == json.dumps(
+            acquisition_config.video_query, cls=query.VideoQueryJSONEncoder
+        )
         videos = all_videos(session)
         assert len(videos) == len(tiktok_responses) * len(tiktok_responses[0].videos)
         assert len(videos) == len(fetch_result.videos)
