@@ -109,6 +109,8 @@ class ApiClientConfig:
         default=ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS,
         validator=attrs.validators.instance_of(ApiRateLimitWaitStrategy),  # type: ignore - Attrs overload
     )
+    # None indicates no limit (ie retry indefinitely)
+    max_api_rate_limit_retries: int | None = None
 
 
 @attrs.define
@@ -313,6 +315,8 @@ class TikTokApiRequestClient:
         validator=attrs.validators.instance_of(ApiRateLimitWaitStrategy),  # type: ignore - Attrs overload
     )
     _num_api_requests_sent: int = 0
+    # None indicates no limit (ie retry indefinitely)
+    _max_api_rate_limit_retries: int | None = None
 
     @classmethod
     def from_credentials_file(
@@ -425,11 +429,11 @@ class TikTokApiRequestClient:
         with output_filename.open("x") as f:
             f.write(response.text)
 
-    def _fetch_retryer(self, max_api_rate_limit_retries=None):
-        if max_api_rate_limit_retries is not None:
-            stop_strategy = tenacity.stop_after_attempt(max_api_rate_limit_retries)
-        else:
+    def _fetch_retryer(self) -> tenacity.Retrying:
+        if self._max_api_rate_limit_retries is None:
             stop_strategy = tenacity.stop_never
+        else:
+            stop_strategy = tenacity.stop_after_attempt(self._max_api_rate_limit_retries)
 
         return tenacity.Retrying(
             retry=tenacity.retry_any(
@@ -448,27 +452,14 @@ class TikTokApiRequestClient:
             reraise=True,
         )
 
-    # TODO(macpd): move max_api_rate_limit_retries to config or instance member
-    def fetch_videos(
-        self, request: TikTokVideoRequest, max_api_rate_limit_retries=None
-    ) -> TikTokVideoResponse:
-        return self._fetch_retryer(max_api_rate_limit_retries=max_api_rate_limit_retries)(
-            self._fetch_videos_and_parse_response, request
-        )
+    def fetch_videos(self, request: TikTokVideoRequest) -> TikTokVideoResponse:
+        return self._fetch_retryer()(self._fetch_videos_and_parse_response, request)
 
-    def fetch_user_info(
-        self, request: TikTokUserInfoRequest, max_api_rate_limit_retries=None
-    ) -> TikTokUserInfoResponse:
-        return self._fetch_retryer(max_api_rate_limit_retries=max_api_rate_limit_retries)(
-            self._fetch_user_info_and_parse_response, request
-        )
+    def fetch_user_info(self, request: TikTokUserInfoRequest) -> TikTokUserInfoResponse:
+        return self._fetch_retryer()(self._fetch_user_info_and_parse_response, request)
 
-    def fetch_comments(
-        self, request: TikTokCommentsRequest, max_api_rate_limit_retries=None
-    ) -> TikTokCommentsResponse:
-        return self._fetch_retryer(max_api_rate_limit_retries=max_api_rate_limit_retries)(
-            self._fetch_comments_and_parse_response, request
-        )
+    def fetch_comments(self, request: TikTokCommentsRequest) -> TikTokCommentsResponse:
+        return self._fetch_retryer()(self._fetch_comments_and_parse_response, request)
 
     def _fetch_videos_and_parse_response(self, request: TikTokVideoRequest) -> TikTokVideoResponse:
         api_response = self._post(request, ALL_VIDEO_DATA_URL)
@@ -632,7 +623,9 @@ class TikTokApiClient:
     )
 
     @classmethod
-    def from_config(cls, config: ApiClientConfig, *args, **kwargs) -> TikTokApiClient:
+    def from_config(
+        cls, config: ApiClientConfig, *args, request_client=None, **kwargs
+    ) -> TikTokApiClient:
         return cls(
             *args,
             **kwargs,
@@ -640,6 +633,7 @@ class TikTokApiClient:
             request_client=TikTokApiRequestClient.from_credentials_file(
                 credentials_file=config.api_credentials_file,
                 raw_responses_output_dir=config.raw_responses_output_dir,
+                max_api_rate_limit_retries=config.max_api_rate_limit_retries,
             ),
         )
 
