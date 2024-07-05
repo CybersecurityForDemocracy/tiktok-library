@@ -292,7 +292,6 @@ def api_rate_limi_wait_four_hours(
     return 0
 
 
-# TODO(macpd): make this a base/abstract class with child classes for Video, UserInfo, and Comment
 # request types.
 @attrs.define
 class TikTokApiRequestClient:
@@ -612,6 +611,11 @@ def update_crawl_from_api_response(
 
 
 # TODO(macpd): handle different API request types (video, user, comment, etc)
+# - remaining tasks for this TODO:
+# -- Tests for new request/response types, and fetching those
+# -- ApiConfig and cli flags to control when/how to fetch new types
+# -- actually fetch those types
+# -- Store types in DB!! (and tests for that)
 @attrs.define
 class TikTokApiClient:
     """Provides interface for interacting with TikTok research API. Handles requests to API to
