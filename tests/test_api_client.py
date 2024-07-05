@@ -1,6 +1,7 @@
 import copy
 import itertools
 import json
+import re
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, Mock, call
@@ -351,6 +352,22 @@ def test_tiktok_api_client_fetch_all(
     )
     assert mock_tiktok_request_client.fetch_videos.call_count == len(mock_tiktok_responses)
     assert mock_tiktok_request_client.fetch_videos.mock_calls == expected_fetch_video_calls
+
+
+def test_tiktok_api_client_fetch_all_rejects_positional_arg(
+    basic_acquisition_config,
+    mock_tiktok_request_client,
+):
+    client = api_client.TikTokApiClient(
+        request_client=mock_tiktok_request_client, config=basic_acquisition_config
+    )
+
+    bad_positional_arg = "bad positional arg"
+
+    with pytest.raises(
+        ValueError, match=re.escape("This function does not allow any positional arguments")
+    ):
+        client.fetch_all(bad_positional_arg)
 
 
 def test_tiktok_api_client_fetch_all_do_not_store_after_each_response(

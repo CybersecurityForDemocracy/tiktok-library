@@ -7,6 +7,7 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Annotated, Any
 
+import attrs
 import pause
 import pendulum
 import typer
@@ -68,7 +69,7 @@ def run_long_query(config: ApiClientConfig):
     Unless you have a good reason to believe otherwise, queries should default to be considered
     "long"."""
     api_client = TikTokApiClient.from_config(config)
-    api_client.fetch_and_store_all()
+    print(api_client.fetch_and_store_all())
 
 
 def driver_single_day(config: ApiClientConfig):
@@ -90,16 +91,9 @@ def main_driver(config: ApiClientConfig):
         local_end_date = start_date + days_per_iter
         local_end_date = min(local_end_date, config.end_date)
 
-        new_config = ApiClientConfig(
-            query=config.query,
+        new_config = attrs.evolve(config,
             start_date=start_date,
             end_date=local_end_date,
-            engine=config.engine,
-            stop_after_one_request=config.stop_after_one_request,
-            crawl_tags=config.crawl_tags,
-            raw_responses_output_dir=config.raw_responses_output_dir,
-            api_credentials_file=config.api_credentials_file,
-            api_rate_limit_wait_strategy=config.api_rate_limit_wait_strategy,
         )
         run_long_query(new_config)
 
@@ -139,7 +133,7 @@ def test(
     engine = get_sqlite_engine_and_create_tables(db_file)
 
     config = ApiClientConfig(
-        query=test_query,
+        video_query=test_query,
         start_date=start_date_datetime,
         end_date=end_date_datetime,
         engine=engine,
@@ -511,7 +505,7 @@ def run(
         engine = get_sqlite_engine_and_create_tables(db_file)
 
     config = ApiClientConfig(
-        query=query,
+        video_query=query,
         start_date=start_date_datetime,
         end_date=end_date_datetime,
         engine=engine,  # type: ignore - cant catch if logic above
@@ -520,6 +514,8 @@ def run(
         raw_responses_output_dir=raw_responses_output_dir,
         api_credentials_file=api_credentials_file,
         api_rate_limit_wait_strategy=rate_limit_wait_strategy,
+        # TODO(macpd): flag for this
+        fetch_user_info=True,
     )
     logging.log(logging.INFO, f"Config: {config}")
 

@@ -89,6 +89,7 @@ class TikTokCommentsResponse(TikTokResponse):
 @attrs.define
 class TikTokApiClientFetchResult:
     videos: Sequence[Any]
+    user_info: Sequence[Any] | None
     crawl: Crawl
 
 
@@ -111,6 +112,9 @@ class ApiClientConfig:
     )
     # None indicates no limit (ie retry indefinitely)
     max_api_rate_limit_retries: int | None = None
+    # TODO(macpd): should this be int limit? negative number disables, zero is no limit
+    fetch_comments: bool = False
+    fetch_user_info: bool = False
 
 
 @attrs.define
@@ -649,6 +653,8 @@ class TikTokApiClient:
         """Fetches all results from API (ie requests until API indicates query results have been
         fully delivered (has_more == False)). Yielding each API response individually.
         """
+        seen_usernames = set()
+        fetched_usernames = set()
         crawl = Crawl.from_query(
             query=self._config.video_query,
             crawl_tags=self._config.crawl_tags,
@@ -682,7 +688,28 @@ class TikTokApiClient:
                 num_videos_requested=self._config.max_count,
             )
 
-            yield TikTokApiClientFetchResult(videos=api_response.videos, crawl=crawl)
+
+            user_info_responses = []
+            if self._config.fetch_user_info
+                for video in api_response.videos:
+                    seen_usernames.add(video.get("username"))
+                unfetched_usernames = seen_usernames.difference(fetched_usernames)
+                logging.debug('Seen usernames: %s\nfetched_usernames: %s\n unfetch usernames: %s',
+                              seen_usernames, fetched_usernames, unfetched_usernames)
+                if unfetched_usernames:
+                    logging.debug("Fetching user info")
+                    # TODO(macpd): handle fetch errors, maybe move this to helper method
+                    user_info_responses = [
+                        self._request_client.fetch_user_info(TikTokUserInfoRequest(username))
+                        for username in unfetched_usernames
+                    ]
+                    (fetched_usernames.add(username) for username in unfetched_usernames)
+
+            yield TikTokApiClientFetchResult(
+                videos=api_response.videos,
+                user_info=[response.user_info for response in user_info_responses],
+                crawl=crawl,
+            )
 
             if not api_response.videos and crawl.has_more:
                 logging.log(
@@ -701,7 +728,7 @@ class TikTokApiClient:
         )
 
     def fetch_all(
-        self, *, store_results_after_each_response: bool = False
+        self, *args, store_results_after_each_response: bool = False
     ) -> TikTokApiClientFetchResult:
         """Fetches all results from API (ie sends requests until API indicates query results have
         been fully delivered (has_more == False))
@@ -711,14 +738,18 @@ class TikTokApiClient:
             store api results in database after each response is received (and before requesting
             next page of results).
         """
+        if args:
+            raise ValueError("This function does not allow any positional arguments")
         video_data = []
+        user_info = []
         for api_response in self.api_results_iter():
             video_data.extend(api_response.videos)
+            user_info.extend(api_response.user_info)
             if store_results_after_each_response and video_data:
                 self.store_fetch_result(api_response)
 
         logging.debug("fetch_all video results:\n%s", video_data)
-        return TikTokApiClientFetchResult(videos=video_data, crawl=api_response.crawl)
+        return TikTokApiClientFetchResult(videos=video_data, user_info=user_info, crawl=api_response.crawl)
 
     def store_fetch_result(self, fetch_result: TikTokApiClientFetchResult):
         """Stores API results to database."""

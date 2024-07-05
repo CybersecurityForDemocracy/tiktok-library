@@ -202,6 +202,7 @@ class Video(Base):
         return {effect.effect_id for effect in self.effects}
 
 
+# TODO(macpd): should we track crawl_id <-> User many-to-many relationship?
 class User(Base):
     __tablename__ = "user"
 
@@ -217,6 +218,7 @@ class User(Base):
     following_count: Mapped[int]
 
 
+# TODO(macpd): should we track crawl_id <-> Comment many-to-many relationship?
 class Comment(Base):
     __tablename__ = "comment"
 
