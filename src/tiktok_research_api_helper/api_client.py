@@ -23,7 +23,7 @@ from tiktok_research_api_helper.query import VideoQuery, VideoQueryJSONEncoder
 
 ALL_VIDEO_DATA_URL = "https://open.tiktokapis.com/v2/research/video/query/?fields=id,video_description,create_time,region_code,share_count,view_count,like_count,comment_count,music_id,hashtag_names,username,effect_ids,voice_to_text,playlist_id"
 ALL_USER_INFO_DATA_URL = "https://open.tiktokapis.com/v2/research/user/info/?fields=display_name,bio_description,avatar_url,is_verified,follower_count,following_count,likes_count,video_count"
-ALL_COMMENT_DATA_URL = "https://open.tiktokapis.com/v2/research/video/comment/list/?fields=id,like_count,create_time,text,video_id,parent_comment_id'"
+ALL_COMMENT_DATA_URL = "https://open.tiktokapis.com/v2/research/video/comment/list/?fields=id,like_count,create_time,text,video_id,parent_comment_id"
 
 SEARCH_ID_INVALID_ERROR_MESSAGE_REGEX = re.compile(r"Search Id \d+ is invalid or expired")
 
