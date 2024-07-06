@@ -314,6 +314,20 @@ def _get_effect_id_to_effect_object_map(
     return effect_id_to_effect
 
 
+def upsert_user_info(user_info_sequence: Sequence[Mapping[str, str | int]], engine: Engine):
+    with Session(engine) as session:
+        for user_info in user_info_sequence:
+            new_user = UserInfo(**user_info)
+            session.merge(new_user)
+
+
+def upsert_comments(comments: Sequence[Mapping[str, str | int]], engine: Engine):
+    with Session(engine) as session:
+        for comment in comments:
+            new_comment = Comment(**comment)
+            session.merge(new_comment)
+
+
 def upsert_videos(
     video_data: Sequence[dict[str, Any]],
     crawl_id: int,
