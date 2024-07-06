@@ -203,8 +203,8 @@ class Video(Base):
 
 
 # TODO(macpd): should we track crawl_id <-> User many-to-many relationship?
-class User(Base):
-    __tablename__ = "user"
+class UserInfo(Base):
+    __tablename__ = "user_info"
 
     # TODO(macpd): maybe declare relationship to video.username
     username: Mapped[str] = mapped_column(primary_key=True)
