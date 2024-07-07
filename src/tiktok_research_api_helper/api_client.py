@@ -34,6 +34,8 @@ SEARCH_ID_INVALID_ERROR_MESSAGE_REGEX = re.compile(r"Search Id \d+ is invalid or
 
 INVALID_SEARCH_ID_ERROR_RETRY_WAIT = 5
 INVALID_SEARCH_ID_ERROR_MAX_NUM_RETRIES = 5
+# TikTok research API only allows fetching top 1000 comments. https://developers.tiktok.com/doc/research-api-specs-query-video-comments
+MAX_COMMENTS_CURSOR = 999
 
 
 class ApiRateLimitError(Exception):
@@ -699,19 +701,20 @@ class TikTokApiClient:
                 num_videos_requested=self._config.max_count,
             )
 
-            user_info_responses = None
             user_info = None
             if self._config.fetch_user_info:
                 user_info_responses = self._fetch_user_info(api_response)
                 if user_info_responses:
                     user_info = [response.user_info for response in user_info_responses]
 
-            comments_responses = None
             comments = None
             if self._config.fetch_comments:
                 comments_responses = self._fetch_comments(api_response)
                 if comments_responses:
-                    comments = [response.comments for response in comments_responses]
+                    # Flatten list of comments from list of responses
+                    comments = [
+                        comment for response in comments_responses for comment in response.comments
+                    ]
 
             yield TikTokApiClientFetchResult(
                 videos=api_response.videos,
@@ -746,7 +749,6 @@ class TikTokApiClient:
         if unfetched_usernames:
             logging.debug("Fetching user info for usernames %s", unfetched_usernames)
             # TODO(macpd): handle fetch errors, maybe move this to helper method
-            # TODO(macpd): add/map username to userinfo
             for username in unfetched_usernames:
                 user_info_responses.append(
                     self._request_client.fetch_user_info(TikTokUserInfoRequest(username))
@@ -754,6 +756,7 @@ class TikTokApiClient:
             self._fetched_usernames.update(unfetched_usernames)
         return user_info_responses
 
+    # TODO(macpd): handle pagination
     def _fetch_comments(
         self, api_response: TikTokVideoResponse
     ) -> Sequence[TikTokCommentsResponse]:
@@ -764,12 +767,28 @@ class TikTokApiClient:
         if unfetched_video_id_comments:
             logging.debug("Fetching comments for video IDs: %s", unfetched_video_id_comments)
             for video_id in unfetched_video_id_comments:
-                comment_response = self._request_client.fetch_comments(
-                    TikTokCommentsRequest(video_id)
-                )
-                # Only add response if video has comments
-                if comment_response.comment:
-                    comment_responses.append(comment_response)
+                has_more = True
+                cursor = None
+                while has_more:
+                    comment_response = self._request_client.fetch_comments(
+                        TikTokCommentsRequest(video_id=video_id, cursor=cursor)
+                    )
+                    # Only add response if video has comments
+                    if comment_response.comments:
+                        comment_responses.append(comment_response)
+
+                    has_more = comment_response.data.get("has_more", False)
+                    cursor = comment_response.data.get("cursor")
+                    if cursor > MAX_COMMENTS_CURSOR:
+                        logging.debug(
+                            "Stopping comments fetch for video ID %s because cursor %s excceds maximum API allows (%s)",
+                            video_id,
+                            cursor,
+                            MAX_COMMENTS_CURSOR,
+                        )
+                        has_more = False
+                    if self._config.stop_after_one_request:
+                        has_more = False
             self._video_ids_comments_fetched.update(unfetched_video_id_comments)
         return comment_responses
 
