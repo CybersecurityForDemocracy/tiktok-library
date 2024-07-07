@@ -549,7 +549,7 @@ def _parse_video_response(response: rq.Response) -> TikTokVideoResponse:
 def _parse_user_info_response(response: rq.Response) -> TikTokUserInfoResponse:
     response_json = _extract_response_json_or_raise_error(response)
     error_data = response_json.get("error")
-    response_data_section = response_json.get("data", {})
+    response_data_section = response_json.get("data")
 
     return TikTokUserInfoResponse(
         user_info=response_data_section, data=response_data_section, error=error_data
@@ -560,7 +560,7 @@ def _parse_comments_response(response: rq.Response) -> TikTokCommentsResponse:
     response_json = _extract_response_json_or_raise_error(response)
     error_data = response_json.get("error")
     response_data_section = response_json.get("data", {})
-    comments = response_data_section.get("comments", [])
+    comments = response_data_section.get("comments")
 
     return TikTokCommentsResponse(comments=comments, data=response_data_section, error=error_data)
 
@@ -764,9 +764,10 @@ class TikTokApiClient:
         if unfetched_video_id_comments:
             logging.debug("Fetching comments for video IDs: %s", unfetched_video_id_comments)
             for video_id in unfetched_video_id_comments:
-                comment_responses.append(
-                    self._request_client.fetch_comments(TikTokCommentsRequest(video_id))
-                )
+                comment_response = self._request_client.fetch_comments(TikTokCommentsRequest(video_id))
+                # Only add response if video has comments
+                if comment_response.comment:
+                    comment_responses.append(comment_response)
             self._video_ids_comments_fetched.update(unfetched_video_id_comments)
         return comment_responses
 
