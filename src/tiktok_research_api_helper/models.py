@@ -229,8 +229,8 @@ class Comment(Base):
     # TODO(macpd): maybe declare relationship to video.id
     video_id: Mapped[int]
     parent_comment_id: Mapped[int]
-    like_count: Mapped[int]
-    reply_count: Mapped[int]
+    like_count: Mapped[int] = mapped_column(nullable=True)
+    reply_count: Mapped[int] = mapped_column(nullable=True)
     create_time: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=False))
 
 
@@ -324,8 +324,9 @@ def upsert_user_info(user_info_sequence: Sequence[Mapping[str, str | int]], engi
 def upsert_comments(comments: Sequence[Mapping[str, str | int]], engine: Engine):
     with Session(engine) as session:
         for comment in comments:
-            new_comment = Comment(**comment)
-            session.merge(new_comment)
+            comment_copy = copy.deepcopy(comment)
+            comment_copy['create_time'] = datetime.datetime.fromtimestamp(comment_copy['create_time'])
+            session.merge(Comment(**comment_copy))
 
 
 def upsert_videos(
