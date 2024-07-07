@@ -516,6 +516,8 @@ def run(
         api_rate_limit_wait_strategy=rate_limit_wait_strategy,
         # TODO(macpd): flag for this
         fetch_user_info=True,
+        # TODO(macpd): flag for this
+        fetch_comments=True,
     )
     logging.log(logging.INFO, f"Config: {config}")
 
