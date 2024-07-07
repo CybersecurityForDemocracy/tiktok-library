@@ -91,7 +91,8 @@ def main_driver(config: ApiClientConfig):
         local_end_date = start_date + days_per_iter
         local_end_date = min(local_end_date, config.end_date)
 
-        new_config = attrs.evolve(config,
+        new_config = attrs.evolve(
+            config,
             start_date=start_date,
             end_date=local_end_date,
         )

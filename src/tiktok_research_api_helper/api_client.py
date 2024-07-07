@@ -764,7 +764,9 @@ class TikTokApiClient:
         if unfetched_video_id_comments:
             logging.debug("Fetching comments for video IDs: %s", unfetched_video_id_comments)
             for video_id in unfetched_video_id_comments:
-                comment_response = self._request_client.fetch_comments(TikTokCommentsRequest(video_id))
+                comment_response = self._request_client.fetch_comments(
+                    TikTokCommentsRequest(video_id)
+                )
                 # Only add response if video has comments
                 if comment_response.comment:
                     comment_responses.append(comment_response)
