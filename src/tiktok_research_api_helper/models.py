@@ -319,14 +319,18 @@ def upsert_user_info(user_info_sequence: Sequence[Mapping[str, str | int]], engi
         for user_info in user_info_sequence:
             new_user = UserInfo(**user_info)
             session.merge(new_user)
+        session.commit()
 
 
 def upsert_comments(comments: Sequence[Mapping[str, str | int]], engine: Engine):
     with Session(engine) as session:
         for comment in comments:
             comment_copy = copy.deepcopy(comment)
-            comment_copy['create_time'] = datetime.datetime.fromtimestamp(comment_copy['create_time'])
+            comment_copy["create_time"] = datetime.datetime.fromtimestamp(
+                comment_copy["create_time"]
+            )
             session.merge(Comment(**comment_copy))
+        session.commit()
 
 
 def upsert_videos(
