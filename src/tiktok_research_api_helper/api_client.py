@@ -197,6 +197,9 @@ class TikTokCommentsRequest:
         return json.dumps(attrs.asdict(self), indent=indent)
 
 
+def response_is_ok(tiktok_response: TikTokResponse) -> bool:
+    return tiktok_response.error.get("code") == "ok"
+
 def is_json_decode_error(exception):
     return isinstance(exception, rq.exceptions.JSONDecodeError | json.JSONDecodeError)
 
@@ -548,6 +551,7 @@ def _parse_video_response(response: rq.Response) -> TikTokVideoResponse:
     return TikTokVideoResponse(data=response_data_section, videos=videos, error=error_data)
 
 
+# TODO(macpd): handle error, response with no data, response for non-existent user, etc
 def _parse_user_info_response(response: rq.Response) -> TikTokUserInfoResponse:
     response_json = _extract_response_json_or_raise_error(response)
     error_data = response_json.get("error")
@@ -558,6 +562,7 @@ def _parse_user_info_response(response: rq.Response) -> TikTokUserInfoResponse:
     )
 
 
+# TODO(macpd): handle error, response with no data, response for non-existent video id, etc
 def _parse_comments_response(response: rq.Response) -> TikTokCommentsResponse:
     response_json = _extract_response_json_or_raise_error(response)
     error_data = response_json.get("error")
@@ -573,14 +578,15 @@ def _extract_response_json_or_raise_error(response: rq.Response | None) -> Mappi
 
     try:
         return response.json()
-    except rq.exceptions.JSONDecodeError as e:
+    except rq.exceptions.JSONDecodeError:
         logging.info(
-            "Error parsing JSON response:\n%s\n%s\n%s",
+            "Error parsing JSON response:\n%s\n%s\n%s\n%s",
+            response.url,
             response.status_code,
             "\n".join([f"{k}: {v}" for k, v in response.headers.items()]),
             response.text,
         )
-        raise e from None
+        raise
 
 
 def update_crawl_from_api_response(
@@ -703,13 +709,13 @@ class TikTokApiClient:
 
             user_info = None
             if self._config.fetch_user_info:
-                user_info_responses = self._fetch_user_info(api_response)
+                user_info_responses = self._fetch_user_info_for_videos_in_response(api_response)
                 if user_info_responses:
                     user_info = [response.user_info for response in user_info_responses]
 
             comments = None
             if self._config.fetch_comments:
-                comments_responses = self._fetch_comments(api_response)
+                comments_responses = self._fetch_comments_for_videos_in_response(api_response)
                 if comments_responses:
                     # Flatten list of comments from list of responses
                     comments = [
@@ -739,58 +745,78 @@ class TikTokApiClient:
             self.expected_remaining_api_request_quota,
         )
 
-    def _fetch_user_info(
-        self, api_response: TikTokVideoResponse
+    def _fetch_user_info_for_videos_in_response(
+        self, api_video_response: TikTokVideoResponse
     ) -> Sequence[TikTokUserInfoResponse]:
         user_info_responses = []
         unfetched_usernames = get_unfetched_attribute_identifiers_from_api_video_response(
-            api_response, "username", self._fetched_usernames
+            api_video_response, "username", self._fetched_usernames
         )
         if unfetched_usernames:
             logging.debug("Fetching user info for usernames %s", unfetched_usernames)
-            # TODO(macpd): handle fetch errors, maybe move this to helper method
             for username in unfetched_usernames:
-                user_info_responses.append(
-                    self._request_client.fetch_user_info(TikTokUserInfoRequest(username))
-                )
+                user_info_response = self._request_client.fetch_user_info(TikTokUserInfoRequest(username))
+                if response_is_ok(user_info_response.error):
+                    user_info_responses.append(user_info_response)
+                else:
+                    logging.warning("Error fetchng user info for %s: %s", username,
+                                    user_info_response)
             self._fetched_usernames.update(unfetched_usernames)
         return user_info_responses
 
     # TODO(macpd): handle pagination
-    def _fetch_comments(
-        self, api_response: TikTokVideoResponse
+    def _fetch_comments_for_videos_in_response(
+        self, api_video_response: TikTokVideoResponse
     ) -> Sequence[TikTokCommentsResponse]:
         comment_responses = []
         unfetched_video_id_comments = get_unfetched_attribute_identifiers_from_api_video_response(
-            api_response, "id", self._video_ids_comments_fetched
+            api_video_response, "id", self._video_ids_comments_fetched
         )
         if unfetched_video_id_comments:
             logging.debug("Fetching comments for video IDs: %s", unfetched_video_id_comments)
             for video_id in unfetched_video_id_comments:
-                has_more = True
-                cursor = None
-                while has_more:
-                    comment_response = self._request_client.fetch_comments(
-                        TikTokCommentsRequest(video_id=video_id, cursor=cursor)
-                    )
-                    # Only add response if video has comments
-                    if comment_response.comments:
-                        comment_responses.append(comment_response)
+                comment_responses.extend(self._fetch_video_comments(video_id))
 
-                    has_more = comment_response.data.get("has_more", False)
-                    cursor = comment_response.data.get("cursor")
-                    if cursor > MAX_COMMENTS_CURSOR:
-                        logging.debug(
-                            "Stopping comments fetch for video ID %s because cursor %s excceds maximum API allows (%s)",
-                            video_id,
-                            cursor,
-                            MAX_COMMENTS_CURSOR,
-                        )
-                        has_more = False
-                    if self._config.stop_after_one_request:
-                        has_more = False
-            self._video_ids_comments_fetched.update(unfetched_video_id_comments)
+                if self._config.stop_after_one_request:
+                    break
+
         return comment_responses
+
+    def _fetch_video_comments(self, video_id: int | str) -> Sequence[TikTokCommentsResponse]:
+        comment_responses = []
+        has_more = True
+        cursor = None
+        while has_more:
+            response = self._request_client.fetch_comments(
+                TikTokCommentsRequest(video_id=video_id, cursor=cursor)
+            )
+            if not response_is_ok(response):
+                logging.warning("Error fetchng comments for video id %s: %s", video_id, response)
+                break
+
+            # Only add response if video has comments
+            if response.comments:
+                comment_responses.append(response)
+
+            has_more = response.data.get("has_more", False)
+            cursor = response.data.get("cursor")
+
+            if cursor > MAX_COMMENTS_CURSOR:
+                logging.debug(
+                    "Stopping comments fetch for video ID %s because cursor %s excceds "
+                    "maximum API allows (%s)",
+                    video_id,
+                    cursor,
+                    MAX_COMMENTS_CURSOR,
+                )
+                has_more = False
+
+            if self._config.stop_after_one_request:
+                has_more = False
+
+        self._video_ids_comments_fetched.add(video_id)
+        return comment_responses
+
 
     def fetch_all(
         self, *args, store_results_after_each_response: bool = False
