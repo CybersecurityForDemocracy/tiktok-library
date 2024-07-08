@@ -30,6 +30,8 @@ from tiktok_research_api_helper.cli.custom_argument_types import (
     ExcludeAnyHashtagListType,
     ExcludeAnyKeywordListType,
     ExcludeUsernamesListType,
+    FetchCommentsFlag,
+    FetchUserInfoFlag,
     IncludeAllHashtagListType,
     IncludeAllKeywordListType,
     IncludeAnyHashtagListType,
@@ -69,7 +71,7 @@ def run_long_query(config: ApiClientConfig):
     Unless you have a good reason to believe otherwise, queries should default to be considered
     "long"."""
     api_client = TikTokApiClient.from_config(config)
-    print(api_client.fetch_and_store_all())
+    api_client.fetch_and_store_all()
 
 
 def driver_single_day(config: ApiClientConfig):
@@ -311,6 +313,8 @@ def run_repeated(
     exclude_all_keywords: ExcludeAllKeywordListType | None = None,
     only_from_usernames: OnlyUsernamesListType | None = None,
     exclude_from_usernames: ExcludeUsernamesListType | None = None,
+    fetch_user_info: FetchUserInfoFlag | None = None,
+    fetch_comments: FetchCommentsFlag | None = None,
     debug: EnableDebugLoggingFlag = False,
 ) -> None:
     """
@@ -358,6 +362,8 @@ def run_repeated(
             exclude_all_keywords=exclude_all_keywords,
             only_from_usernames=only_from_usernames,
             exclude_from_usernames=exclude_from_usernames,
+            fetch_user_info=fetch_user_info,
+            fetch_comments=fetch_comments,
             debug=debug,
             # Do not setup logging again so that we keep the current log file.
             init_logging=False,
@@ -402,6 +408,8 @@ def run(
     exclude_all_keywords: ExcludeAllKeywordListType | None = None,
     only_from_usernames: OnlyUsernamesListType | None = None,
     exclude_from_usernames: ExcludeUsernamesListType | None = None,
+    fetch_user_info: FetchUserInfoFlag | None = None,
+    fetch_comments: FetchCommentsFlag | None = None,
     debug: EnableDebugLoggingFlag = False,
     # Skips logging init/setup. Hidden because this is intended for other commands that setup
     # logging and then call this as a function.
@@ -515,10 +523,8 @@ def run(
         raw_responses_output_dir=raw_responses_output_dir,
         api_credentials_file=api_credentials_file,
         api_rate_limit_wait_strategy=rate_limit_wait_strategy,
-        # TODO(macpd): flag for this
-        fetch_user_info=True,
-        # TODO(macpd): flag for this
-        fetch_comments=True,
+        fetch_user_info=fetch_user_info,
+        fetch_comments=fetch_comments,
     )
     logging.log(logging.INFO, f"Config: {config}")
 

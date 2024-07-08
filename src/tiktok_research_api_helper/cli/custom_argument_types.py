@@ -196,3 +196,16 @@ StopAfterOneRequestFlag = Annotated[
 ]
 
 EnableDebugLoggingFlag = Annotated[bool, typer.Option(help="Enable debug level logging")]
+
+FetchUserInfoFlag = Annotated[
+    bool, typer.Option(help="Fetch user info of video owners/creators returned from query.")
+]
+FetchCommentsFlag = Annotated[
+    bool,
+    typer.Option(
+        help=(
+            "Fetch comments for videos returned from query.  WARNING: This can greatly increase "
+            "API quota consumption!  NOTE: research API will only provide the top 1000 comments."
+        ),
+    ),
+]
