@@ -758,6 +758,7 @@ class TikTokApiClient:
             self.expected_remaining_api_request_quota,
         )
 
+    # TODO(macpd): handle _max_requests_reached
     def _fetch_user_info_for_videos_in_response(
         self, api_video_response: TikTokVideoResponse
     ) -> Sequence[TikTokUserInfoResponse]:
@@ -780,7 +781,7 @@ class TikTokApiClient:
             self._fetched_usernames.update(unfetched_usernames)
         return user_info_responses
 
-    # TODO(macpd): handle pagination
+    # TODO(macpd): handle _max_requests_reached
     def _fetch_comments_for_videos_in_response(
         self, api_video_response: TikTokVideoResponse
     ) -> Sequence[TikTokCommentsResponse]:
@@ -798,6 +799,7 @@ class TikTokApiClient:
 
         return comment_responses
 
+    # TODO(macpd): handle _max_requests_reached
     def _fetch_video_comments(self, video_id: int | str) -> Sequence[TikTokCommentsResponse]:
         comment_responses = []
         has_more = True
