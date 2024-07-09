@@ -332,14 +332,6 @@ class TikTokApiRequestClient:
 
         return access_data["access_token"]
 
-    @_access_token_fetcher_session.default  # type: ignore - Attrs overload
-    def _default_access_token_fetcher_session(self):
-        return rq.Session()
-
-    @_api_request_session.default  # type: ignore - Attrs overload
-    def _make_session(self):
-        return rq.Session()
-
     @property
     def num_api_requests_sent(self):
         return self._num_api_requests_sent
