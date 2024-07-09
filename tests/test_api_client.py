@@ -494,4 +494,4 @@ def test_tiktok_api_client_api_results_iter_stops_after_max_requests_exceeded(
     assert fetch_result.crawl.has_more == (max_requests < len(mock_tiktok_responses))
     assert fetch_result.crawl.cursor == basic_acquisition_config.max_count * max_requests
     assert mock_tiktok_request_client.fetch.call_count == max_requests
-    assert  mock_tiktok_request_client.fetch.mock_calls == expected_fetch_calls[:max_requests]
+    assert mock_tiktok_request_client.fetch.mock_calls == expected_fetch_calls[:max_requests]
