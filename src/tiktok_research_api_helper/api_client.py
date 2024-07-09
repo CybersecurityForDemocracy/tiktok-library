@@ -336,12 +336,10 @@ class TikTokApiRequestClient:
         alias="credentials",
     )
     _access_token_fetcher_session: rq.Session = attrs.field(
-        kw_only=True,
-        converter=attrs.converters.default_if_none(rq.Session)
+        kw_only=True, converter=attrs.converters.default_if_none(rq.Session)
     )
     _api_request_session: rq.Session = attrs.field(
-        kw_only=True,
-        converter=attrs.converters.default_if_none(rq.Session)
+        kw_only=True, converter=attrs.converters.default_if_none(rq.Session)
     )
     _raw_responses_output_dir: Path | None = None
     _api_rate_limit_wait_strategy: ApiRateLimitWaitStrategy = attrs.field(
