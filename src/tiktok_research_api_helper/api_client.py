@@ -612,7 +612,9 @@ class TikTokApiClient:
         )
 
     def _max_requests_reached(self) -> bool:
-        return self._config.max_requests and self.num_api_requests_sent >= self._config.max_requests
+        if self._config.max_requests is None:
+            return False
+        return self.num_api_requests_sent >= self._config.max_requests
 
     def _should_continue(self, crawl: Crawl) -> bool:
         should_continue = crawl.has_more and not self._max_requests_reached()
