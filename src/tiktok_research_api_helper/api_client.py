@@ -604,8 +604,8 @@ class TikTokApiClient:
                 break
 
         logging.info(
-            "Crawl completed (or reached configured max_requests: %s). Num api requests: %s. Expected "
-            "remaining API request quota: %s",
+            "Crawl completed (or reached configured max_requests: %s). Num api requests: %s. "
+            "Expected remaining API request quota: %s",
             self._config.max_requests,
             self.num_api_requests_sent,
             self.expected_remaining_api_request_quota,
