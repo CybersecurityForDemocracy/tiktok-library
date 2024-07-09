@@ -165,19 +165,7 @@ class TikTokVideoRequest:
         )
 
     def as_json(self, indent=None):
-        request_obj = {
-            "query": self.query,
-            "max_count": self.max_count,
-            "start_date": self.start_date,
-            "end_date": self.end_date,
-            "is_random": self.is_random,
-        }
-        if self.search_id is not None:
-            request_obj["search_id"] = self.search_id
-
-        if self.cursor is not None:
-            request_obj["cursor"] = self.cursor
-        return json.dumps(request_obj, cls=VideoQueryJSONEncoder, indent=indent)
+        return json.dumps(attrs.asdict(self), cls=VideoQueryJSONEncoder, indent=indent)
 
 
 @attrs.define
