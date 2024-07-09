@@ -37,6 +37,8 @@ INVALID_SEARCH_ID_ERROR_MAX_NUM_RETRIES = 5
 # TikTok research API only allows fetching top 1000 comments. https://developers.tiktok.com/doc/research-api-specs-query-video-comments
 MAX_COMMENTS_CURSOR = 999
 
+DAILY_API_REQUEST_QUOTA = 1000
+
 
 class ApiRateLimitError(Exception):
     pass
@@ -119,6 +121,14 @@ class ApiClientConfig:
         default=ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS,
         validator=attrs.validators.instance_of(ApiRateLimitWaitStrategy),  # type: ignore - Attrs overload
     )
+    # Limit on number of API requests. None is no limit. Otherwise client will stop, regardless of
+    # whether API indicates has_more, if it has made this many requests.
+    max_requests: int | None = attrs.field(
+        default=None,
+        validator=attrs.validators.optional(
+            [attrs.validators.instance_of(int), attrs.validators.gt(0)]
+        ),
+    )
     # None indicates no limit (ie retry indefinitely)
     max_api_rate_limit_retries: int | None = None
     # TODO(macpd): should this be int limit? negative number disables, zero is no limit
@@ -199,6 +209,7 @@ class TikTokCommentsRequest:
 
 def response_is_ok(tiktok_response: TikTokResponse) -> bool:
     return tiktok_response.error.get("code") == "ok"
+
 
 def is_json_decode_error(exception):
     return isinstance(exception, rq.exceptions.JSONDecodeError | json.JSONDecodeError)
@@ -668,7 +679,7 @@ class TikTokApiClient:
 
     @property
     def expected_remaining_api_request_quota(self):
-        return 1000 - self.num_api_requests_sent
+        return DAILY_API_REQUEST_QUOTA - self.num_api_requests_sent
 
     def api_results_iter(self) -> TikTokApiClientFetchResult:
         """Fetches all results from API (ie requests until API indicates query results have been
@@ -683,7 +694,7 @@ class TikTokApiClient:
         logging.debug("Crawl: %s", crawl)
 
         logging.info("Beginning API results fetch.")
-        while crawl.has_more:
+        while self._should_continue(crawl):
             request = TikTokVideoRequest.from_config(
                 config=self._config,
                 cursor=crawl.cursor,
@@ -740,7 +751,9 @@ class TikTokApiClient:
                 break
 
         logging.info(
-            "Crawl completed. Num api requests: %s. Expected remaining API request quota: %s",
+            "Crawl completed (or reached configured max_requests: %s). Num api requests: %s. "
+            "Expected remaining API request quota: %s",
+            self._config.max_requests,
             self.num_api_requests_sent,
             self.expected_remaining_api_request_quota,
         )
@@ -755,12 +768,15 @@ class TikTokApiClient:
         if unfetched_usernames:
             logging.debug("Fetching user info for usernames %s", unfetched_usernames)
             for username in unfetched_usernames:
-                user_info_response = self._request_client.fetch_user_info(TikTokUserInfoRequest(username))
+                user_info_response = self._request_client.fetch_user_info(
+                    TikTokUserInfoRequest(username)
+                )
                 if response_is_ok(user_info_response.error):
                     user_info_responses.append(user_info_response)
                 else:
-                    logging.warning("Error fetchng user info for %s: %s", username,
-                                    user_info_response)
+                    logging.warning(
+                        "Error fetchng user info for %s: %s", username, user_info_response
+                    )
             self._fetched_usernames.update(unfetched_usernames)
         return user_info_responses
 
@@ -817,6 +833,25 @@ class TikTokApiClient:
         self._video_ids_comments_fetched.add(video_id)
         return comment_responses
 
+    def _max_requests_reached(self) -> bool:
+        if self._config.max_requests is None:
+            return False
+        return self.num_api_requests_sent >= self._config.max_requests
+
+    def _should_continue(self, crawl: Crawl) -> bool:
+        should_continue = crawl.has_more and not self._max_requests_reached()
+        logging.debug(
+            "crawl.has_more: %s, max_requests_reached: %s, should_continue: %s",
+            crawl.has_more,
+            self._max_requests_reached(),
+            should_continue,
+        )
+        if crawl.has_more and self._max_requests_reached():
+            logging.info(
+                "Max requests reached. Will discontinue this crawl even though API response "
+                "indicates more results."
+            )
+        return should_continue
 
     def fetch_all(
         self, *args, store_results_after_each_response: bool = False
