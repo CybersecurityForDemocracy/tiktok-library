@@ -267,8 +267,12 @@ class TikTokApiRequestClient:
         # Attrs removes underscores from field names but the static type checker doesn't know that
         alias="credentials",
     )
-    _access_token_fetcher_session: rq.Session = attrs.field()
-    _api_request_session: rq.Session = attrs.field()
+    _access_token_fetcher_session: rq.Session = attrs.field(
+        default=None, kw_only=True, converter=attrs.converters.default_if_none(factory=rq.Session)
+    )
+    _api_request_session: rq.Session = attrs.field(
+        default=None, kw_only=True, converter=attrs.converters.default_if_none(factory=rq.Session)
+    )
     _raw_responses_output_dir: Path | None = None
     _api_rate_limit_wait_strategy: ApiRateLimitWaitStrategy = attrs.field(
         default=ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS,
@@ -327,14 +331,6 @@ class TikTokApiRequestClient:
         logging.debug("Access token response: %s", access_data)
 
         return access_data["access_token"]
-
-    @_access_token_fetcher_session.default  # type: ignore - Attrs overload
-    def _default_access_token_fetcher_session(self):
-        return rq.Session()
-
-    @_api_request_session.default  # type: ignore - Attrs overload
-    def _make_session(self):
-        return rq.Session()
 
     @property
     def num_api_requests_sent(self):
