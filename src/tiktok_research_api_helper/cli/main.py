@@ -21,6 +21,7 @@ from tiktok_research_api_helper.cli.custom_argument_types import (
     ApiCredentialsFileType,
     ApiRateLimitWaitStrategyType,
     CrawlTagType,
+    CatchupFromStartDate,
     DBFileType,
     DBUrlType,
     EnableDebugLoggingFlag,
@@ -273,12 +274,16 @@ def print_query(
     print(json.dumps(query, cls=QueryJSONEncoder, indent=2))
 
 
-def make_crawl_date_window(crawl_span: int, crawl_lag: int) -> CrawlDateWindow:
+def make_crawl_date_window(crawl_span: int, crawl_lag: int, use_start_date: date) -> CrawlDateWindow:
     """Returns a CrawlDateWindow with an end_date crawl_lag days before today, and start_date
     crawl_span days before end_date.
     """
     assert crawl_span > 0 and crawl_lag > 0, "crawl_span and crawl_lag must be non-negative"
-    end_date = date.today() - timedelta(days=crawl_lag)
+    if use_start_date:
+        end_date = use_start_date + timedelta(days=crawl_interal)
+        return CrawlDateWindow(start_date=use_start_date, end_date=end_date)
+
+    end_date = use_start_date - timedelta(days=crawl_lag)
     start_date = end_date - timedelta(days=crawl_span)
     return CrawlDateWindow(start_date=start_date, end_date=end_date)
 
@@ -316,6 +321,7 @@ def run_repeated(
     exclude_all_keywords: ExcludeAllKeywordListType | None = None,
     only_from_usernames: OnlyUsernamesListType | None = None,
     exclude_from_usernames: ExcludeUsernamesListType | None = None,
+    catch_up_from_start_date: CatchupFromStartDate | None = None,
     debug: EnableDebugLoggingFlag = False,
 ) -> None:
     """
@@ -334,8 +340,13 @@ def run_repeated(
     else:
         utils.setup_logging_info_level()
 
-    while True:
+    if catch_up_from_start_date:
+        crawl_date_window = make_crawl_date_window(crawl_span=crawl_span, crawl_lag=crawl_lag,
+                                                   use_start_date=catch_up_from_start_date)
+    else:
         crawl_date_window = make_crawl_date_window(crawl_span=crawl_span, crawl_lag=crawl_lag)
+
+    while True:
         logging.info(
             "Starting scheduled run. start_date: %s, end_date: %s",
             crawl_date_window.start_date,
@@ -367,6 +378,8 @@ def run_repeated(
             # Do not setup logging again so that we keep the current log file.
             init_logging=False,
         )
+        # TODO(macpd): maybe 2 different loops, one of catchup with no sleep, and then this normal
+        # loop.
         next_execution = execution_start_time.add(days=crawl_interval)
         logging.debug("next_execution: %s, %s", next_execution, next_execution.diff_for_humans())
         if pendulum.now() < next_execution:
@@ -378,6 +391,14 @@ def run_repeated(
                 execution_start_time,
                 crawl_interval,
             )
+        # Assume we are caught up (if we were trying)
+        if (date.today() - crawl_date_window.end_date).days <= crawl_lag:
+            new_crawl_date_window = make_crawl_date_window(crawl_span=crawl_span,
+                                                           crawl_lag=crawl_lag)
+        else:
+            new_crawl_date_window = make_crawl_date_window(crawl_span=crawl_span, crawl_lag=crawl_lag,
+                                                       use_start_date=crawl_date_window.end_date)
+        crawl_date_window = new_crawl_date_window
 
 
 @APP.command()
