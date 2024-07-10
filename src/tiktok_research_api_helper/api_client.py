@@ -36,6 +36,7 @@ INVALID_SEARCH_ID_ERROR_RETRY_WAIT = 5
 INVALID_SEARCH_ID_ERROR_MAX_NUM_RETRIES = 5
 # TikTok research API only allows fetching top 1000 comments. https://developers.tiktok.com/doc/research-api-specs-query-video-comments
 MAX_COMMENTS_CURSOR = 999
+API_ERROR_RETRY_LIMIT = 20
 
 DAILY_API_REQUEST_QUOTA = 1000
 
@@ -49,6 +50,13 @@ class InvalidRequestError(Exception):
 
 
 class InvalidSearchIdError(InvalidRequestError):
+    pass
+
+
+class MaxApiRequestsReachedError(Exception):
+    """Raised when TikTokApiRequestClient attempts a request to the API that would exceed the
+    configured maxmimum allowd api requests"""
+
     pass
 
 
@@ -104,8 +112,6 @@ class TikTokApiClientFetchResult:
     crawl: Crawl
 
 
-# TODO(macpd): add options/toggles for user info and comments. likely options to fetch use info
-# and/or comments for videos from latest crawl
 @attrs.define
 class ApiClientConfig:
     video_query: VideoQuery
@@ -114,7 +120,6 @@ class ApiClientConfig:
     engine: Engine
     api_credentials_file: Path
     max_count: int = 100
-    stop_after_one_request: bool = False
     crawl_tags: list[str] | None = None
     raw_responses_output_dir: Path | None = None
     api_rate_limit_wait_strategy: ApiRateLimitWaitStrategy = attrs.field(
@@ -122,8 +127,9 @@ class ApiClientConfig:
         validator=attrs.validators.instance_of(ApiRateLimitWaitStrategy),  # type: ignore - Attrs overload
     )
     # Limit on number of API requests. None is no limit. Otherwise client will stop, regardless of
-    # whether API indicates has_more, if it has made this many requests.
-    max_requests: int | None = attrs.field(
+    # whether API indicates has_more, if it has made this many requests. Does not include retries
+    # due to error/timeout
+    max_api_requests: int | None = attrs.field(
         default=None,
         validator=attrs.validators.optional(
             [attrs.validators.instance_of(int), attrs.validators.gt(0)]
@@ -187,9 +193,13 @@ class TikTokCommentsRequest:
     A TikTokCommentsRequest.
     """
 
-    video_id: str
-    max_count: int = 100
-    cursor: int | None = None
+    video_id: str = attrs.field(validator=attrs.validators.instance_of(int), converter=int)
+    max_count: int = attrs.field(
+        default=100, validator=attrs.validators.instance_of(int), converter=int
+    )
+    cursor: int | None = attrs.field(
+        default=None, validator=attrs.validators.optional(attrs.validators.instance_of(int))
+    )
 
     def as_json(self, indent=None):
         return json.dumps(attrs.asdict(self), indent=indent)
@@ -329,24 +339,30 @@ class TikTokApiRequestClient:
     _api_request_session: rq.Session = attrs.field(
         default=None, kw_only=True, converter=attrs.converters.default_if_none(factory=rq.Session)
     )
-    _raw_responses_output_dir: Path | None = None
+    _raw_responses_output_dir: Path | None = attrs.field(
+        default=None, validator=attrs.validators.optional(attrs.validators.instance_of(Path))
+    )
     _api_rate_limit_wait_strategy: ApiRateLimitWaitStrategy = attrs.field(
         default=ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS,
         validator=attrs.validators.instance_of(ApiRateLimitWaitStrategy),  # type: ignore - Attrs overload
     )
-    _num_api_requests_sent: int = attrs.field(default=0, kw_only=True)
+    num_api_requests_sent: int = attrs.field(
+        default=0, kw_only=True, validator=attrs.validators.instance_of(int)
+    )
     # None indicates no limit (ie retry indefinitely)
-    _max_api_rate_limit_retries: int | None = None
+    _max_api_rate_limit_retries: int | None = attrs.field(
+        default=None, validator=attrs.validators.optional(attrs.validators.instance_of(int))
+    )
+    _max_api_requests: int | None = attrs.field(
+        default=None, validator=attrs.validators.optional(attrs.validators.instance_of(int))
+    )
 
     @classmethod
-    def from_credentials_file(
-        cls, credentials_file: Path, *args, **kwargs
-    ) -> TikTokApiRequestClient:
+    def from_credentials_file(cls, credentials_file: Path, **kwargs) -> TikTokApiRequestClient:
         with credentials_file.open("r") as f:
             dict_credentials = yaml.load(f, Loader=yaml.FullLoader)
 
         return cls(
-            *args,
             **kwargs,
             credentials=TikTokCredentials(**dict_credentials),
         )
@@ -390,9 +406,6 @@ class TikTokApiRequestClient:
 
         return access_data["access_token"]
 
-    @property
-    def num_api_requests_sent(self):
-        return self._num_api_requests_sent
 
     def _configure_request_sessions(self):
         """Gets access token for authorization, sets token in headers for all requests, and
@@ -488,8 +501,13 @@ class TikTokApiRequestClient:
     ) -> TikTokCommentsResponse:
         return _parse_comments_response(self._post(request, ALL_COMMENT_DATA_URL))
 
+    def _max_api_requests_reached(self) -> bool:
+        if self._max_api_requests is None:
+            return False
+        return self.num_api_requests_sent >= self._max_api_requests
+
     @tenacity.retry(
-        stop=tenacity.stop_after_attempt(10),
+        stop=tenacity.stop_after_attempt(API_ERROR_RETRY_LIMIT),
         wait=tenacity.wait_exponential(
             multiplier=1, min=3, max=timedelta(minutes=5).total_seconds()
         ),
@@ -497,6 +515,13 @@ class TikTokApiRequestClient:
         reraise=True,
     )
     def _post(self, request: TikTokVideoRequest, url: str) -> rq.Response | None:
+        if self._max_api_requests_reached():
+            msg = (
+                f"Refusing to send API request because it would exceed max requests limit: "
+                f"{self._max_api_requests}.  This client has sent {self.num_api_requests_sent} "
+                f"requests"
+            )
+            raise MaxApiRequestsReachedError(msg)
         data = request.as_json()
         logging.log(logging.INFO, f"Sending request with data: {data}")
 
@@ -507,7 +532,7 @@ class TikTokApiRequestClient:
             self._store_response(response)
 
         if response.status_code == 200:
-            self._num_api_requests_sent += 1
+            self.num_api_requests_sent += 1
             return response
 
         if response.status_code == 429:
@@ -643,23 +668,29 @@ class TikTokApiClient:
     )
 
     @classmethod
-    def from_config(
-        cls, config: ApiClientConfig, *args, request_client=None, **kwargs
-    ) -> TikTokApiClient:
+    def from_config(cls, config: ApiClientConfig, request_client=None, **kwargs) -> TikTokApiClient:
         return cls(
-            *args,
             **kwargs,
             config=config,
             request_client=TikTokApiRequestClient.from_credentials_file(
                 credentials_file=config.api_credentials_file,
                 raw_responses_output_dir=config.raw_responses_output_dir,
                 max_api_rate_limit_retries=config.max_api_rate_limit_retries,
+                max_api_requests=config.max_api_requests,
             ),
         )
 
     @property
     def num_api_requests_sent(self):
         return self._request_client.num_api_requests_sent
+
+    @num_api_requests_sent.setter
+    def num_api_requests_sent(self, val: int):
+        """Set number of api requests sent. Useful when limiting number of API requests (ie using
+        ApiClientConfig.max_api_request) and/or carrying over number of requests sent from another
+        client.
+        """
+        self._request_client.num_api_requests_sent = val
 
     @property
     def expected_remaining_api_request_quota(self):
@@ -678,71 +709,71 @@ class TikTokApiClient:
         logging.debug("Crawl: %s", crawl)
 
         logging.info("Beginning API results fetch.")
-        while self._should_continue(crawl):
+        while crawl.has_more:
             request = TikTokVideoRequest.from_config(
                 config=self._config,
                 cursor=crawl.cursor,
                 search_id=crawl.search_id,
             )
-            api_response = self._request_client.fetch_videos(request)
-
-            if api_response.data:
-                logging.debug(
-                    "api_response.data: cursor: %s, has_more: %s, search_id: %s",
-                    api_response.data.get("cursor"),
-                    api_response.data.get("has_more"),
-                    api_response.data.get("search_id"),
-                )
-                logging.debug("API response error section: %s", api_response.error)
-                logging.debug("API response videos results:\n%s", api_response.videos)
-
-            update_crawl_from_api_response(
-                crawl=crawl,
-                api_response=api_response,
-                num_videos_requested=self._config.max_count,
-            )
-
+            videos = None
             user_info = None
-            if self._config.fetch_user_info:
-                user_info_responses = self._fetch_user_info_for_videos_in_response(api_response)
-                if user_info_responses:
-                    user_info = [response.user_info for response in user_info_responses]
-
             comments = None
-            if self._config.fetch_comments:
-                comments_responses = self._fetch_comments_for_videos_in_response(api_response)
-                if comments_responses:
-                    # Flatten list of comments from list of responses
-                    comments = [
-                        comment for response in comments_responses for comment in response.comments
-                    ]
+            try:
+                api_response = self._request_client.fetch_videos(request)
+                videos = api_response.videos
 
-            yield TikTokApiClientFetchResult(
-                videos=api_response.videos,
-                user_info=user_info,
-                comments=comments,
-                crawl=crawl,
-            )
+                if api_response.data:
+                    logging.debug(
+                        "api_response.data: cursor: %s, has_more: %s, search_id: %s",
+                        api_response.data.get("cursor"),
+                        api_response.data.get("has_more"),
+                        api_response.data.get("search_id"),
+                    )
+                    logging.debug("API response error section: %s", api_response.error)
+                    logging.debug("API response videos results:\n%s", api_response.videos)
 
-            if not api_response.videos and crawl.has_more:
-                logging.log(
-                    logging.ERROR,
-                    "No videos in response but there's still data to Crawl - VideoQuery: "
-                    f"{self._config.video_query} \n api_response.data: {api_response.data}",
+                update_crawl_from_api_response(
+                    crawl=crawl,
+                    api_response=api_response,
+                    num_videos_requested=self._config.max_count,
                 )
-            if self._config.stop_after_one_request:
-                logging.info("Stopping after one request")
+
+                if self._config.fetch_user_info:
+                    user_info_responses = self._fetch_user_info_for_videos_in_response(api_response)
+                    if user_info_responses:
+                        user_info = [response.user_info for response in user_info_responses]
+
+                if self._config.fetch_comments:
+                    comments_responses = self._fetch_comments_for_videos_in_response(api_response)
+                    if comments_responses:
+                        # Flatten list of comments from list of responses
+                        comments = [
+                            comment
+                            for response in comments_responses
+                            for comment in response.comments
+                        ]
+            except MaxApiRequestsReachedError as e:
+                logging.info("Stopping api_results_iter due to %r", e)
                 break
+            finally:
+                # Yield results, including partial results that may exist due to exception
+                if any([videos, user_info, comments]):
+                    yield TikTokApiClientFetchResult(
+                        videos=videos,
+                        user_info=user_info,
+                        comments=comments,
+                        crawl=crawl,
+                    )
 
         logging.info(
-            "Crawl completed (or reached configured max_requests: %s). Num api requests: %s. "
+
+            "Crawl completed (or reached configured max_api_requests: %s). Num api requests: %s. "
             "Expected remaining API request quota: %s",
-            self._config.max_requests,
+            self._config.max_api_requests,
             self.num_api_requests_sent,
             self.expected_remaining_api_request_quota,
         )
 
-    # TODO(macpd): handle _max_requests_reached
     def _fetch_user_info_for_videos_in_response(
         self, api_video_response: TikTokVideoResponse
     ) -> Sequence[TikTokUserInfoResponse]:
@@ -753,19 +784,19 @@ class TikTokApiClient:
         if unfetched_usernames:
             logging.debug("Fetching user info for usernames %s", unfetched_usernames)
             for username in unfetched_usernames:
+                # TODO(macpd): handle MaxApiRequestsReachedError
                 user_info_response = self._request_client.fetch_user_info(
                     TikTokUserInfoRequest(username)
                 )
-                if response_is_ok(user_info_response.error):
+                if response_is_ok(user_info_response):
                     user_info_responses.append(user_info_response)
                 else:
                     logging.warning(
                         "Error fetchng user info for %s: %s", username, user_info_response
                     )
-            self._fetched_usernames.update(unfetched_usernames)
+                self._fetched_usernames.add(username)
         return user_info_responses
 
-    # TODO(macpd): handle _max_requests_reached
     def _fetch_comments_for_videos_in_response(
         self, api_video_response: TikTokVideoResponse
     ) -> Sequence[TikTokCommentsResponse]:
@@ -778,17 +809,14 @@ class TikTokApiClient:
             for video_id in unfetched_video_id_comments:
                 comment_responses.extend(self._fetch_video_comments(video_id))
 
-                if self._config.stop_after_one_request:
-                    break
-
         return comment_responses
 
-    # TODO(macpd): handle _max_requests_reached
     def _fetch_video_comments(self, video_id: int | str) -> Sequence[TikTokCommentsResponse]:
         comment_responses = []
         has_more = True
         cursor = None
         while has_more:
+            # TODO(macpd): handle MaxApiRequestsReachedError
             response = self._request_client.fetch_comments(
                 TikTokCommentsRequest(video_id=video_id, cursor=cursor)
             )
@@ -813,31 +841,8 @@ class TikTokApiClient:
                 )
                 has_more = False
 
-            if self._config.stop_after_one_request:
-                has_more = False
-
         self._video_ids_comments_fetched.add(video_id)
         return comment_responses
-
-    def _max_requests_reached(self) -> bool:
-        if self._config.max_requests is None:
-            return False
-        return self.num_api_requests_sent >= self._config.max_requests
-
-    def _should_continue(self, crawl: Crawl) -> bool:
-        should_continue = crawl.has_more and not self._max_requests_reached()
-        logging.debug(
-            "crawl.has_more: %s, max_requests_reached: %s, should_continue: %s",
-            crawl.has_more,
-            self._max_requests_reached(),
-            should_continue,
-        )
-        if crawl.has_more and self._max_requests_reached():
-            logging.info(
-                "Max requests reached. Will discontinue this crawl even though API response "
-                "indicates more results."
-            )
-        return should_continue
 
     def fetch_all(
         self, *args, store_results_after_each_response: bool = False
@@ -892,7 +897,6 @@ class TikTokApiClient:
         return self.fetch_all(store_results_after_each_response=True)
 
 
-# TODO(macpd): docstring, rename, test
 def get_unfetched_attribute_identifiers_from_api_video_response(
     api_video_response: TikTokVideoResponse, id_attr_name: str, fetched_ids: set
 ) -> set:

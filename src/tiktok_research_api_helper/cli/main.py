@@ -17,6 +17,7 @@ from tiktok_research_api_helper.api_client import (
     ApiClientConfig,
     ApiRateLimitWaitStrategy,
     TikTokApiClient,
+    DAILY_API_REQUEST_QUOTA
 )
 from tiktok_research_api_helper.cli.custom_argument_types import (
     ApiCredentialsFileType,
@@ -37,6 +38,7 @@ from tiktok_research_api_helper.cli.custom_argument_types import (
     IncludeAnyHashtagListType,
     IncludeAnyKeywordListType,
     JsonQueryFileType,
+    MaxApiRequests,
     OnlyUsernamesListType,
     RawResponsesOutputDir,
     RegionCodeListType,
@@ -65,28 +67,23 @@ _DEFAULT_CREDENTIALS_FILE_PATH = Path("./secrets.yaml")
 CrawlDateWindow = namedtuple("CrawlDateWindow", ["start_date", "end_date"])
 
 
-def run_long_query(config: ApiClientConfig):
-    """Runs a "long" query, defined as one that may need multiple requests to get all the data.
-
-    Unless you have a good reason to believe otherwise, queries should default to be considered
-    "long"."""
-    api_client = TikTokApiClient.from_config(config)
-    api_client.fetch_and_store_all()
-
-
 def driver_single_day(config: ApiClientConfig):
     """Simpler driver for a single day of query"""
     assert (
         config.start_date == config.end_date
     ), "Start and final date must be the same for single day driver"
 
-    run_long_query(config)
+    api_client = TikTokApiClient.from_config(config)
+    api_client.fetch_and_store_all()
 
 
 def main_driver(config: ApiClientConfig):
     days_per_iter = utils.int_to_days(_DAYS_PER_ITER)
 
     start_date = copy(config.start_date)
+
+    # Track how many many API requests have been sent so we do not exceed configured limit
+    prev_num_api_requests_sent = 0
 
     while start_date < config.end_date:
         # API limit is 30, we maintain 28 to be safe
@@ -98,14 +95,15 @@ def main_driver(config: ApiClientConfig):
             start_date=start_date,
             end_date=local_end_date,
         )
-        run_long_query(new_config)
+        api_client = TikTokApiClient.from_config(new_config)
+        # Carry over number of API requests previous client(s) sent to this new client
+        api_client.num_api_requests_sent = prev_num_api_requests_sent
+        api_client.fetch_and_store_all()
+
+        prev_num_api_requests_sent += api_client.num_api_requests_sent
+
 
         start_date += days_per_iter
-
-        if config.stop_after_one_request:
-            logging.log(logging.WARN, "Stopping after one request")
-            break
-
 
 @APP.command()
 def test(
@@ -140,7 +138,7 @@ def test(
         start_date=start_date_datetime,
         end_date=end_date_datetime,
         engine=engine,
-        stop_after_one_request=True,
+        max_api_requests=1,
         crawl_tags=["Testing"],
         raw_responses_output_dir=None,
         api_credentials_file=api_credentials_file,
@@ -364,6 +362,7 @@ def run_repeated(
             exclude_from_usernames=exclude_from_usernames,
             fetch_user_info=fetch_user_info,
             fetch_comments=fetch_comments,
+            max_api_requests=(DAILY_API_REQUEST_QUOTA * crawl_interval),
             debug=debug,
             # Do not setup logging again so that we keep the current log file.
             init_logging=False,
@@ -390,6 +389,7 @@ def run(
     db_file: DBFileType | None = None,
     db_url: DBUrlType | None = None,
     stop_after_one_request: StopAfterOneRequestFlag = False,
+    max_api_requests: MaxApiRequests | None = None,
     crawl_tag: CrawlTagType = "",
     raw_responses_output_dir: RawResponsesOutputDir | None = None,
     query_file_json: JsonQueryFileType | None = None,
@@ -423,6 +423,12 @@ def run(
             utils.setup_logging_debug_level()
         else:
             utils.setup_logging_info_level()
+
+    if stop_after_one_request:
+        logging.error("--stop_after_one_request is deprecated, please use --max-api-requests=1")
+
+    validate_mutually_exclusive_flags({"--stop-after-one-request": stop_after_one_request,
+                                       "--max-api-requests": max_api_requests})
 
     logging.log(logging.INFO, f"Arguments: {locals()}")
 
@@ -518,7 +524,7 @@ def run(
         start_date=start_date_datetime,
         end_date=end_date_datetime,
         engine=engine,  # type: ignore - cant catch if logic above
-        stop_after_one_request=stop_after_one_request,
+        max_api_requests=1 if stop_after_one_request else max_api_requests,
         crawl_tags=[crawl_tag],
         raw_responses_output_dir=raw_responses_output_dir,
         api_credentials_file=api_credentials_file,
