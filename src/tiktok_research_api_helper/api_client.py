@@ -406,7 +406,6 @@ class TikTokApiRequestClient:
 
         return access_data["access_token"]
 
-
     def _configure_request_sessions(self):
         """Gets access token for authorization, sets token in headers for all requests, and
         registers a hook to refresh token when response indicates it has expired. Configures access
@@ -766,7 +765,6 @@ class TikTokApiClient:
                     )
 
         logging.info(
-
             "Crawl completed (or reached configured max_api_requests: %s). Num api requests: %s. "
             "Expected remaining API request quota: %s",
             self._config.max_api_requests,
@@ -784,7 +782,6 @@ class TikTokApiClient:
         if unfetched_usernames:
             logging.debug("Fetching user info for usernames %s", unfetched_usernames)
             for username in unfetched_usernames:
-                # TODO(macpd): handle MaxApiRequestsReachedError
                 user_info_response = self._request_client.fetch_user_info(
                     TikTokUserInfoRequest(username)
                 )
@@ -816,7 +813,6 @@ class TikTokApiClient:
         has_more = True
         cursor = None
         while has_more:
-            # TODO(macpd): handle MaxApiRequestsReachedError
             response = self._request_client.fetch_comments(
                 TikTokCommentsRequest(video_id=video_id, cursor=cursor)
             )

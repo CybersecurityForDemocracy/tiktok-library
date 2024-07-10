@@ -14,10 +14,10 @@ import typer
 
 from tiktok_research_api_helper import region_codes, utils
 from tiktok_research_api_helper.api_client import (
+    DAILY_API_REQUEST_QUOTA,
     ApiClientConfig,
     ApiRateLimitWaitStrategy,
     TikTokApiClient,
-    DAILY_API_REQUEST_QUOTA
 )
 from tiktok_research_api_helper.cli.custom_argument_types import (
     ApiCredentialsFileType,
@@ -102,8 +102,8 @@ def main_driver(config: ApiClientConfig):
 
         prev_num_api_requests_sent += api_client.num_api_requests_sent
 
-
         start_date += days_per_iter
+
 
 @APP.command()
 def test(
@@ -427,8 +427,11 @@ def run(
     if stop_after_one_request:
         logging.error("--stop_after_one_request is deprecated, please use --max-api-requests=1")
 
-    validate_mutually_exclusive_flags({"--stop-after-one-request": stop_after_one_request,
-                                       "--max-api-requests": max_api_requests})
+    if stop_after_one_request and max_api_requests:
+        raise typer.BadParameter(
+            "--stop-after-one-request and --max-api-requests are mutually exclusive. Please use "
+            "only one."
+        )
 
     logging.log(logging.INFO, f"Arguments: {locals()}")
 

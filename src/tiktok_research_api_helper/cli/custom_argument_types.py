@@ -194,8 +194,10 @@ CrawlTagType = Annotated[
 StopAfterOneRequestFlag = Annotated[
     bool,
     typer.Option(
-        help=("Stop after the first request - Useful for testing. "
-              "DEPRECATED please use --max-api-request=1")
+        help=(
+            "Stop after the first request - Useful for testing. "
+            "DEPRECATED please use --max-api-request=1"
+        )
     ),
 ]
 
