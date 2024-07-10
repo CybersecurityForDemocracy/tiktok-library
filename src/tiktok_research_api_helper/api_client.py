@@ -755,6 +755,7 @@ class TikTokApiClient:
                 logging.info("Stopping api_results_iter due to %r", e)
                 break
             finally:
+                # TODO(macpd): test partial result yielding
                 # Yield results, including partial results that may exist due to exception
                 if any([videos, user_info, comments]):
                     yield TikTokApiClientFetchResult(
