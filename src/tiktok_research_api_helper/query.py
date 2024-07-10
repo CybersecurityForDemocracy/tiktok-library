@@ -254,30 +254,6 @@ def generate_query(
     return VideoQuery(**query_args)
 
 
-# TODO(macpd): make a class for this, comment queries, etc
-def user_query(username: str) -> Mapping[str, str]:
-    if not isinstance(username, str):
-        raise TypeError("username must be a str")
-
-    return {"username": username}
-
-
-def comments_query(
-    video_id: int | str, max_count: int | None, cursor: int | None
-) -> Mapping[str, str]:
-    if not isinstance(video_id, int | str):
-        raise TypeError("video_id must be an int or str")
-
-    if isinstance(video_id, str):
-        video_id = int(video_id)
-
-    query = {"video_id": video_id, "max_count": max_count or 100}
-    if cursor:
-        query["cursor"] = cursor
-
-    return query
-
-
 Cond = Condition
 Op = Operations
 F = Fields
