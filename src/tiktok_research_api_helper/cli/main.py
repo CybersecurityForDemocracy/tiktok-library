@@ -18,6 +18,7 @@ from tiktok_research_api_helper.api_client import (
     ApiClientConfig,
     ApiRateLimitWaitStrategy,
     TikTokApiClient,
+    VideoQueryConfig,
 )
 from tiktok_research_api_helper.cli.custom_argument_types import (
     ApiCredentialsFileType,
@@ -67,46 +68,32 @@ _DEFAULT_CREDENTIALS_FILE_PATH = Path("./secrets.yaml")
 CrawlDateWindow = namedtuple("CrawlDateWindow", ["start_date", "end_date"])
 
 
-def driver_single_day(config: ApiClientConfig):
+def driver_single_day(config: ApiClientConfig, query_config: VideoQueryConfig):
     """Simpler driver for a single day of query"""
     assert (
         config.start_date == config.end_date
     ), "Start and final date must be the same for single day driver"
 
     api_client = TikTokApiClient.from_config(config)
-    api_client.fetch_and_store_all()
+    api_client.fetch_and_store_all(query_config)
 
 
-def main_driver(config: ApiClientConfig):
+def main_driver(api_client_config: ApiClientConfig, query_config: VideoQueryConfig):
     days_per_iter = utils.int_to_days(_DAYS_PER_ITER)
 
-    start_date = copy(config.start_date)
+    start_date = copy(query_config.start_date)
 
-    # Track how many many API requests have been sent so we do not exceed configured limit
-    prev_num_api_requests_sent = 0
-    # TODO(macpd): substract prev_num_api_requests_sent from max_requests in new config. Handle
-    # max_requests is None
+    api_client = TikTokApiClient.from_config(api_client_config)
 
-    while start_date < config.end_date:
+    while start_date < query_config.end_date:
         # API limit is 30, we maintain 28 to be safe
         local_end_date = start_date + days_per_iter
-        local_end_date = min(local_end_date, config.end_date)
-        if config.max_api_requests is None:
-            new_max_requests = None
-        else:
-            new_max_api_requests = config.max_api_requests - prev_num_api_requests_sent,
-
-        new_config = attrs.evolve(
-            config,
-            start_date=start_date,
-            end_date=local_end_date,
-            # Carry over number of API requests previous client(s) sent to this new client
-            max_api_requests=new_max_requests
+        local_end_date = min(local_end_date, query_config.end_date)
+        local_query_config = attrs.evolve(
+            query_config, start_date=start_date, end_date=local_end_date
         )
-        api_client = TikTokApiClient.from_config(new_config)
-        api_client.fetch_and_store_all()
 
-        prev_num_api_requests_sent += api_client.num_api_requests_sent
+        api_client.fetch_and_store_all(local_query_config)
 
         start_date += days_per_iter
 
@@ -139,19 +126,23 @@ def test(
 
     engine = get_sqlite_engine_and_create_tables(db_file)
 
-    config = ApiClientConfig(
-        video_query=test_query,
-        start_date=start_date_datetime,
-        end_date=end_date_datetime,
+    api_client_config = ApiClientConfig(
         engine=engine,
         max_api_requests=1,
-        crawl_tags=["Testing"],
         raw_responses_output_dir=None,
         api_credentials_file=api_credentials_file,
     )
-    logging.log(logging.INFO, f"Config: {config}")
+    video_query_config = VideoQueryConfig(
+        video_query=test_query,
+        start_date=start_date_datetime,
+        end_date=end_date_datetime,
+        crawl_tags=["Testing"],
+    )
+    logging.info(
+        "API client config: %s\nVideo query config: %s", api_client_config, video_query_config
+    )
 
-    driver_single_day(config)
+    driver_single_day(api_client_config, video_query_config)
 
 
 def get_query_file_json(query_file: Path):
@@ -528,27 +519,34 @@ def run(
     elif db_file:
         engine = get_sqlite_engine_and_create_tables(db_file)
 
-    config = ApiClientConfig(
-        video_query=query,
-        start_date=start_date_datetime,
-        end_date=end_date_datetime,
+    api_client_config = ApiClientConfig(
+        #  video_query=query,
+        #  start_date=start_date_datetime,
+        #  end_date=end_date_datetime,
         engine=engine,  # type: ignore - cant catch if logic above
         max_api_requests=1 if stop_after_one_request else max_api_requests,
-        crawl_tags=[crawl_tag],
+        #  crawl_tags=[crawl_tag],
         raw_responses_output_dir=raw_responses_output_dir,
         api_credentials_file=api_credentials_file,
         api_rate_limit_wait_strategy=rate_limit_wait_strategy,
+        #  fetch_user_info=fetch_user_info,
+        #  fetch_comments=fetch_comments,
+    )
+    query_config = VideoQueryConfig(
+        video_query=query,
+        start_date=start_date_datetime,
+        end_date=end_date_datetime,
+        crawl_tags=[crawl_tag],
         fetch_user_info=fetch_user_info,
         fetch_comments=fetch_comments,
     )
-    logging.log(logging.INFO, f"Config: {config}")
+    logging.info("API client config: %s\nVideo query config: %s", api_client_config, query_config)
 
-    if config.start_date == config.end_date:
-        logging.log(
-            logging.INFO,
+    if query_config.start_date == query_config.end_date:
+        logging.info(
             "Start and final date are the same - running single day driver",
         )
-        driver_single_day(config)
+        driver_single_day(api_client_config, query_config)
     else:
-        logging.log(logging.INFO, "Running main driver")
-        main_driver(config)
+        logging.info("Running main driver")
+        main_driver(api_client_config, query_config)

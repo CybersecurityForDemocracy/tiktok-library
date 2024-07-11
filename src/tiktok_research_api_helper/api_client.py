@@ -5,7 +5,7 @@ import json
 import logging
 import re
 from collections.abc import Mapping, Sequence
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -102,7 +102,6 @@ class TikTokCommentsResponse(TikTokResponse):
     comments: Sequence[any]
 
 
-# TODO(macpd): rename this or handle more than videos
 # TODO(macpd): should this hold models instead of parsed JSON?
 @attrs.define
 class TikTokApiClientFetchResult:
@@ -113,14 +112,22 @@ class TikTokApiClientFetchResult:
 
 
 @attrs.define
-class ApiClientConfig:
-    video_query: VideoQuery
-    start_date: datetime
-    end_date: datetime
-    engine: Engine
-    api_credentials_file: Path
+class VideoQueryConfig:
+    query: VideoQuery = attrs.field(validator=attrs.validators.instance_of(VideoQuery))
+    start_date: datetime = attrs.field(validator=attrs.validators.instance_of((date, datetime)))
+    end_date: datetime = attrs.field(validator=attrs.validators.instance_of((date, datetime)))
+    # TODO(macpd): should this be int limit? negative number disables, zero is no limit
+    # WARNING: Fetching comments can greatly increase API quota usage. use with care.
+    fetch_comments: bool = False
+    fetch_user_info: bool = False
     max_count: int = 100
     crawl_tags: list[str] | None = None
+
+
+@attrs.define
+class ApiClientConfig:
+    engine: Engine
+    api_credentials_file: Path
     raw_responses_output_dir: Path | None = None
     api_rate_limit_wait_strategy: ApiRateLimitWaitStrategy = attrs.field(
         default=ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS,
@@ -137,10 +144,6 @@ class ApiClientConfig:
     )
     # None indicates no limit (ie retry indefinitely)
     max_api_rate_limit_retries: int | None = None
-    # TODO(macpd): should this be int limit? negative number disables, zero is no limit
-    # WARNING: Fetching comments can greatly increase API quota usage. use with care.
-    fetch_comments: bool = False
-    fetch_user_info: bool = False
 
 
 @attrs.define
@@ -161,9 +164,9 @@ class TikTokVideoRequest:
     search_id: str | None = None
 
     @classmethod
-    def from_config(cls, config: ApiClientConfig, **kwargs) -> TikTokVideoRequest:
+    def from_config(cls, config: VideoQueryConfig, **kwargs) -> TikTokVideoRequest:
         return cls(
-            query=config.video_query,
+            query=config.query,
             max_count=config.max_count,
             start_date=utils.date_to_tiktok_str_format(config.start_date),
             end_date=utils.date_to_tiktok_str_format(config.end_date),
@@ -504,7 +507,7 @@ class TikTokApiRequestClient:
     ) -> TikTokCommentsResponse:
         return _parse_comments_response(self._post(request, ALL_COMMENT_DATA_URL))
 
-    def _max_api_requests_reached(self) -> bool:
+    def max_api_requests_reached(self) -> bool:
         if self._max_api_requests is None:
             return False
         return self._num_api_requests_sent >= self._max_api_requests
@@ -518,7 +521,7 @@ class TikTokApiRequestClient:
         reraise=True,
     )
     def _post(self, request: TikTokVideoRequest, url: str) -> rq.Response | None:
-        if self._max_api_requests_reached():
+        if self.max_api_requests_reached():
             msg = (
                 f"Refusing to send API request because it would exceed max requests limit: "
                 f"{self._max_api_requests}.  This client has sent {self._num_api_requests_sent} "
@@ -691,13 +694,17 @@ class TikTokApiClient:
     def expected_remaining_api_request_quota(self):
         return DAILY_API_REQUEST_QUOTA - self.num_api_requests_sent
 
-    def api_results_iter(self) -> TikTokApiClientFetchResult:
+    @property
+    def max_api_requests_reached(self):
+        return self._request_client.max_api_requests_reached()
+
+    def api_results_iter(self, query_config: VideoQueryConfig) -> TikTokApiClientFetchResult:
         """Fetches all results from API (ie requests until API indicates query results have been
         fully delivered (has_more == False)). Yielding each API response individually.
         """
         crawl = Crawl.from_query(
-            query=self._config.video_query,
-            crawl_tags=self._config.crawl_tags,
+            query=query_config.query,
+            crawl_tags=query_config.crawl_tags,
             # Set has_more to True since we have not yet made an API request
             has_more=True,
         )
@@ -706,7 +713,7 @@ class TikTokApiClient:
         logging.info("Beginning API results fetch.")
         while crawl.has_more:
             request = TikTokVideoRequest.from_config(
-                config=self._config,
+                config=query_config,
                 cursor=crawl.cursor,
                 search_id=crawl.search_id,
             )
@@ -730,15 +737,15 @@ class TikTokApiClient:
                 update_crawl_from_api_response(
                     crawl=crawl,
                     api_response=api_response,
-                    num_videos_requested=self._config.max_count,
+                    num_videos_requested=query_config.max_count,
                 )
 
-                if self._config.fetch_user_info:
+                if query_config.fetch_user_info:
                     user_info_responses = self._fetch_user_info_for_videos_in_response(api_response)
                     if user_info_responses:
                         user_info = [response.user_info for response in user_info_responses]
 
-                if self._config.fetch_comments:
+                if query_config.fetch_comments:
                     comments_responses = self._fetch_comments_for_videos_in_response(api_response)
                     if comments_responses:
                         # Flatten list of comments from list of responses
@@ -838,7 +845,7 @@ class TikTokApiClient:
         return comment_responses
 
     def fetch_all(
-        self, *args, store_results_after_each_response: bool = False
+        self, query_config: VideoQueryConfig, *args, store_results_after_each_response: bool = False
     ) -> TikTokApiClientFetchResult:
         """Fetches all results from API (ie sends requests until API indicates query results have
         been fully delivered (has_more == False))
@@ -853,14 +860,14 @@ class TikTokApiClient:
         video_data = []
         user_info = []
         comments = []
-        for api_response in self.api_results_iter():
+        for api_response in self.api_results_iter(query_config):
             video_data.extend(api_response.videos)
             if api_response.user_info:
                 user_info.extend(api_response.user_info)
             if api_response.comments:
                 comments.extend(api_response.comments)
             if store_results_after_each_response and video_data:
-                self.store_fetch_result(api_response)
+                self.store_fetch_result(api_response, query_config)
 
         logging.debug("fetch_all video results:\n%s", video_data)
         return TikTokApiClientFetchResult(
@@ -870,7 +877,9 @@ class TikTokApiClient:
             crawl=api_response.crawl,
         )
 
-    def store_fetch_result(self, fetch_result: TikTokApiClientFetchResult):
+    def store_fetch_result(
+        self, fetch_result: TikTokApiClientFetchResult, query_config: VideoQueryConfig
+    ):
         """Stores API results to database."""
         logging.debug("Putting crawl to database: %s", fetch_result.crawl)
         fetch_result.crawl.upload_self_to_db(self._config.engine)
@@ -878,7 +887,7 @@ class TikTokApiClient:
         upsert_videos(
             video_data=fetch_result.videos,
             crawl_id=fetch_result.crawl.id,
-            crawl_tags=self._config.crawl_tags,
+            crawl_tags=query_config.crawl_tags,
             engine=self._config.engine,
         )
         if fetch_result.user_info:
@@ -886,8 +895,9 @@ class TikTokApiClient:
         if fetch_result.comments:
             upsert_comments(comments=fetch_result.comments, engine=self._config.engine)
 
-    def fetch_and_store_all(self) -> TikTokApiClientFetchResult:
-        return self.fetch_all(store_results_after_each_response=True)
+    # TODO(macpd): should this take query, start and end dates? That way new_query is not needed.
+    def fetch_and_store_all(self, query_config: VideoQueryConfig) -> TikTokApiClientFetchResult:
+        return self.fetch_all(query_config=query_config, store_results_after_each_response=True)
 
 
 def get_unfetched_attribute_identifiers_from_api_video_response(
