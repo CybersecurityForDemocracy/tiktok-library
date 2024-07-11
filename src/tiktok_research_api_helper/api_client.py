@@ -659,18 +659,23 @@ class TikTokApiClient:
 
     Can be used to fetch only API results, and additionally store those results in a database (if
     database engine provided in config).
+
+    This client caches responses for userinfo and comments for a video ID. The cache is unbounded,
+    so if you need to reduce memory usage, or you want to make sure the API is queried, you can call
+    .clear_cache()
     """
 
     _request_client: TikTokApiRequestClient = attrs.field(kw_only=True)
     _config: ApiClientConfig = attrs.field(
         validator=[attrs.validators.instance_of(ApiClientConfig), field_is_not_empty]
     )
-    # TODO(macpd): add validator for set of strings, default to empty set if None
-    _fetched_usernames: set = attrs.field(
-        kw_only=True, factory=set, validator=attrs.validators.instance_of(set)
+    # Rudimentary cache of username -> user_info
+    _user_info_cache: Mapping[str, TikTokUserInfoResponse] = attrs.field(
+        default=None, kw_only=True, converter=attrs.converters.default_if_none(factory=dict)
     )
-    _video_ids_comments_fetched: set = attrs.field(
-        kw_only=True, factory=set, validator=attrs.validators.instance_of(set)
+    # Rudimentary cache of video_id -> comments
+    _comments_cache: Mapping[str, TikTokVideoResponse] = attrs.field(
+        default=None, kw_only=True, converter=attrs.converters.default_if_none(factory=dict)
     )
 
     @classmethod
@@ -697,6 +702,11 @@ class TikTokApiClient:
     @property
     def max_api_requests_reached(self):
         return self._request_client.max_api_requests_reached()
+
+    def clear_cache(self):
+        """Clears cache on both fetch_video_comments, and fetch_user_info"""
+        self._user_info_cache.clear()
+        self._comments_cache.clear()
 
     def api_results_iter(self, query_config: VideoQueryConfig) -> TikTokApiClientFetchResult:
         """Fetches all results from API (ie requests until API indicates query results have been
@@ -780,37 +790,34 @@ class TikTokApiClient:
         self, api_video_response: TikTokVideoResponse
     ) -> Sequence[TikTokUserInfoResponse]:
         user_info_responses = []
-        unfetched_usernames = get_unfetched_attribute_identifiers_from_api_video_response(
-            api_video_response, "username", self._fetched_usernames
-        )
-        if unfetched_usernames:
-            logging.debug("Fetching user info for usernames %s", unfetched_usernames)
-            for username in unfetched_usernames:
-                user_info_response = self._request_client.fetch_user_info(
-                    TikTokUserInfoRequest(username)
-                )
-                if response_is_ok(user_info_response):
-                    user_info_responses.append(user_info_response)
-                else:
-                    logging.warning(
-                        "Error fetchng user info for %s: %s", username, user_info_response
-                    )
-                self._fetched_usernames.add(username)
+        for username in {video.get("username") for video in api_video_response.videos}:
+            user_info_response = self.fetch_user_info(username)
+            if response_is_ok(user_info_response):
+                user_info_responses.append(user_info_response)
+            else:
+                logging.warning("Error fetchng user info for %s: %s", username, user_info_response)
         return user_info_responses
+
+    def fetch_user_info(self, username: str):
+        if username not in self._user_info_cache:
+            self._user_info_cache[username] = self._request_client.fetch_user_info(
+                TikTokUserInfoRequest(username)
+            )
+        return self._user_info_cache[username]
 
     def _fetch_comments_for_videos_in_response(
         self, api_video_response: TikTokVideoResponse
     ) -> Sequence[TikTokCommentsResponse]:
         comment_responses = []
-        unfetched_video_id_comments = get_unfetched_attribute_identifiers_from_api_video_response(
-            api_video_response, "id", self._video_ids_comments_fetched
-        )
-        if unfetched_video_id_comments:
-            logging.debug("Fetching comments for video IDs: %s", unfetched_video_id_comments)
-            for video_id in unfetched_video_id_comments:
-                comment_responses.extend(self._fetch_video_comments(video_id))
+        for video in api_video_response.videos:
+            comment_responses.extend(self.fetch_video_comments(video.get("id")))
 
         return comment_responses
+
+    def fetch_video_comments(self, video_id: int | str) -> Sequence[TikTokCommentsResponse]:
+        if video_id not in self._comments_cache:
+            self._comments_cache[video_id] = self._fetch_video_comments(video_id)
+        return self._comments_cache[video_id]
 
     def _fetch_video_comments(self, video_id: int | str) -> Sequence[TikTokCommentsResponse]:
         comment_responses = []
@@ -841,7 +848,6 @@ class TikTokApiClient:
                 )
                 has_more = False
 
-        self._video_ids_comments_fetched.add(video_id)
         return comment_responses
 
     def fetch_all(
@@ -867,7 +873,7 @@ class TikTokApiClient:
             if api_response.comments:
                 comments.extend(api_response.comments)
             if store_results_after_each_response and video_data:
-                self.store_fetch_result(api_response, query_config)
+                self.store_fetch_result(fetch_result=api_response)
 
         logging.debug("fetch_all video results:\n%s", video_data)
         return TikTokApiClientFetchResult(
@@ -878,7 +884,8 @@ class TikTokApiClient:
         )
 
     def store_fetch_result(
-        self, fetch_result: TikTokApiClientFetchResult, query_config: VideoQueryConfig
+        self,
+        fetch_result: TikTokApiClientFetchResult,
     ):
         """Stores API results to database."""
         logging.debug("Putting crawl to database: %s", fetch_result.crawl)
@@ -887,7 +894,7 @@ class TikTokApiClient:
         upsert_videos(
             video_data=fetch_result.videos,
             crawl_id=fetch_result.crawl.id,
-            crawl_tags=query_config.crawl_tags,
+            crawl_tags=fetch_result.crawl.crawl_tags,
             engine=self._config.engine,
         )
         if fetch_result.user_info:
@@ -895,24 +902,23 @@ class TikTokApiClient:
         if fetch_result.comments:
             upsert_comments(comments=fetch_result.comments, engine=self._config.engine)
 
-    # TODO(macpd): should this take query, start and end dates? That way new_query is not needed.
     def fetch_and_store_all(self, query_config: VideoQueryConfig) -> TikTokApiClientFetchResult:
         return self.fetch_all(query_config=query_config, store_results_after_each_response=True)
 
 
-def get_unfetched_attribute_identifiers_from_api_video_response(
-    api_video_response: TikTokVideoResponse, id_attr_name: str, fetched_ids: set
-) -> set:
-    """Extracts all of |id_attr_name| from |api_video_response| and returns those not in
-    |fetched_ids|
-    """
-    ids_in_response = {video.get(id_attr_name) for video in api_video_response.videos}
-    unfetched = ids_in_response.difference(fetched_ids)
-    logging.debug(
-        "Finding unfetched %s, fetched: %s\n ids in this repsonse: %s\nunfetched: %s",
-        id_attr_name,
-        fetched_ids,
-        ids_in_response,
-        unfetched,
-    )
-    return unfetched
+#  def get_unfetched_attribute_identifiers_from_api_video_response(
+#  api_video_response: TikTokVideoResponse, id_attr_name: str, fetched_ids: set
+#  ) -> set:
+#  """Extracts all of |id_attr_name| from |api_video_response| and returns those not in
+#  |fetched_ids|
+#  """
+#  ids_in_response = {video.get(id_attr_name) for video in api_video_response.videos}
+#  unfetched = ids_in_response.difference(fetched_ids)
+#  logging.debug(
+#  "Finding unfetched %s, fetched: %s\n ids in this repsonse: %s\nunfetched: %s",
+#  id_attr_name,
+#  fetched_ids,
+#  ids_in_response,
+#  unfetched,
+#  )
+#  return unfetched

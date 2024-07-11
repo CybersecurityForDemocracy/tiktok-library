@@ -530,9 +530,7 @@ def assert_has_expected_crawl_and_videos_in_database(
         crawl = crawls[0]
         assert crawl.id == fetch_result.crawl.id
         assert crawl.cursor == len(tiktok_responses) * video_query_config.max_count
-        assert crawl.query == json.dumps(
-            video_query_config.query, cls=query.VideoQueryJSONEncoder
-        )
+        assert crawl.query == json.dumps(video_query_config.query, cls=query.VideoQueryJSONEncoder)
         videos = all_videos(session)
         assert len(videos) == len(tiktok_responses) * len(tiktok_responses[0].videos)
         assert len(videos) == len(fetch_result.videos)
@@ -585,7 +583,7 @@ def test_tiktok_api_client_store_fetch_result(
         request_client=mock_tiktok_request_client, config=basic_acquisition_config
     )
     fetch_result = client.fetch_and_store_all(basic_video_query_config)
-    client.store_fetch_result(fetch_result, basic_video_query_config)
+    client.store_fetch_result(fetch_result)
     assert_has_expected_crawl_and_videos_in_database(
         database_engine=test_database_engine,
         fetch_result=fetch_result,
@@ -651,77 +649,6 @@ def test_tiktok_api_client_api_results_iter_fetches_comments_and_or_user_info_if
     assert mock_tiktok_request_client.fetch_user_info.call_count == (
         num_unique_usernames if fetch_user_info else 0
     )
-
-
-def test_get_unfetched_attribute_identifiers_from_api_video_response_usernames(
-    mock_tiktok_video_responses,
-):
-    fetched_usernames = set()
-    expected_usernames = {x.get("username") for x in mock_tiktok_video_responses[0].videos}
-
-    assert (
-        api_client.get_unfetched_attribute_identifiers_from_api_video_response(
-            mock_tiktok_video_responses[0], "username", fetched_usernames
-        )
-        == expected_usernames
-    )
-
-    # Now mark a few usernames fetched, and remove those from expected_usernames
-    fetched_usernames.update({expected_usernames.pop() for x in range(5)})
-
-    assert (
-        api_client.get_unfetched_attribute_identifiers_from_api_video_response(
-            mock_tiktok_video_responses[0], "username", fetched_usernames
-        )
-        == expected_usernames
-    )
-
-    # Now mark all usernames from expected to fetched
-    fetched_usernames.update(expected_usernames)
-    expected_usernames.clear()
-
-    # Since mock_titkok_response[1] has the same usernames as mock_titkok_response[0] this should
-    # return an empty set
-    assert (
-        api_client.get_unfetched_attribute_identifiers_from_api_video_response(
-            mock_tiktok_video_responses[1], "username", fetched_usernames
-        )
-        == set()
-    )
-
-
-def test_get_unfetched_attribute_identifiers_from_api_video_response_video_ids(
-    mock_tiktok_video_responses,
-):
-    fetched_ids = set()
-    expected_ids = {x.get("id") for x in mock_tiktok_video_responses[0].videos}
-
-    assert (
-        api_client.get_unfetched_attribute_identifiers_from_api_video_response(
-            mock_tiktok_video_responses[0], "id", fetched_ids
-        )
-        == expected_ids
-    )
-
-    # Now mark a few ids fetched, and remove those from expected_ids
-    fetched_ids.update({expected_ids.pop() for x in range(5)})
-
-    assert (
-        api_client.get_unfetched_attribute_identifiers_from_api_video_response(
-            mock_tiktok_video_responses[0], "id", fetched_ids
-        )
-        == expected_ids
-    )
-
-    # Now mark all id from expected to fetched
-    fetched_ids.update(expected_ids)
-    expected_ids.clear()
-
-    # Since mock_titkok_response[1] has the different ids as mock_titkok_response[0] this should
-    # return all ids in mock_titkok_response[1]
-    assert api_client.get_unfetched_attribute_identifiers_from_api_video_response(
-        mock_tiktok_video_responses[1], "id", fetched_ids
-    ) == {x.get("id") for x in mock_tiktok_video_responses[1].videos}
 
 
 @pytest.mark.parametrize("max_api_requests", range(0, 5))
