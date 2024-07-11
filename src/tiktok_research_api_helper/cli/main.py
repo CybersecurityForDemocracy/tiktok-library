@@ -84,20 +84,26 @@ def main_driver(config: ApiClientConfig):
 
     # Track how many many API requests have been sent so we do not exceed configured limit
     prev_num_api_requests_sent = 0
+    # TODO(macpd): substract prev_num_api_requests_sent from max_requests in new config. Handle
+    # max_requests is None
 
     while start_date < config.end_date:
         # API limit is 30, we maintain 28 to be safe
         local_end_date = start_date + days_per_iter
         local_end_date = min(local_end_date, config.end_date)
+        if config.max_api_requests is None:
+            new_max_requests = None
+        else:
+            new_max_api_requests = config.max_api_requests - prev_num_api_requests_sent,
 
         new_config = attrs.evolve(
             config,
             start_date=start_date,
             end_date=local_end_date,
+            # Carry over number of API requests previous client(s) sent to this new client
+            max_api_requests=new_max_requests
         )
         api_client = TikTokApiClient.from_config(new_config)
-        # Carry over number of API requests previous client(s) sent to this new client
-        api_client.num_api_requests_sent = prev_num_api_requests_sent
         api_client.fetch_and_store_all()
 
         prev_num_api_requests_sent += api_client.num_api_requests_sent
