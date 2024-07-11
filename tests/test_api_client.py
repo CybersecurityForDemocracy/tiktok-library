@@ -423,7 +423,6 @@ def test_tiktok_api_client_api_results_iter_max_api_requests_limit_reached(
         config=basic_acquisition_config,
     )
     for i, response in enumerate(client.api_results_iter()):
-        #  assert client.num_api_requests_sent <= basic_acquisition_config.max_api_requests
         assert i + 1 <= basic_acquisition_config.max_api_requests
         assert response.videos == mock_tiktok_video_responses[i].videos
         assert response.crawl.has_more

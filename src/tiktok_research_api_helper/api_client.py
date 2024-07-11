@@ -346,7 +346,7 @@ class TikTokApiRequestClient:
         default=ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS,
         validator=attrs.validators.instance_of(ApiRateLimitWaitStrategy),  # type: ignore - Attrs overload
     )
-    num_api_requests_sent: int = attrs.field(
+    _num_api_requests_sent: int = attrs.field(
         default=0, kw_only=True, validator=attrs.validators.instance_of(int)
     )
     # None indicates no limit (ie retry indefinitely)
@@ -366,6 +366,10 @@ class TikTokApiRequestClient:
             **kwargs,
             credentials=TikTokCredentials(**dict_credentials),
         )
+
+    @property
+    def num_api_requests_sent(self):
+        return self._num_api_requests_sent
 
     def __attrs_post_init__(self):
         self._configure_request_sessions()
@@ -503,7 +507,7 @@ class TikTokApiRequestClient:
     def _max_api_requests_reached(self) -> bool:
         if self._max_api_requests is None:
             return False
-        return self.num_api_requests_sent >= self._max_api_requests
+        return self._num_api_requests_sent >= self._max_api_requests
 
     @tenacity.retry(
         stop=tenacity.stop_after_attempt(API_ERROR_RETRY_LIMIT),
@@ -517,12 +521,12 @@ class TikTokApiRequestClient:
         if self._max_api_requests_reached():
             msg = (
                 f"Refusing to send API request because it would exceed max requests limit: "
-                f"{self._max_api_requests}.  This client has sent {self.num_api_requests_sent} "
+                f"{self._max_api_requests}.  This client has sent {self._num_api_requests_sent} "
                 f"requests"
             )
             raise MaxApiRequestsReachedError(msg)
         data = request.as_json()
-        logging.log(logging.INFO, f"Sending request with data: {data}")
+        logging.debug("Sending request with data: %s", data)
 
         response = self._api_request_session.post(url=url, data=data)
         logging.debug("%s\n%s", response, response.text)
@@ -531,7 +535,7 @@ class TikTokApiRequestClient:
             self._store_response(response)
 
         if response.status_code == 200:
-            self.num_api_requests_sent += 1
+            self._num_api_requests_sent += 1
             return response
 
         if response.status_code == 429:
@@ -681,15 +685,7 @@ class TikTokApiClient:
 
     @property
     def num_api_requests_sent(self):
-        return self._request_client.num_api_requests_sent
-
-    @num_api_requests_sent.setter
-    def num_api_requests_sent(self, val: int):
-        """Set number of api requests sent. Useful when limiting number of API requests (ie using
-        ApiClientConfig.max_api_request) and/or carrying over number of requests sent from another
-        client.
-        """
-        self._request_client.num_api_requests_sent = val
+        return self._request_client._num_api_requests_sent
 
     @property
     def expected_remaining_api_request_quota(self):
