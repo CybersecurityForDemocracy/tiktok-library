@@ -46,31 +46,51 @@ query = VideoQuery(
 from pathlib import Path
 from datetime import datetime
 from tiktok_research_api_helper.query import VideoQuery, Cond, Fields, Op
-from tiktok_research_api_helper.api_client import ApiClientConfig, TikTokApiClient
+from tiktok_research_api_helper.api_client import ApiClientConfig, TikTokApiClient, VideoQueryConfig
 
-config = ApiClientConfig(query=query,
-                         start_date=datetime.fromisoformat("2024-03-01"),
-                         end_date=datetime.fromisoformat("2024-03-02"),
-                         engine=None,
-                         api_credentials_file=Path("./secrets.yaml"))
-api_client = TikTokApiClient.from_config(config)
+client_config = ApiClientConfig(engine=None, # No database engine configured, so
+                                             # client cannot store results
+                                api_credentials_file=Path("./secrets.yaml"))
+api_client = TikTokApiClient.from_config(client_config)
+
+# Now setup our query with start and end dates.
+query_config = VideoQueryConfig(query=query,
+                                start_date=datetime.fromisoformat("2024-03-01"),
+                                end_date=datetime.fromisoformat("2024-03-02"))
 
 # api_results_iter yields each API reponse as a parsed TikTokApiClientFetchResult.
-# Iteration stops when the API indicates the query results have been fully delivered
-for result in api_client.api_results_iter():
+# Iteration stops when the API indicates the query results have been fully delivered. or if client_config.max_api_requests is reached.
+for result in api_client.api_results_iter(query_config):
     # do something with the result
     print(result.videos)
 
 
 # Alternatively fetch_all fetches all API results and returns a single TikTokApiClientFetchResult with all API results. NOTE: this blocks until all results are fetched which could be multiple days if query results exceed daily quota limit.
-api_client.fetch_all()
+api_client.fetch_all(query_config)
 
 
 # If you provide a SqlAlchemy engine in the ApiClientConfig you can use TikTokApiClient to store results as they are received
-api_client.fetch_and_store_all() # or equivalent call: fetch_all(store_results_after_each_response=True)
+api_client.fetch_and_store_all(query_config) # or equivalent call: fetch_all(query_config, store_results_after_each_response=True)
+```
+
+You can also fetch user info and comments for videos that match the qurey:
+```python
+query_config = VideoQueryConfig(query=query,
+                                start_date=datetime.fromisoformat("2024-03-01"),
+                                end_date=datetime.fromisoformat("2024-03-02"),
+                                fetch_comments=True,
+                                fetch_user_info=True)
+
+# Reusing same client before.
+results = api_client.fetch_all(query_config)
+print('Videos: ", results.videos)
+print('User info: ", results.user_info)
+print('Comments: ", results.comments)
 ```
 
 #### TikTokApiRequestClient and TikTokRequest provide a lower-level interface to API
+
+##### Fetching Videos
 ```python
 from pathlib import Path
 from tiktok_research_api_helper.api_client import TikTokApiRequestClient, TikTokVideoRequest
@@ -82,21 +102,44 @@ from tiktok_research_api_helper.query import VideoQuery, Cond, Fields, Op
 query = VideoQuery(or_=Cond(Fields.video_id, ["7345557461438385450", "123456"], Op.IN))
 
 # sample query
-req = TikTokVideoRequest(
+video_req = TikTokVideoRequest(
     query=query,
     start_date="20240301",
     end_date="20240329",
 )
 
 # then fetch the first page of results for the query. NOTE: this does not automatically fetch subsequent pages.
-result = request_client.fetch(req)
+result = request_client.fetch_videos(video_req)
 
 # to request the next page of resuls, you must create a new request with the cursor and search_id values from previous result. NOTE: make sure to check results.data['has_more'] == true
-new_req = TikTokVideoRequest(query=query,
+new_video_req = TikTokVideoRequest(query=query,
                 cursor=result.data['cursor'],
                 search_id=result.data['search_id'],
             )
-result = request_client.fetch(new_req)
+result = request_client.fetch_videos(new_video_req)
+```
+
+##### Fetching Comments
+```python
+from tiktok_research_api_helper.api_client import TikTokCommentsRequest
+
+video_id = "7345557461438385450"
+comments_req = TikTokCommentsRequest(video_id=video_id)
+
+result = request_client.fetch_comments(comments_req)
+for comment in result.coments:
+  print(comment)
+```
+
+##### Fetching user info
+```python
+from tiktok_research_api_helper.api_client import TikTokUserInfoRequest
+
+username = "example"
+user_info_req = TikTokUserInfoRequest(username=username)
+
+result = request_client.fetch_user_info(user_info_req)
+print(username, " user info: ", result.user_info[username])
 ```
 
 
@@ -150,6 +193,14 @@ account with `--region` (this flag can be provided multiple times include
 multiple regions). See tiktok API documentation for more info about this field
 https://developers.tiktok.com/doc/research-api-specs-query-videos/
 
+## fetching user info
+`--fetch-user-info` For each video the API returns user info is fetched for the video's creator.  (for more about what TikTok research API provides and how it is structured see https://developers.tiktok.com/doc/research-api-specs-query-user-info)
+
+ ## Fetching comments
+`--fetch-comments` For each video the API returns comments (up to the first 1000
+due to API limitations) are fetched. (for more about what the API provides for comments and how the responses are structured see https://developers.tiktok.com/doc/research-api-specs-query-video-comments)
+**NOTE: fetching comments can significantly increase API quota consumption beacuse potentially every video will used 10 extra API requests.**
+
 ## Print query without sending requests to API
 If you would like to preview the query that would be sent to the API (without
 actually sending a request to the API) you can use the command `print-query`
@@ -189,7 +240,7 @@ specify the connection string.
 
 ## Limitations
 
-- Currently only video data ("Query Videos") is supported directly. 
+- Currently only video data ("Query Videos"), user info, and video comments is supported directly.
 
 ## Internals
 
@@ -227,7 +278,8 @@ specify the connection string.
 - Fix warning when retrying - Only show if the retry is unsuccessful
 - Add code docs
 - Allow for continuing a query directly from the last run.
-- Support for other data types (e.g. "Query Users")
+- Support for other data types (e.g. "User reposted videos", "User followers",
+  etc)
 
 ## Why ...
 - Having a query as python code inside a file?
