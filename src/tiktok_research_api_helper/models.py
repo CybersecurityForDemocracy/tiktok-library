@@ -430,13 +430,19 @@ class Crawl(Base):
 
     @classmethod
     def from_request(
-        cls, res_data: Mapping, query: VideoQuery, crawl_tags: Sequence[str] | None = None
+        cls, res_data: Mapping, query: VideoQuery | str, crawl_tags: Sequence[str] | None = None
     ) -> "Crawl":
+        query_str = None
+        if isinstance(query, VideoQuery):
+            query_str = json.dumps(query, cls=VideoQueryJSONEncoder)
+        else:
+            query_str = query
         return cls(
             cursor=res_data["cursor"],
             has_more=res_data["has_more"],
             search_id=res_data["search_id"],
-            query=json.dumps(query, cls=VideoQueryJSONEncoder),
+            #  query=json.dumps(query, cls=VideoQueryJSONEncoder),
+            query=query_str,
             crawl_tags=({CrawlTag(name=name) for name in crawl_tags} if crawl_tags else set()),
         )
 
@@ -449,9 +455,15 @@ class Crawl(Base):
         has_more: bool = True,
         search_id: [int | None] = None,
     ) -> "Crawl":
+        query_str = None
+        if isinstance(query, VideoQuery):
+            query_str = json.dumps(query, cls=VideoQueryJSONEncoder)
+        else:
+            query_str = query
         return cls(
             has_more=has_more,
-            query=json.dumps(query, cls=VideoQueryJSONEncoder),
+            #  query=json.dumps(query, cls=VideoQueryJSONEncoder),
+            query=query_str,
             search_id=search_id,
             crawl_tags=({CrawlTag(name=name) for name in crawl_tags} if crawl_tags else set()),
         )

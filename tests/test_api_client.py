@@ -146,6 +146,7 @@ def test_tiktok_api_request_client_retry_once_on_json_decoder_error(
     mock_sleep,
     mock_request_session_json_decoder_error,
     mock_access_token_fetcher_session,
+    basic_video_query,
 ):
     request = api_client.TikTokApiRequestClient.from_credentials_file(
         FAKE_SECRETS_YAML_FILE,
@@ -154,7 +155,7 @@ def test_tiktok_api_request_client_retry_once_on_json_decoder_error(
     )
     with pytest.raises(json.JSONDecodeError):
         request.fetch_videos(
-            api_client.TikTokVideoRequest(query={}, start_date=None, end_date=None)
+            api_client.TikTokVideoRequest(query=basic_video_query, start_date=None, end_date=None)
         )
     # Confirm that code retried the post request and json extraction twice (ie retried once after
     # the decode error before the exception is re-raised)
@@ -170,6 +171,7 @@ def test_tiktok_api_request_client_wait_one_hour_on_rate_limit_wait_strategy(
     mock_request_session_rate_limit_error,
     mock_access_token_fetcher_session,
     num_retries,
+    basic_video_query,
 ):
     request = api_client.TikTokApiRequestClient.from_credentials_file(
         FAKE_SECRETS_YAML_FILE,
@@ -180,7 +182,7 @@ def test_tiktok_api_request_client_wait_one_hour_on_rate_limit_wait_strategy(
     )
     with pytest.raises(api_client.ApiRateLimitError):
         request.fetch_videos(
-            api_client.TikTokVideoRequest(query={}, start_date=None, end_date=None),
+            api_client.TikTokVideoRequest(query=basic_video_query, start_date=None, end_date=None),
         )
     # Confirm that code retried the post request and json extraction twice (ie retried once after
     # the decode error before the exception is re-raised)
@@ -199,6 +201,7 @@ def test_tiktok_api_request_client_wait_til_next_utc_midnight_on_rate_limit_wait
     mock_request_session_rate_limit_error,
     mock_access_token_fetcher_session,
     num_retries,
+    basic_video_query,
 ):
     # Freeze time so that we can predict time til midnight
     with pendulum.travel(freeze=True):
@@ -212,7 +215,9 @@ def test_tiktok_api_request_client_wait_til_next_utc_midnight_on_rate_limit_wait
         )
         with pytest.raises(api_client.ApiRateLimitError):
             request.fetch_videos(
-                api_client.TikTokVideoRequest(query={}, start_date=None, end_date=None),
+                api_client.TikTokVideoRequest(
+                    query=basic_video_query, start_date=None, end_date=None
+                ),
             )
         # Confirm that code retried the post request and json extraction twice (ie retried once
         # after the decode error before the exception is re-raised)
@@ -334,9 +339,14 @@ def basic_acquisition_config():
 
 
 @pytest.fixture
-def basic_video_query_config():
+def basic_video_query():
+    return query.generate_query(include_any_hashtags="test1,test2")
+
+
+@pytest.fixture
+def basic_video_query_config(basic_video_query):
     return api_client.VideoQueryConfig(
-        query=query.generate_query(include_any_hashtags="test1,test2"),
+        query=basic_video_query,
         start_date=pendulum.parse("20240601"),
         end_date=pendulum.parse("20240601"),
     )
@@ -532,7 +542,7 @@ def assert_has_expected_crawl_and_videos_in_database(
         crawl = crawls[0]
         assert crawl.id == fetch_result.crawl.id
         assert crawl.cursor == len(tiktok_responses) * video_query_config.max_count
-        assert crawl.query == json.dumps(video_query_config.query, cls=query.VideoQueryJSONEncoder)
+        assert crawl.query == video_query_config.query
         videos = all_videos(session)
         assert len(videos) == len(tiktok_responses) * len(tiktok_responses[0].videos)
         assert len(videos) == len(fetch_result.videos)
@@ -659,6 +669,7 @@ def test_tiktok_request_client_fetch_videos_raises_max_api_requests_reached_erro
     mock_access_token_fetcher_session,
     monkeypatch,
     max_api_requests,
+    basic_video_query,
 ):
     request_client = api_client.TikTokApiRequestClient.from_credentials_file(
         FAKE_SECRETS_YAML_FILE,
@@ -666,7 +677,7 @@ def test_tiktok_request_client_fetch_videos_raises_max_api_requests_reached_erro
         access_token_fetcher_session=mock_access_token_fetcher_session,
         max_api_requests=max_api_requests,
     )
-    request = api_client.TikTokVideoRequest(query=None, start_date=None, end_date=None)
+    request = api_client.TikTokVideoRequest(query=basic_video_query, start_date=None, end_date=None)
     assert request_client.num_api_requests_sent == 0
 
     with monkeypatch.context() as m:
@@ -745,6 +756,7 @@ def test_tiktok_request_client_mixed_fetch_raises_max_api_requests_reached_error
     mock_request_session,
     mock_access_token_fetcher_session,
     monkeypatch,
+    basic_video_query,
 ):
     request_client = api_client.TikTokApiRequestClient.from_credentials_file(
         FAKE_SECRETS_YAML_FILE,
@@ -753,7 +765,9 @@ def test_tiktok_request_client_mixed_fetch_raises_max_api_requests_reached_error
         max_api_requests=3,
     )
 
-    video_request = api_client.TikTokVideoRequest(query=None, start_date=None, end_date=None)
+    video_request = api_client.TikTokVideoRequest(
+        query=basic_video_query, start_date=None, end_date=None
+    )
     comment_request = api_client.TikTokCommentsRequest(video_id=1)
     user_info_request = api_client.TikTokUserInfoRequest(username="a")
     assert request_client.num_api_requests_sent == 0

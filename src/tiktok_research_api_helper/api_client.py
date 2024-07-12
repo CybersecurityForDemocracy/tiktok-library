@@ -24,7 +24,7 @@ from tiktok_research_api_helper.models import (
     upsert_user_info,
     upsert_videos,
 )
-from tiktok_research_api_helper.query import VideoQuery
+from tiktok_research_api_helper.query import VideoQuery, VideoQueryJSONEncoder
 
 ALL_VIDEO_DATA_URL = "https://open.tiktokapis.com/v2/research/video/query/?fields=id,video_description,create_time,region_code,share_count,view_count,like_count,comment_count,music_id,hashtag_names,username,effect_ids,voice_to_text,playlist_id"
 ALL_USER_INFO_DATA_URL = "https://open.tiktokapis.com/v2/research/user/info/?fields=display_name,bio_description,avatar_url,is_verified,follower_count,following_count,likes_count,video_count"
@@ -130,9 +130,17 @@ class TikTokApiClientFetchResult:
     crawl: Crawl
 
 
+def video_query_to_json(video_query: VideoQuery) -> str:
+    if isinstance(video_query, VideoQuery | Mapping):
+        return json.dumps(video_query, cls=VideoQueryJSONEncoder)
+    return video_query
+
+
 @attrs.define
 class VideoQueryConfig:
-    query: VideoQuery = attrs.field(validator=attrs.validators.instance_of(VideoQuery))
+    query: str = attrs.field(
+        converter=video_query_to_json, validator=attrs.validators.instance_of(str)
+    )
     start_date: datetime = attrs.field(validator=attrs.validators.instance_of((date, datetime)))
     end_date: datetime = attrs.field(validator=attrs.validators.instance_of((date, datetime)))
     # TODO(macpd): should this be int limit? negative number disables, zero is no limit
@@ -175,7 +183,9 @@ class TikTokVideoRequest:
     The start date is inclusive but the end date is NOT.
     """
 
-    query: VideoQuery
+    query: str = attrs.field(
+        converter=video_query_to_json, validator=attrs.validators.instance_of(str)
+    )
     start_date: str
     end_date: str  # The end date is NOT inclusive!
     max_count: int = 100
@@ -194,14 +204,17 @@ class TikTokVideoRequest:
             **kwargs,
         )
 
-    @staticmethod
-    def dict_serializer(inst, field, value):
-        if isinstance(value, VideoQuery):
-            return value.as_dict()
-        return value
-
     def as_json(self, indent=None):
-        return json.dumps(attrs.asdict(self, value_serializer=self.dict_serializer), indent=indent)
+        return json.dumps(
+            attrs.asdict(self, value_serializer=json_query_dict_serializer), indent=indent
+        )
+
+
+def json_query_dict_serializer(inst, field, value):
+    # Since json_query is already encoded as JSON, we need to decode it to make a dict.
+    if field == attrs.fields(TikTokVideoRequest).query:
+        return json.loads(value)
+    return value
 
 
 @attrs.define
@@ -212,7 +225,6 @@ class TikTokUserInfoRequest:
 
     username: str
 
-    # TODO(macpd): consider using query.user_query, or delete that func
     def as_json(self, indent=None):
         return json.dumps(attrs.asdict(self), indent=indent)
 
@@ -350,7 +362,6 @@ def api_rate_limi_wait_four_hours(
     return 0
 
 
-# request types.
 @attrs.define
 class TikTokApiRequestClient:
     """
