@@ -62,7 +62,7 @@ from tiktok_research_api_helper.query import (
 
 APP = typer.Typer(rich_markup_mode="markdown")
 
-_DAYS_PER_ITER = 28
+_DAYS_PER_ITER = 7
 _DEFAULT_CREDENTIALS_FILE_PATH = Path("./secrets.yaml")
 
 CrawlDateWindow = namedtuple("CrawlDateWindow", ["start_date", "end_date"])
