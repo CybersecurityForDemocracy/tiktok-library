@@ -251,17 +251,13 @@ def response_is_ok(tiktok_response: TikTokResponse) -> bool:
     return tiktok_response.error.get("code") == "ok"
 
 
-def is_json_decode_error(exception):
-    return isinstance(exception, rq.exceptions.JSONDecodeError | json.JSONDecodeError)
-
-
 def retry_json_decoding_error_once(
     retry_state,
 ):
     exception = retry_state.outcome.exception()
 
     # Retry once if JSON decoding response fails
-    if is_json_decode_error(exception):
+    if isinstance(exception, rq.exceptions.JSONDecodeError | json.JSONDecodeError):
         return retry_state.attempt_number <= 1
 
     return None
@@ -291,27 +287,12 @@ def retry_api_rate_limit_error_indefintely(
     return None
 
 
-def json_decoding_error_retry_immediately(
-    retry_state,
-):
-    exception = retry_state.outcome.exception()
-    # If JSON decoding fails retry immediately
-    if is_json_decode_error(exception):
-        return 0
-
-    logging.warning("Unknown exception in wait callback: %r", exception)
-    return 0
-
-
-def search_id_invalid_error_wait(
-    retry_state,
-):
+def search_id_invalid_error_wait(retry_state):
     exception = retry_state.outcome.exception()
     # Wait in case API needs a few seconds to consider search ID valid.
     if isinstance(exception, InvalidSearchIdError):
         return INVALID_SEARCH_ID_ERROR_RETRY_WAIT
 
-    logging.warning("Unknown exception in wait callback: %r", exception)
     return 0
 
 
@@ -326,9 +307,7 @@ def get_api_rate_limit_wait_strategy(
     raise ValueError(f"Unknown wait strategy: {api_rate_limit_wait_strategy}")
 
 
-def api_rate_limi_wait_until_next_utc_midnight(
-    retry_state,
-):
+def api_rate_limi_wait_until_next_utc_midnight(retry_state):
     exception = retry_state.outcome.exception()
     # If JSON decoding fails retry immediately
     if isinstance(exception, ApiRateLimitError):
@@ -343,7 +322,6 @@ def api_rate_limi_wait_until_next_utc_midnight(
         )
         return (next_utc_midnight - pendulum.now()).seconds
 
-    logging.warning("Unknown exception in wait callback: %r", exception)
     return 0
 
 
@@ -358,7 +336,6 @@ def api_rate_limi_wait_four_hours(
         )
         return timedelta(hours=4).seconds
 
-    logging.warning("Unknown exception in wait callback: %r", exception)
     return 0
 
 
@@ -514,7 +491,6 @@ class TikTokApiRequestClient:
                 retry_api_rate_limit_error_indefintely,
             ),
             wait=tenacity.wait_combine(
-                json_decoding_error_retry_immediately,
                 search_id_invalid_error_wait,
                 get_api_rate_limit_wait_strategy(
                     api_rate_limit_wait_strategy=self._api_rate_limit_wait_strategy
