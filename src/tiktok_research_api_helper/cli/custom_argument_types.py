@@ -201,19 +201,6 @@ StopAfterOneRequestFlag = Annotated[
     ),
 ]
 
-MaxApiRequests = Annotated[
-    int,
-    typer.Option(
-        help=(
-            "maximum number of requests to send to the API. If this limit is reached crawl/fetch "
-            "stops even if API indicates more results are present, or other types (comments, "
-            "user_info) have not been fetched"
-        )
-    ),
-]
-
-EnableDebugLoggingFlag = Annotated[bool, typer.Option(help="Enable debug level logging")]
-
 FetchUserInfoFlag = Annotated[
     bool, typer.Option(help="Fetch user info of video owners/creators returned from query.")
 ]
@@ -227,3 +214,16 @@ FetchCommentsFlag = Annotated[
         ),
     ),
 ]
+
+MaxApiRequests = Annotated[
+    int,
+    typer.Option(
+        help=(
+            "maximum number of requests to send to the API. If this limit is reached crawl/fetch "
+            "stops even if API indicates more results are present, or other types (comments, "
+            "user_info) have not been fetched"
+        )
+    ),
+]
+
+EnableDebugLoggingFlag = Annotated[bool, typer.Option(help="Enable debug level logging")]
