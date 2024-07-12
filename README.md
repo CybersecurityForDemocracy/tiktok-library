@@ -193,7 +193,7 @@ specify the connection string.
 
 ## Internals
 
-- Long running queries are automatically split into smaller 28 days chunks. This is to avoid the 30 day limit on the TikTok API.
+- Long running queries are automatically split into smaller 7 days chunks. This is to avoid the 30 day limit on the TikTok API.
 - The library automatically manages the access token and refreshes it when needed.
 - TikTok research API quota is 1000 requests per day (https://developers.tiktok.com/doc/research-api-faq). When the API indicates that limit has been reached this library will retry (see `--rate-limit-wait-strategy` flag for available strategies) until quota limit resets and continue collection.
 - `TikTokApiClient` provides a high-level interface for querying TikTok Research
