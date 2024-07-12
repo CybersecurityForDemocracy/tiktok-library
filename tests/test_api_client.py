@@ -295,7 +295,7 @@ def mock_user_info_ok_response_infinite_generator():
         "error": {
             "code": "ok",
             "message": "",
-            "log_id": "202207280326050102231031430C7E754E",
+            "log_id": "XXXXXX",
         },
     }
     return itertools.repeat(
