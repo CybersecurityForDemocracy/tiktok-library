@@ -193,13 +193,21 @@ account with `--region` (this flag can be provided multiple times include
 multiple regions). See tiktok API documentation for more info about this field
 https://developers.tiktok.com/doc/research-api-specs-query-videos/
 
-## fetching user info
+### fetching user info
 `--fetch-user-info` For each video the API returns user info is fetched for the video's creator.  (for more about what TikTok research API provides and how it is structured see https://developers.tiktok.com/doc/research-api-specs-query-user-info)
 
- ## Fetching comments
+ ### Fetching comments
 `--fetch-comments` For each video the API returns comments (up to the first 1000
 due to API limitations) are fetched. (for more about what the API provides for comments and how the responses are structured see https://developers.tiktok.com/doc/research-api-specs-query-video-comments)
 **NOTE: fetching comments can significantly increase API quota consumption beacuse potentially every video will used 10 extra API requests.**
+
+### Limiting number of API requests (to preserve precious API quota)
+by default tool has no limit on API requests. When the API indicates quota has
+been exceed the tool sleeps and retries until quota resets at UTC midnight. If
+you wish to limit the number of requests, say to preserve precious little API
+quota, you can use the `--max-api-requests` flag which take a positive int. Once
+that many requests have been made crawling will stop even if the API indicates
+more results are available.
 
 ## Print query without sending requests to API
 If you would like to preview the query that would be sent to the API (without
