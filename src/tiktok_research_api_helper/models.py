@@ -445,7 +445,6 @@ class Crawl(Base):
             cursor=res_data["cursor"],
             has_more=res_data["has_more"],
             search_id=res_data["search_id"],
-            #  query=json.dumps(query, cls=VideoQueryJSONEncoder),
             query=query_str,
             crawl_tags=({CrawlTag(name=name) for name in crawl_tags} if crawl_tags else set()),
         )
@@ -466,7 +465,6 @@ class Crawl(Base):
             query_str = query
         return cls(
             has_more=has_more,
-            #  query=json.dumps(query, cls=VideoQueryJSONEncoder),
             query=query_str,
             search_id=search_id,
             crawl_tags=({CrawlTag(name=name) for name in crawl_tags} if crawl_tags else set()),
