@@ -68,13 +68,13 @@ _DEFAULT_CREDENTIALS_FILE_PATH = Path("./secrets.yaml")
 CrawlDateWindow = namedtuple("CrawlDateWindow", ["start_date", "end_date"])
 
 
-def driver_single_day(config: ApiClientConfig, query_config: VideoQueryConfig):
+def driver_single_day(client_config: ApiClientConfig, query_config: VideoQueryConfig):
     """Simpler driver for a single day of query"""
     assert (
-        config.start_date == config.end_date
+        query_config.start_date == query_config.end_date
     ), "Start and final date must be the same for single day driver"
 
-    api_client = TikTokApiClient.from_config(config)
+    api_client = TikTokApiClient.from_config(client_config)
     api_client.fetch_and_store_all(query_config)
 
 
@@ -290,7 +290,7 @@ def run_repeated(
     crawl_interval: Annotated[int, typer.Option(help="How many days between crawls.")] = 1,
     db_file: DBFileType | None = None,
     db_url: DBUrlType | None = None,
-    crawl_tag: CrawlTagType = "",
+    crawl_tag: CrawlTagType | None = None,
     raw_responses_output_dir: RawResponsesOutputDir | None = None,
     query_file_json: JsonQueryFileType | None = None,
     api_credentials_file: ApiCredentialsFileType = _DEFAULT_CREDENTIALS_FILE_PATH,
@@ -387,7 +387,7 @@ def run(
     db_url: DBUrlType | None = None,
     stop_after_one_request: StopAfterOneRequestFlag = False,
     max_api_requests: MaxApiRequests | None = None,
-    crawl_tag: CrawlTagType = "",
+    crawl_tag: CrawlTagType | None = None,
     raw_responses_output_dir: RawResponsesOutputDir | None = None,
     query_file_json: JsonQueryFileType | None = None,
     api_credentials_file: ApiCredentialsFileType = _DEFAULT_CREDENTIALS_FILE_PATH,
@@ -533,10 +533,10 @@ def run(
         #  fetch_comments=fetch_comments,
     )
     query_config = VideoQueryConfig(
-        video_query=query,
+        query=query,
         start_date=start_date_datetime,
         end_date=end_date_datetime,
-        crawl_tags=[crawl_tag],
+        crawl_tags=[crawl_tag] if crawl_tag else None,
         fetch_user_info=fetch_user_info,
         fetch_comments=fetch_comments,
     )

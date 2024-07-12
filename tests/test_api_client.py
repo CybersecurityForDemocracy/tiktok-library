@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, Mock, PropertyMock, call
 
+import attrs
 import pendulum
 import pytest
 import requests
@@ -294,7 +295,7 @@ def mock_user_info_ok_response_infinite_generator():
         },
     }
     return itertools.repeat(
-        api_client.TikTokUserInfoResponse(data=data, error=data["error"], user_info=data)
+        api_client.TikTokUserInfoResponse(username="example", data=data, error=data["error"], user_info=data)
     )
 
 
@@ -725,8 +726,8 @@ def test_tiktok_request_client_fetch_user_info_raises_max_api_requests_reached_e
         m.setattr(
             api_client,
             "_parse_user_info_response",
-            lambda x: api_client.TikTokUserInfoResponse(
-                data=None, error=None, user_info={"username": "a"}
+            lambda username, response: api_client.TikTokUserInfoResponse(
+                username=username, data=None, error=None, user_info={}
             ),
         )
 
@@ -762,8 +763,8 @@ def test_tiktok_request_client_mixed_fetch_raises_max_api_requests_reached_error
         m.setattr(
             api_client,
             "_parse_user_info_response",
-            lambda x: api_client.TikTokUserInfoResponse(
-                data=None, error=None, user_info={"username": "a"}
+            lambda username, response: api_client.TikTokUserInfoResponse(
+                username=username, data=None, error=None, user_info={}
             ),
         )
 
@@ -784,3 +785,7 @@ def test_tiktok_request_client_mixed_fetch_raises_max_api_requests_reached_error
         with pytest.raises(api_client.MaxApiRequestsReachedError):
             request_client.fetch_user_info(user_info_request)
         assert request_client.num_api_requests_sent == 3
+
+def test_TikTokVideoRequest_as_json(basic_video_query_config):
+    assert json.loads(api_client.TikTokVideoRequest.from_config(basic_video_query_config).as_json()) == {'cursor': None, 'end_date': '20240601', 'is_random': False, 'max_count': 100, 'query': {'and': [{'field_name': 'hashtag_name', 'field_values': ['test1', 'test2'], 'operation': 'IN'}]}, 'search_id': None, 'start_date': '20240601'}
+
