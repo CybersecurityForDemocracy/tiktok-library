@@ -121,7 +121,6 @@ class TikTokCommentsResponse(TikTokResponse):
     comments: Sequence[any]
 
 
-# TODO(macpd): should this hold models instead of parsed JSON?
 @attrs.define
 class TikTokApiClientFetchResult:
     videos: Sequence[Any]
@@ -143,7 +142,6 @@ class VideoQueryConfig:
     )
     start_date: datetime = attrs.field(validator=attrs.validators.instance_of((date, datetime)))
     end_date: datetime = attrs.field(validator=attrs.validators.instance_of((date, datetime)))
-    # TODO(macpd): should this be int limit? negative number disables, zero is no limit
     # WARNING: Fetching comments can greatly increase API quota usage. use with care.
     fetch_comments: bool = False
     fetch_user_info: bool = False
@@ -610,7 +608,6 @@ def _parse_video_response(response: rq.Response) -> TikTokVideoResponse:
     return TikTokVideoResponse(data=response_data_section, videos=videos, error=error_data)
 
 
-# TODO(macpd): handle error, response with no data, response for non-existent user, etc
 def _parse_user_info_response(username: str, response: rq.Response) -> TikTokUserInfoResponse:
     response_json = _extract_response_json_or_raise_error(response)
     error_data = response_json.get("error")
@@ -624,7 +621,6 @@ def _parse_user_info_response(username: str, response: rq.Response) -> TikTokUse
     )
 
 
-# TODO(macpd): handle error, response with no data, response for non-existent video id, etc
 def _parse_comments_response(response: rq.Response) -> TikTokCommentsResponse:
     response_json = _extract_response_json_or_raise_error(response)
     error_data = response_json.get("error")
@@ -680,13 +676,6 @@ def update_crawl_from_api_response(
     }
 
 
-# TODO(macpd): handle different API request types (video, user, comment, etc)
-# - remaining tasks for this TODO:
-# -- Tests for new request/response types, and fetching those
-# -- ApiConfig and cli flags to control when/how to fetch new types
-# -- actually fetch those types
-# -- Store types in DB!! (and tests for that)
-# -- Should api_results_iter return all API error response for comment and user info requests?
 @attrs.define
 class TikTokApiClient:
     """Provides interface for interacting with TikTok research API. Handles requests to API to
