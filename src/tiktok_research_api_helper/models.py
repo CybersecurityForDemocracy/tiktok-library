@@ -270,7 +270,10 @@ def _get_crawl_tag_set(
     """
     if not crawl_tags:
         return set()
-    crawl_tags = [CrawlTag(name=crawl_tag) if isinstance(crawl_tag, str) else crawl_tag for crawl_tag in crawl_tags]
+    crawl_tags = [
+        CrawlTag(name=crawl_tag) if isinstance(crawl_tag, str) else crawl_tag
+        for crawl_tag in crawl_tags
+    ]
     # Get all crawl_tag names references in this list of videos
     crawl_tag_names_referenced = {crawl_tag.name for crawl_tag in crawl_tags}
     # Of all the referenced crawl_tag names get those which exist in the database
