@@ -266,6 +266,11 @@ specify the connection string.
     - `store_fetch_result` stores crawl and videos data to the database
     - `fetch_and_store_all` does all the above (fetching all results from API
       and storing them in database as responses are received).
+    - `fetch_comments` and `fetch_user_info` cache responses (using video ID,
+      and username respectively) to reduce API requests at the cost of
+      additional memory usage. This done via rudimentary dict storage with the
+      video ID or username mapping to the response.
+
 - Database
     - All "Crawls" (really each request to the API) are stored in a seperate table `crawl` and the data itself in `video`.
     - Mapping of video <-> crawl is stored in `videos_to_crawls`.
