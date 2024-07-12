@@ -24,7 +24,7 @@ from tiktok_research_api_helper.models import (
     upsert_user_info,
     upsert_videos,
 )
-from tiktok_research_api_helper.query import VideoQuery, VideoQueryJSONEncoder
+from tiktok_research_api_helper.query import VideoQuery
 
 ALL_VIDEO_DATA_URL = "https://open.tiktokapis.com/v2/research/video/query/?fields=id,video_description,create_time,region_code,share_count,view_count,like_count,comment_count,music_id,hashtag_names,username,effect_ids,voice_to_text,playlist_id"
 ALL_USER_INFO_DATA_URL = "https://open.tiktokapis.com/v2/research/user/info/?fields=display_name,bio_description,avatar_url,is_verified,follower_count,following_count,likes_count,video_count"
@@ -46,7 +46,6 @@ class ApiRateLimitError(Exception):
 
 
 class InvalidRequestError(Exception):
-
     def __init__(self, message, response):
         super().__init__(message)
         self.response = response
@@ -57,13 +56,16 @@ class InvalidSearchIdError(InvalidRequestError):
         super().__init__(message, response)
         self.error_json = error_json
 
+
 class InvalidUsernameError(InvalidRequestError):
     def __init__(self, message, response, error_json):
         super().__init__(message, response)
         self.error_json = error_json
 
+
 class RefusedUsernameError(InvalidRequestError):
     """Raised when API says it 'cannot return this user's information'"""
+
     def __init__(self, message, response, error_json):
         super().__init__(message, response)
         self.error_json = error_json
@@ -144,8 +146,9 @@ class VideoQueryConfig:
 @attrs.define
 class ApiClientConfig:
     api_credentials_file: Path
-    engine: Engine | None = attrs.field(default=None,
-                                        validator=attrs.validators.optional(attrs.validators.instance_of(Engine)))
+    engine: Engine | None = attrs.field(
+        default=None, validator=attrs.validators.optional(attrs.validators.instance_of(Engine))
+    )
     raw_responses_output_dir: Path | None = None
     api_rate_limit_wait_strategy: ApiRateLimitWaitStrategy = attrs.field(
         default=ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS,
@@ -525,7 +528,9 @@ class TikTokApiRequestClient:
     def _fetch_user_info_and_parse_response(
         self, request: TikTokUserInfoRequest
     ) -> TikTokUserInfoResponse:
-        parsed_response = _parse_user_info_response(username=request.username, response=self._post(request, ALL_USER_INFO_DATA_URL))
+        parsed_response = _parse_user_info_response(
+            username=request.username, response=self._post(request, ALL_USER_INFO_DATA_URL)
+        )
         return parsed_response
 
     def _fetch_comments_and_parse_response(
@@ -575,14 +580,23 @@ class TikTokApiRequestClient:
                 response_json = response.json()
                 response_json_error_message = response_json.get("error", {}).get("message", "")
                 if SEARCH_ID_INVALID_ERROR_MESSAGE_REGEX.match(response_json_error_message):
-                    raise InvalidSearchIdError(f"{response!r} {response.text}", response=response,
-                                               error_json=response_json.get("error", {}))
+                    raise InvalidSearchIdError(
+                        f"{response!r} {response.text}",
+                        response=response,
+                        error_json=response_json.get("error", {}),
+                    )
                 if "is invalid: cannot find the user" in response_json_error_message:
-                    raise InvalidUsernameError(f"{response!r} {response.text}", response=response,
-                                               error_json=response_json.get("error", {}))
+                    raise InvalidUsernameError(
+                        f"{response!r} {response.text}",
+                        response=response,
+                        error_json=response_json.get("error", {}),
+                    )
                 if "API cannot return this user's information" in response_json_error_message:
-                    raise RefusedUsernameError(f"{response!r} {response.text}", response=response,
-                                               error_json=response_json.get("error", {}))
+                    raise RefusedUsernameError(
+                        f"{response!r} {response.text}",
+                        response=response,
+                        error_json=response_json.get("error", {}),
+                    )
             except json.JSONDecodeError:
                 logging.debug("Unable to JSON decode response data:\n%s", response.text)
 
@@ -616,7 +630,10 @@ def _parse_user_info_response(username: str, response: rq.Response) -> TikTokUse
     response_data_section = response_json.get("data")
 
     return TikTokUserInfoResponse(
-        username=username, user_info=response_data_section, data=response_data_section, error=error_data
+        username=username,
+        user_info=response_data_section,
+        data=response_data_section,
+        error=error_data,
     )
 
 
@@ -841,9 +858,9 @@ class TikTokApiClient:
                 )
             except (InvalidUsernameError, RefusedUsernameError) as e:
                 logging.info("username %s not found. %s", username, e)
-                self._user_info_cache[username] = TikTokUserInfoResponse(username=username,
-                                                                         error=e.error_json,
-                                                                         user_info=None, data=None)
+                self._user_info_cache[username] = TikTokUserInfoResponse(
+                    username=username, error=e.error_json, user_info=None, data=None
+                )
 
         return self._user_info_cache[username]
 
@@ -917,7 +934,7 @@ class TikTokApiClient:
                 comments.extend(api_response.comments)
             if store_results_after_each_response and api_response.videos:
                 self.store_fetch_result(fetch_result=api_response)
-            crawl=api_response.crawl
+            crawl = api_response.crawl
 
         logging.debug("fetch_all video results:\n%s", video_data)
         return TikTokApiClientFetchResult(
