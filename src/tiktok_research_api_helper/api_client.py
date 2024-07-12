@@ -976,21 +976,3 @@ class TikTokApiClient:
 
     def fetch_and_store_all(self, query_config: VideoQueryConfig) -> TikTokApiClientFetchResult:
         return self.fetch_all(query_config=query_config, store_results_after_each_response=True)
-
-
-#  def get_unfetched_attribute_identifiers_from_api_video_response(
-#  api_video_response: TikTokVideoResponse, id_attr_name: str, fetched_ids: set
-#  ) -> set:
-#  """Extracts all of |id_attr_name| from |api_video_response| and returns those not in
-#  |fetched_ids|
-#  """
-#  ids_in_response = {video.get(id_attr_name) for video in api_video_response.videos}
-#  unfetched = ids_in_response.difference(fetched_ids)
-#  logging.debug(
-#  "Finding unfetched %s, fetched: %s\n ids in this repsonse: %s\nunfetched: %s",
-#  id_attr_name,
-#  fetched_ids,
-#  ids_in_response,
-#  unfetched,
-#  )
-#  return unfetched

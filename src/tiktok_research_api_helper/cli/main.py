@@ -520,17 +520,11 @@ def run(
         engine = get_sqlite_engine_and_create_tables(db_file)
 
     api_client_config = ApiClientConfig(
-        #  video_query=query,
-        #  start_date=start_date_datetime,
-        #  end_date=end_date_datetime,
         engine=engine,  # type: ignore - cant catch if logic above
         max_api_requests=1 if stop_after_one_request else max_api_requests,
-        #  crawl_tags=[crawl_tag],
         raw_responses_output_dir=raw_responses_output_dir,
         api_credentials_file=api_credentials_file,
         api_rate_limit_wait_strategy=rate_limit_wait_strategy,
-        #  fetch_user_info=fetch_user_info,
-        #  fetch_comments=fetch_comments,
     )
     query_config = VideoQueryConfig(
         query=query,
