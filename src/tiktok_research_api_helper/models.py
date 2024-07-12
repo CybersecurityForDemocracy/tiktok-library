@@ -262,16 +262,17 @@ def _get_hashtag_name_to_hashtag_object_map(
     return hashtag_name_to_hashtag
 
 
-def _get_crawl_tag_name_to_crawl_tag_object_map(
-    session: Session, crawl_tags: Sequence[str] | None
+def _get_crawl_tag_set(
+    session: Session, crawl_tags: Sequence[CrawlTag] | Sequence[str] | None
 ) -> set[CrawlTag]:
     """Gets crawl_tag name -> CrawlTag object map, pulling existing CrawlTag objects from database
     and creating new CrawlTag objects for new crawl_tag names.
     """
     if not crawl_tags:
         return set()
+    crawl_tags = [CrawlTag(name=crawl_tag) if isinstance(crawl_tag, str) else crawl_tag for crawl_tag in crawl_tags]
     # Get all crawl_tag names references in this list of videos
-    crawl_tag_names_referenced = set(crawl_tags)
+    crawl_tag_names_referenced = {crawl_tag.name for crawl_tag in crawl_tags}
     # Of all the referenced crawl_tag names get those which exist in the database
     crawl_tag_name_to_crawl_tag = {
         row.name: row
@@ -337,7 +338,7 @@ def upsert_videos(
     video_data: Sequence[dict[str, Any]],
     crawl_id: int,
     engine: Engine,
-    crawl_tags: Sequence[str] | None = None,
+    crawl_tags: Sequence[CrawlTag] | Sequence[str] | None = None,
 ):
     """
     Columns must be the same when doing a upsert which is annoying since we have
@@ -353,7 +354,7 @@ def upsert_videos(
         hashtag_name_to_hashtag = _get_hashtag_name_to_hashtag_object_map(session, video_data)
 
         # Get all crawl_tag names references in this list of videos
-        crawl_tags_set = _get_crawl_tag_name_to_crawl_tag_object_map(session, crawl_tags)
+        crawl_tags_set = _get_crawl_tag_set(session, crawl_tags)
 
         # Get all effect ids references in this list of videos
         effect_id_to_effect = _get_effect_id_to_effect_object_map(session, video_data)
