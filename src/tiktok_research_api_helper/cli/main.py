@@ -7,15 +7,18 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Annotated, Any
 
+import attrs
 import pause
 import pendulum
 import typer
 
 from tiktok_research_api_helper import region_codes, utils
 from tiktok_research_api_helper.api_client import (
+    DAILY_API_REQUEST_QUOTA,
     ApiClientConfig,
     ApiRateLimitWaitStrategy,
     TikTokApiClient,
+    VideoQueryConfig,
 )
 from tiktok_research_api_helper.cli.custom_argument_types import (
     ApiCredentialsFileType,
@@ -29,11 +32,14 @@ from tiktok_research_api_helper.cli.custom_argument_types import (
     ExcludeAnyHashtagListType,
     ExcludeAnyKeywordListType,
     ExcludeUsernamesListType,
+    FetchCommentsFlag,
+    FetchUserInfoFlag,
     IncludeAllHashtagListType,
     IncludeAllKeywordListType,
     IncludeAnyHashtagListType,
     IncludeAnyKeywordListType,
     JsonQueryFileType,
+    MaxApiRequests,
     OnlyUsernamesListType,
     RawResponsesOutputDir,
     RegionCodeListType,
@@ -49,8 +55,8 @@ from tiktok_research_api_helper.query import (
     Cond,
     Fields,
     Op,
-    Query,
-    QueryJSONEncoder,
+    VideoQuery,
+    VideoQueryJSONEncoder,
     generate_query,
 )
 
@@ -62,52 +68,34 @@ _DEFAULT_CREDENTIALS_FILE_PATH = Path("./secrets.yaml")
 CrawlDateWindow = namedtuple("CrawlDateWindow", ["start_date", "end_date"])
 
 
-def run_long_query(config: ApiClientConfig):
-    """Runs a "long" query, defined as one that may need multiple requests to get all the data.
-
-    Unless you have a good reason to believe otherwise, queries should default to be considered
-    "long"."""
-    api_client = TikTokApiClient.from_config(config)
-    api_client.fetch_and_store_all()
-
-
-def driver_single_day(config: ApiClientConfig):
+def driver_single_day(client_config: ApiClientConfig, query_config: VideoQueryConfig):
     """Simpler driver for a single day of query"""
     assert (
-        config.start_date == config.end_date
+        query_config.start_date == query_config.end_date
     ), "Start and final date must be the same for single day driver"
 
-    run_long_query(config)
+    api_client = TikTokApiClient.from_config(client_config)
+    api_client.fetch_and_store_all(query_config)
 
 
-def main_driver(config: ApiClientConfig):
+def main_driver(api_client_config: ApiClientConfig, query_config: VideoQueryConfig):
     days_per_iter = utils.int_to_days(_DAYS_PER_ITER)
 
-    start_date = copy(config.start_date)
+    start_date = copy(query_config.start_date)
 
-    while start_date < config.end_date:
+    api_client = TikTokApiClient.from_config(api_client_config)
+
+    while start_date < query_config.end_date:
         # API limit is 30, we maintain 28 to be safe
         local_end_date = start_date + days_per_iter
-        local_end_date = min(local_end_date, config.end_date)
-
-        new_config = ApiClientConfig(
-            query=config.query,
-            start_date=start_date,
-            end_date=local_end_date,
-            engine=config.engine,
-            stop_after_one_request=config.stop_after_one_request,
-            crawl_tags=config.crawl_tags,
-            raw_responses_output_dir=config.raw_responses_output_dir,
-            api_credentials_file=config.api_credentials_file,
-            api_rate_limit_wait_strategy=config.api_rate_limit_wait_strategy,
+        local_end_date = min(local_end_date, query_config.end_date)
+        local_query_config = attrs.evolve(
+            query_config, start_date=start_date, end_date=local_end_date
         )
-        run_long_query(new_config)
+
+        api_client.fetch_and_store_all(local_query_config)
 
         start_date += days_per_iter
-
-        if config.stop_after_one_request:
-            logging.log(logging.WARN, "Stopping after one request")
-            break
 
 
 @APP.command()
@@ -124,33 +112,37 @@ def test(
     utils.setup_logging_info_level()
     logging.log(logging.INFO, f"Arguments: {locals()}")
 
-    test_query = Query(
+    test_query = VideoQuery(
         and_=[
             Cond(Fields.hashtag_name, "snoopy", Op.EQ),
             Cond(Fields.region_code, "US", Op.EQ),
         ]
     )
 
-    logging.log(logging.INFO, f"Query: {test_query}")
+    logging.log(logging.INFO, f"VideoQuery: {test_query}")
 
     start_date_datetime = utils.str_tiktok_date_format_to_datetime("20220101")
     end_date_datetime = utils.str_tiktok_date_format_to_datetime("20220101")
 
     engine = get_sqlite_engine_and_create_tables(db_file)
 
-    config = ApiClientConfig(
-        query=test_query,
-        start_date=start_date_datetime,
-        end_date=end_date_datetime,
+    api_client_config = ApiClientConfig(
         engine=engine,
-        stop_after_one_request=True,
-        crawl_tags=["Testing"],
+        max_api_requests=1,
         raw_responses_output_dir=None,
         api_credentials_file=api_credentials_file,
     )
-    logging.log(logging.INFO, f"Config: {config}")
+    video_query_config = VideoQueryConfig(
+        video_query=test_query,
+        start_date=start_date_datetime,
+        end_date=end_date_datetime,
+        crawl_tags=["Testing"],
+    )
+    logging.info(
+        "API client config: %s\nVideo query config: %s", api_client_config, video_query_config
+    )
 
-    driver_single_day(config)
+    driver_single_day(api_client_config, video_query_config)
 
 
 def get_query_file_json(query_file: Path):
@@ -270,7 +262,7 @@ def print_query(
         exclude_from_usernames=exclude_from_usernames,
     )
 
-    print(json.dumps(query, cls=QueryJSONEncoder, indent=2))
+    print(json.dumps(query, cls=VideoQueryJSONEncoder, indent=2))
 
 
 def make_crawl_date_window(crawl_span: int, crawl_lag: int) -> CrawlDateWindow:
@@ -298,7 +290,7 @@ def run_repeated(
     crawl_interval: Annotated[int, typer.Option(help="How many days between crawls.")] = 1,
     db_file: DBFileType | None = None,
     db_url: DBUrlType | None = None,
-    crawl_tag: CrawlTagType = "",
+    crawl_tag: CrawlTagType | None = None,
     raw_responses_output_dir: RawResponsesOutputDir | None = None,
     query_file_json: JsonQueryFileType | None = None,
     api_credentials_file: ApiCredentialsFileType = _DEFAULT_CREDENTIALS_FILE_PATH,
@@ -316,6 +308,8 @@ def run_repeated(
     exclude_all_keywords: ExcludeAllKeywordListType | None = None,
     only_from_usernames: OnlyUsernamesListType | None = None,
     exclude_from_usernames: ExcludeUsernamesListType | None = None,
+    fetch_user_info: FetchUserInfoFlag | None = None,
+    fetch_comments: FetchCommentsFlag | None = None,
     debug: EnableDebugLoggingFlag = False,
 ) -> None:
     """
@@ -363,6 +357,9 @@ def run_repeated(
             exclude_all_keywords=exclude_all_keywords,
             only_from_usernames=only_from_usernames,
             exclude_from_usernames=exclude_from_usernames,
+            fetch_user_info=fetch_user_info,
+            fetch_comments=fetch_comments,
+            max_api_requests=(DAILY_API_REQUEST_QUOTA * crawl_interval),
             debug=debug,
             # Do not setup logging again so that we keep the current log file.
             init_logging=False,
@@ -389,7 +386,8 @@ def run(
     db_file: DBFileType | None = None,
     db_url: DBUrlType | None = None,
     stop_after_one_request: StopAfterOneRequestFlag = False,
-    crawl_tag: CrawlTagType = "",
+    max_api_requests: MaxApiRequests | None = None,
+    crawl_tag: CrawlTagType | None = None,
     raw_responses_output_dir: RawResponsesOutputDir | None = None,
     query_file_json: JsonQueryFileType | None = None,
     api_credentials_file: ApiCredentialsFileType = _DEFAULT_CREDENTIALS_FILE_PATH,
@@ -407,6 +405,8 @@ def run(
     exclude_all_keywords: ExcludeAllKeywordListType | None = None,
     only_from_usernames: OnlyUsernamesListType | None = None,
     exclude_from_usernames: ExcludeUsernamesListType | None = None,
+    fetch_user_info: FetchUserInfoFlag | None = None,
+    fetch_comments: FetchCommentsFlag | None = None,
     debug: EnableDebugLoggingFlag = False,
     # Skips logging init/setup. Hidden because this is intended for other commands that setup
     # logging and then call this as a function.
@@ -420,6 +420,15 @@ def run(
             utils.setup_logging_debug_level()
         else:
             utils.setup_logging_info_level()
+
+    if stop_after_one_request:
+        logging.error("--stop_after_one_request is deprecated, please use --max-api-requests=1")
+
+    if stop_after_one_request and max_api_requests:
+        raise typer.BadParameter(
+            "--stop-after-one-request and --max-api-requests are mutually exclusive. Please use "
+            "only one."
+        )
 
     logging.log(logging.INFO, f"Arguments: {locals()}")
 
@@ -503,32 +512,35 @@ def run(
             exclude_from_usernames=exclude_from_usernames,
         )
 
-    logging.log(logging.INFO, f"Query: {query}")
+    logging.log(logging.INFO, f"VideoQuery: {query}")
 
     if db_url:
         engine = get_engine_and_create_tables(db_url)
     elif db_file:
         engine = get_sqlite_engine_and_create_tables(db_file)
 
-    config = ApiClientConfig(
-        query=query,
-        start_date=start_date_datetime,
-        end_date=end_date_datetime,
+    api_client_config = ApiClientConfig(
         engine=engine,  # type: ignore - cant catch if logic above
-        stop_after_one_request=stop_after_one_request,
-        crawl_tags=[crawl_tag],
+        max_api_requests=1 if stop_after_one_request else max_api_requests,
         raw_responses_output_dir=raw_responses_output_dir,
         api_credentials_file=api_credentials_file,
         api_rate_limit_wait_strategy=rate_limit_wait_strategy,
     )
-    logging.log(logging.INFO, f"Config: {config}")
+    query_config = VideoQueryConfig(
+        query=query,
+        start_date=start_date_datetime,
+        end_date=end_date_datetime,
+        crawl_tags=[crawl_tag] if crawl_tag else None,
+        fetch_user_info=fetch_user_info,
+        fetch_comments=fetch_comments,
+    )
+    logging.info("API client config: %s\nVideo query config: %s", api_client_config, query_config)
 
-    if config.start_date == config.end_date:
-        logging.log(
-            logging.INFO,
+    if query_config.start_date == query_config.end_date:
+        logging.info(
             "Start and final date are the same - running single day driver",
         )
-        driver_single_day(config)
+        driver_single_day(api_client_config, query_config)
     else:
-        logging.log(logging.INFO, "Running main driver")
-        main_driver(config)
+        logging.info("Running main driver")
+        main_driver(api_client_config, query_config)

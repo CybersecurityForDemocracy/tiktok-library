@@ -73,8 +73,8 @@ def mock_videos(mock_crawl):
 
 
 @pytest.fixture
-def api_response_videos(testdata_api_response_json):
-    return testdata_api_response_json["data"]["videos"]
+def api_response_videos(testdata_api_videos_response_json):
+    return testdata_api_videos_response_json["data"]["videos"]
 
 
 def assert_video_database_object_list_matches_api_responses_dict(

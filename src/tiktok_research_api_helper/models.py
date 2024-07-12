@@ -32,7 +32,7 @@ from sqlalchemy.orm import (
     synonym,
 )
 
-from tiktok_research_api_helper.query import Query, QueryJSONEncoder
+from tiktok_research_api_helper.query import VideoQuery, VideoQueryJSONEncoder
 
 # See https://amercader.net/blog/beware-of-json-fields-in-sqlalchemy/
 MUTABLE_JSON = MutableDict.as_mutable(JSON)  # type: ignore
@@ -202,6 +202,38 @@ class Video(Base):
         return {effect.effect_id for effect in self.effects}
 
 
+# TODO(macpd): should we track crawl_id <-> User many-to-many relationship?
+class UserInfo(Base):
+    __tablename__ = "user_info"
+
+    # TODO(macpd): maybe declare relationship to video.username
+    username: Mapped[str] = mapped_column(primary_key=True)
+    display_name: Mapped[str]
+    bio_description: Mapped[str]
+    avatar_url: Mapped[str]
+    is_verified: Mapped[bool]
+    likes_count: Mapped[int]
+    video_count: Mapped[int]
+    follower_count: Mapped[int]
+    following_count: Mapped[int]
+
+
+# TODO(macpd): should we track crawl_id <-> Comment many-to-many relationship?
+class Comment(Base):
+    __tablename__ = "comment"
+
+    id: Mapped[int] = mapped_column(
+        BigIntegerForPrimaryKeyType, autoincrement=False, primary_key=True
+    )
+    text: Mapped[str]
+    # TODO(macpd): maybe declare relationship to video.id
+    video_id: Mapped[int]
+    parent_comment_id: Mapped[int]
+    like_count: Mapped[int] = mapped_column(nullable=True)
+    reply_count: Mapped[int] = mapped_column(nullable=True)
+    create_time: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=False))
+
+
 # TODO(macpd): make generic method for this and use for all many-to-many objects inserted with video
 def _get_hashtag_name_to_hashtag_object_map(
     session: Session, video_data: Sequence[Mapping[str, Any]]
@@ -230,16 +262,20 @@ def _get_hashtag_name_to_hashtag_object_map(
     return hashtag_name_to_hashtag
 
 
-def _get_crawl_tag_name_to_crawl_tag_object_map(
-    session: Session, crawl_tags: Sequence[str] | None
+def _get_crawl_tag_set(
+    session: Session, crawl_tags: Sequence[CrawlTag] | Sequence[str] | None
 ) -> set[CrawlTag]:
     """Gets crawl_tag name -> CrawlTag object map, pulling existing CrawlTag objects from database
     and creating new CrawlTag objects for new crawl_tag names.
     """
     if not crawl_tags:
         return set()
+    crawl_tags = [
+        CrawlTag(name=crawl_tag) if isinstance(crawl_tag, str) else crawl_tag
+        for crawl_tag in crawl_tags
+    ]
     # Get all crawl_tag names references in this list of videos
-    crawl_tag_names_referenced = set(crawl_tags)
+    crawl_tag_names_referenced = {crawl_tag.name for crawl_tag in crawl_tags}
     # Of all the referenced crawl_tag names get those which exist in the database
     crawl_tag_name_to_crawl_tag = {
         row.name: row
@@ -282,11 +318,30 @@ def _get_effect_id_to_effect_object_map(
     return effect_id_to_effect
 
 
+def upsert_user_info(user_info_sequence: Sequence[Mapping[str, str | int]], engine: Engine):
+    with Session(engine) as session:
+        for user_info in user_info_sequence:
+            new_user = UserInfo(**user_info)
+            session.merge(new_user)
+        session.commit()
+
+
+def upsert_comments(comments: Sequence[Mapping[str, str | int]], engine: Engine):
+    with Session(engine) as session:
+        for comment in comments:
+            comment_copy = copy.deepcopy(comment)
+            comment_copy["create_time"] = datetime.datetime.fromtimestamp(
+                comment_copy["create_time"]
+            )
+            session.merge(Comment(**comment_copy))
+        session.commit()
+
+
 def upsert_videos(
     video_data: Sequence[dict[str, Any]],
     crawl_id: int,
     engine: Engine,
-    crawl_tags: Sequence[str] | None = None,
+    crawl_tags: Sequence[CrawlTag] | Sequence[str] | None = None,
 ):
     """
     Columns must be the same when doing a upsert which is annoying since we have
@@ -302,7 +357,7 @@ def upsert_videos(
         hashtag_name_to_hashtag = _get_hashtag_name_to_hashtag_object_map(session, video_data)
 
         # Get all crawl_tag names references in this list of videos
-        crawl_tags_set = _get_crawl_tag_name_to_crawl_tag_object_map(session, crawl_tags)
+        crawl_tags_set = _get_crawl_tag_set(session, crawl_tags)
 
         # Get all effect ids references in this list of videos
         effect_id_to_effect = _get_effect_id_to_effect_object_map(session, video_data)
@@ -379,13 +434,18 @@ class Crawl(Base):
 
     @classmethod
     def from_request(
-        cls, res_data: Mapping, query: Query, crawl_tags: Sequence[str] | None = None
+        cls, res_data: Mapping, query: VideoQuery | str, crawl_tags: Sequence[str] | None = None
     ) -> "Crawl":
+        query_str = None
+        if isinstance(query, VideoQuery):
+            query_str = json.dumps(query, cls=VideoQueryJSONEncoder)
+        else:
+            query_str = query
         return cls(
             cursor=res_data["cursor"],
             has_more=res_data["has_more"],
             search_id=res_data["search_id"],
-            query=json.dumps(query, cls=QueryJSONEncoder),
+            query=query_str,
             crawl_tags=({CrawlTag(name=name) for name in crawl_tags} if crawl_tags else set()),
         )
 
@@ -393,14 +453,19 @@ class Crawl(Base):
     @classmethod
     def from_query(
         cls,
-        query: Query,
+        query: VideoQuery,
         crawl_tags: Sequence[str] | None = None,
         has_more: bool = True,
         search_id: [int | None] = None,
     ) -> "Crawl":
+        query_str = None
+        if isinstance(query, VideoQuery):
+            query_str = json.dumps(query, cls=VideoQueryJSONEncoder)
+        else:
+            query_str = query
         return cls(
             has_more=has_more,
-            query=json.dumps(query, cls=QueryJSONEncoder),
+            query=query_str,
             search_id=search_id,
             crawl_tags=({CrawlTag(name=name) for name in crawl_tags} if crawl_tags else set()),
         )
