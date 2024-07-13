@@ -6,8 +6,8 @@ from tiktok_research_api_helper.query import (
     Cond,
     Fields,
     Op,
-    Query,
-    QueryJSONEncoder,
+    VideoQuery,
+    VideoQueryJSONEncoder,
     generate_query,
     get_normalized_hashtag_set,
     get_normalized_keyword_set,
@@ -19,7 +19,7 @@ from tiktok_research_api_helper.query import (
 def mock_query_us():
     hashtags = ["hashtag", "lol", "yay"]
 
-    return Query(
+    return VideoQuery(
         and_=[
             Cond(Fields.hashtag_name, hashtags, Op.IN),
             Cond(Fields.region_code, "US", Op.EQ),
@@ -31,7 +31,7 @@ def mock_query_us():
 def mock_query_us_ca():
     hashtags = ["hashtag", "lol", "yay"]
 
-    return Query(
+    return VideoQuery(
         and_=[
             Cond(Fields.hashtag_name, hashtags, Op.IN),
             Cond(Fields.region_code, ["US", "CA"], Op.IN),
@@ -47,7 +47,7 @@ def mock_query_exclude_some_hashtags():
         "gross",
     ]
 
-    return Query(
+    return VideoQuery(
         and_=[
             Cond(Fields.hashtag_name, include_hashtags, Op.IN),
             Cond(Fields.region_code, ["US", "CA"], Op.IN),
@@ -60,7 +60,7 @@ def mock_query_exclude_some_hashtags():
 
 @pytest.fixture
 def mock_query_create_date():
-    return Query(
+    return VideoQuery(
         and_=[
             Cond(Fields.create_date, "20230101", Op.EQ),
         ],
@@ -81,14 +81,14 @@ def test_query_create_date(mock_query_create_date):
 
 def test_query_invalid_create_date():
     with pytest.raises(ValueError):
-        Query(
+        VideoQuery(
             and_=[
                 Cond(Fields.create_date, "2023-01-01", Op.EQ),
             ],
         )
 
     with pytest.raises(ValueError):
-        Query(
+        VideoQuery(
             and_=[
                 Cond(Fields.create_date, "It's not a date", Op.EQ),
             ],
@@ -172,7 +172,7 @@ def test_query_exclude_some_hashtags(mock_query_exclude_some_hashtags):
 
 def test_invalid_region_code():
     with pytest.raises(ValueError):
-        Query(
+        VideoQuery(
             and_=[
                 Cond(Fields.region_code, "invalid", Op.EQ),
             ],
@@ -180,7 +180,7 @@ def test_invalid_region_code():
 
 
 def test_query_json_decoder_us(mock_query_us):
-    assert json.dumps(mock_query_us, cls=QueryJSONEncoder, indent=1) == (
+    assert json.dumps(mock_query_us, cls=VideoQueryJSONEncoder, indent=1) == (
         """
 {
  "and": [
@@ -207,7 +207,7 @@ def test_query_json_decoder_us(mock_query_us):
 
 
 def test_query_json_decoder_us_ca(mock_query_us_ca):
-    assert json.dumps(mock_query_us_ca, cls=QueryJSONEncoder, indent=1) == (
+    assert json.dumps(mock_query_us_ca, cls=VideoQueryJSONEncoder, indent=1) == (
         """
 {
  "and": [
@@ -235,7 +235,7 @@ def test_query_json_decoder_us_ca(mock_query_us_ca):
 
 
 def test_query_json_decoder_exclude_some_hashtags(mock_query_exclude_some_hashtags):
-    assert json.dumps(mock_query_exclude_some_hashtags, cls=QueryJSONEncoder, indent=1) == (
+    assert json.dumps(mock_query_exclude_some_hashtags, cls=VideoQueryJSONEncoder, indent=1) == (
         """
 {
  "and": [

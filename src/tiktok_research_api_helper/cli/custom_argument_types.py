@@ -192,7 +192,38 @@ CrawlTagType = Annotated[
 ]
 
 StopAfterOneRequestFlag = Annotated[
-    bool, typer.Option(help="Stop after the first request - Useful for testing")
+    bool,
+    typer.Option(
+        help=(
+            "Stop after the first request - Useful for testing. "
+            "DEPRECATED please use --max-api-request=1"
+        )
+    ),
+]
+
+FetchUserInfoFlag = Annotated[
+    bool, typer.Option(help="Fetch user info of video owners/creators returned from query.")
+]
+
+FetchCommentsFlag = Annotated[
+    bool,
+    typer.Option(
+        help=(
+            "Fetch comments for videos returned from query.  WARNING: This can greatly increase "
+            "API quota consumption!  NOTE: research API will only provide the top 1000 comments."
+        ),
+    ),
+]
+
+MaxApiRequests = Annotated[
+    int,
+    typer.Option(
+        help=(
+            "maximum number of requests to send to the API. If this limit is reached crawl/fetch "
+            "stops even if API indicates more results are present, or other types (comments, "
+            "user_info) have not been fetched"
+        )
+    ),
 ]
 
 EnableDebugLoggingFlag = Annotated[bool, typer.Option(help="Enable debug level logging")]

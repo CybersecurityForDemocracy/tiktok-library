@@ -127,8 +127,9 @@ def convert_optional_cond_or_condseq_to_condseq(
     return optional_cond_or_seq
 
 
+# TODO(macpd): rename this to VideoVideoQuery
 @attrs.define
-class Query:
+class VideoQuery:
     and_: OptionalCondOrCondSeq = attrs.field(
         default=None, converter=convert_optional_cond_or_condseq_to_condseq
     )
@@ -154,9 +155,9 @@ class Query:
         return formatted_operands
 
 
-class QueryJSONEncoder(json.JSONEncoder):
+class VideoQueryJSONEncoder(json.JSONEncoder):
     def default(self, o):
-        if isinstance(o, Query):
+        if isinstance(o, VideoQuery):
             return o.as_dict()
         return super().default(o)
 
@@ -216,7 +217,7 @@ def generate_query(
     exclude_all_keywords: str | None = None,
     only_from_usernames: str | None = None,
     exclude_from_usernames: str | None = None,
-) -> Query:
+) -> VideoQuery:
     query_args = {_QUERY_AND_ARG_NAME: [], _QUERY_NOT_ARG_NAME: []}
 
     if include_any_hashtags:
@@ -250,7 +251,7 @@ def generate_query(
             Cond(Fields.region_code, sorted(region_codes), Op.IN)
         )
 
-    return Query(**query_args)
+    return VideoQuery(**query_args)
 
 
 Cond = Condition

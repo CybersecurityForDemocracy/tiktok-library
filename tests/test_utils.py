@@ -36,8 +36,14 @@ def test_database_engine(database_url_command_line_arg) -> Engine:
 
 
 @pytest.fixture
-def testdata_api_response_json():
-    with open("tests/testdata/api_response.json") as f:
+def testdata_api_videos_response_json():
+    with open("tests/testdata/api_videos_response.json") as f:
+        return json.load(f)
+
+
+@pytest.fixture
+def testdata_api_comments_response_json():
+    with open("tests/testdata/api_comments_response.json") as f:
         return json.load(f)
 
 
