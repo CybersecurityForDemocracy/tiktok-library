@@ -57,6 +57,12 @@ class InvalidSearchIdError(InvalidRequestError):
         self.error_json = error_json
 
 
+class InvalidCountOrCursorError(InvalidRequestError):
+    def __init__(self, message, response, error_json):
+        super().__init__(message, response)
+        self.error_json = error_json
+
+
 class InvalidUsernameError(InvalidRequestError):
     def __init__(self, message, response, error_json):
         super().__init__(message, response)
@@ -268,7 +274,7 @@ def retry_invalid_search_id_error(
 
     # Workaround API bug where valid search ID (ie the one the API just returned) is rejected as
     # invalid.
-    if isinstance(exception, InvalidSearchIdError):
+    if isinstance(exception, InvalidSearchIdError | InvalidCountOrCursorError):
         return retry_state.attempt_number <= INVALID_SEARCH_ID_ERROR_MAX_NUM_RETRIES
 
     return None
@@ -288,7 +294,7 @@ def retry_api_rate_limit_error_indefintely(
 def search_id_invalid_error_wait(retry_state):
     exception = retry_state.outcome.exception()
     # Wait in case API needs a few seconds to consider search ID valid.
-    if isinstance(exception, InvalidSearchIdError):
+    if isinstance(exception, InvalidSearchIdError | InvalidCountOrCursorError):
         return INVALID_SEARCH_ID_ERROR_RETRY_WAIT
 
     return 0
@@ -582,6 +588,13 @@ class TikTokApiRequestClient:
                         response=response,
                         error_json=response_json.get("error", {}),
                     )
+                if "Invalid count or cursor" in response_json_error_message:
+                    raise InvalidCountOrCursorError(
+                        f"{response!r} {response.text}",
+                        response=response,
+                        error_json=response_json.get("error", {}),
+                    )
+
             except json.JSONDecodeError:
                 logging.debug("Unable to JSON decode response data:\n%s", response.text)
 
