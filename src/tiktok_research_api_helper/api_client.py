@@ -77,6 +77,11 @@ class RefusedUsernameError(InvalidRequestError):
         self.error_json = error_json
 
 
+class ApiServerError(Exception):
+    """Raised when API responds 500"""
+    pass
+
+
 class MaxApiRequestsReachedError(Exception):
     """Raised when TikTokApiRequestClient attempts a request to the API that would exceed the
     configured maxmimum allowd api requests"""
@@ -177,6 +182,10 @@ class ApiClientConfig:
     )
     # None indicates no limit (ie retry indefinitely)
     max_api_rate_limit_retries: int | None = None
+    # raise error when api responds with server error (ie 500) even after multiple retries. NOTE:
+    # If this is false, you can see if results are complete from lastest crawl.has_more (ie if True,
+    # results not fully delivered)
+    raise_error_on_persistent_api_server_error: bool = False
 
 
 @attrs.define
@@ -537,9 +546,9 @@ class TikTokApiRequestClient:
     @tenacity.retry(
         stop=tenacity.stop_after_attempt(API_ERROR_RETRY_LIMIT),
         wait=tenacity.wait_exponential(
-            multiplier=1, min=3, max=timedelta(minutes=5).total_seconds()
+            multiplier=2, min=3, max=timedelta(minutes=5).total_seconds()
         ),
-        retry=tenacity.retry_if_exception_type(rq.RequestException),
+        retry=tenacity.retry_if_exception_type((rq.RequestException, ApiServerError)),
         reraise=True,
     )
     def _post(self, request: TikTokVideoRequest, url: str) -> rq.Response | None:
@@ -602,11 +611,12 @@ class TikTokApiRequestClient:
 
         if response.status_code == 500:
             logging.info("API responded 500. This happens occasionally")
-        else:
-            logging.warning(
-                f"Request failed, status code {response.status_code} - text {response.text} - data "
-                "{data}",
-            )
+            raise ApiServerError(response.text)
+
+        logging.warning(
+            f"Request failed, status code {response.status_code} - text {response.text} - data "
+            "{data}",
+        )
         response.raise_for_status()
         # In case raise_for_status does not raise an exception we return None
         return None
@@ -805,9 +815,14 @@ class TikTokApiClient:
                             for response in comments_responses
                             for comment in response.comments
                         ]
+            # TODO(macpd): handl ApiServerError
             except MaxApiRequestsReachedError as e:
                 logging.info("Stopping api_results_iter due to %r", e)
                 break
+            except ApiServerError as e:
+                if self._config.raise_error_on_persistent_api_server_error:
+                    raise e from None
+
             finally:
                 # TODO(macpd): test partial result yielding
                 # Yield results, including partial results that may exist due to exception
