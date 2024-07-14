@@ -127,7 +127,6 @@ def convert_optional_cond_or_condseq_to_condseq(
     return optional_cond_or_seq
 
 
-# TODO(macpd): rename this to VideoVideoQuery
 @attrs.define
 class VideoQuery:
     and_: OptionalCondOrCondSeq = attrs.field(

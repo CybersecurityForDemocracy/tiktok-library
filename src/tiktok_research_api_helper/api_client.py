@@ -815,7 +815,6 @@ class TikTokApiClient:
                             for response in comments_responses
                             for comment in response.comments
                         ]
-            # TODO(macpd): handl ApiServerError
             except MaxApiRequestsReachedError as e:
                 logging.info("Stopping api_results_iter due to %r", e)
                 break

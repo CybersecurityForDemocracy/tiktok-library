@@ -387,19 +387,17 @@ def run_repeated(
                 init_logging=False,
             )
         except ApiServerError as e:
-            # TODO(macpd): add flag to keep going or stop on this error
             logging.warning(
                 "Run for date window %s did not complete due to %s (likely too many 500 errors "
                 "from API even after many retries)",
                 crawl_date_window, e)
 
-        # TODO(macpd): maybe 2 different loops, one of catchup with no sleep, and then this normal
-        # loop.
         if catch_up_from_start_date and not is_caught_up(crawl_date_window, crawl_lag):
             new_crawl_date_window = make_crawl_date_window(
                 crawl_span=crawl_span, crawl_lag=crawl_lag, start_date=crawl_date_window.end_date
             )
         else:
+            # If we are not catching up we wait until repeat_interval elapsed
             wait_until_next_repeat_interval_elapsed(execution_start_time, repeat_interval)
             new_crawl_date_window = make_crawl_date_window(
                 crawl_span=crawl_span, crawl_lag=crawl_lag
