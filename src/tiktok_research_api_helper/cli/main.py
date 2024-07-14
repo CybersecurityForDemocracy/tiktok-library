@@ -3,7 +3,7 @@ import logging
 from collections import namedtuple
 from collections.abc import Mapping, Sequence
 from copy import copy
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -17,14 +17,15 @@ from tiktok_research_api_helper.api_client import (
     DAILY_API_REQUEST_QUOTA,
     ApiClientConfig,
     ApiRateLimitWaitStrategy,
+    ApiServerError,
     TikTokApiClient,
     VideoQueryConfig,
 )
 from tiktok_research_api_helper.cli.custom_argument_types import (
     ApiCredentialsFileType,
     ApiRateLimitWaitStrategyType,
-    CrawlTagType,
     CatchupFromStartDate,
+    CrawlTagType,
     DBFileType,
     DBUrlType,
     EnableDebugLoggingFlag,
@@ -266,18 +267,25 @@ def print_query(
     print(json.dumps(query, cls=VideoQueryJSONEncoder, indent=2))
 
 
-def make_crawl_date_window(crawl_span: int, crawl_lag: int, use_start_date: date) -> CrawlDateWindow:
-    """Returns a CrawlDateWindow with an end_date crawl_lag days before today, and start_date
-    crawl_span days before end_date.
+def make_crawl_date_window(
+    crawl_span: int, crawl_lag: int, start_date: date = None
+) -> CrawlDateWindow:
+    """Returns a CrawlDateWindow with an end_date and start_date crawl_span days apart. If
+    start_date is specified it is used as the new window's start date, otherwise the window's start
+    will be today - (crawl_lag + crawl_span)
     """
     assert crawl_span > 0 and crawl_lag > 0, "crawl_span and crawl_lag must be non-negative"
-    if use_start_date:
-        end_date = use_start_date + timedelta(days=crawl_interal)
-        return CrawlDateWindow(start_date=use_start_date, end_date=end_date)
 
-    end_date = use_start_date - timedelta(days=crawl_lag)
-    start_date = end_date - timedelta(days=crawl_span)
+    start_date = start_date or (
+        date.today() - (timedelta(days=crawl_lag) + timedelta(days=crawl_span))
+    )
+
+    end_date = start_date + timedelta(days=crawl_span)
     return CrawlDateWindow(start_date=start_date, end_date=end_date)
+
+
+def is_caught_up(crawl_date_window: CrawlDateWindow, crawl_lag: int) -> bool:
+    return (date.today() - crawl_date_window.end_date.date()).days <= crawl_lag
 
 
 @APP.command()
@@ -292,7 +300,7 @@ def run_repeated(
             )
         ),
     ] = 1,
-    crawl_interval: Annotated[int, typer.Option(help="How many days between crawls.")] = 1,
+    repeat_interval: Annotated[int, typer.Option(help="How many days between crawls.")] = 1,
     db_file: DBFileType | None = None,
     db_url: DBUrlType | None = None,
     crawl_tag: CrawlTagType | None = None,
@@ -324,7 +332,7 @@ def run_repeated(
     """
     if crawl_span < 0:
         raise typer.BadParameter("Number of days for crawl span must be positive")
-    if crawl_interval < 0:
+    if repeat_interval < 0:
         raise typer.BadParameter("Crawl interval must be positive")
     if crawl_lag < 0:
         raise typer.BadParameter("Lag must be positive")
@@ -335,10 +343,12 @@ def run_repeated(
         utils.setup_logging_info_level()
 
     if catch_up_from_start_date:
-        crawl_date_window = make_crawl_date_window(crawl_span=crawl_span, crawl_lag=crawl_lag,
-                                                   use_start_date=catch_up_from_start_date)
+        start_date = utils.str_tiktok_date_format_to_datetime(catch_up_from_start_date)
     else:
-        crawl_date_window = make_crawl_date_window(crawl_span=crawl_span, crawl_lag=crawl_lag)
+        start_date = None
+    crawl_date_window = make_crawl_date_window(
+        crawl_span=crawl_span, crawl_lag=crawl_lag, start_date=start_date
+    )
 
     while True:
         logging.info(
@@ -347,55 +357,71 @@ def run_repeated(
             crawl_date_window.end_date,
         )
         execution_start_time = pendulum.now()
-        run(
-            start_date_str=utils.date_to_tiktok_str_format(crawl_date_window.start_date),
-            end_date_str=utils.date_to_tiktok_str_format(crawl_date_window.end_date),
-            db_file=db_file,
-            db_url=db_url,
-            crawl_tag=crawl_tag,
-            raw_responses_output_dir=raw_responses_output_dir,
-            query_file_json=query_file_json,
-            api_credentials_file=api_credentials_file,
-            rate_limit_wait_strategy=rate_limit_wait_strategy,
-            region=region,
-            include_any_hashtags=include_any_hashtags,
-            exclude_any_hashtags=exclude_any_hashtags,
-            include_all_hashtags=include_all_hashtags,
-            exclude_all_hashtags=exclude_all_hashtags,
-            include_any_keywords=include_any_keywords,
-            exclude_any_keywords=exclude_any_keywords,
-            include_all_keywords=include_all_keywords,
-            exclude_all_keywords=exclude_all_keywords,
-            only_from_usernames=only_from_usernames,
-            exclude_from_usernames=exclude_from_usernames,
-            fetch_user_info=fetch_user_info,
-            fetch_comments=fetch_comments,
-            max_api_requests=(DAILY_API_REQUEST_QUOTA * crawl_interval),
-            debug=debug,
-            # Do not setup logging again so that we keep the current log file.
-            init_logging=False,
-        )
+        try:
+            run(
+                start_date_str=utils.date_to_tiktok_str_format(crawl_date_window.start_date),
+                end_date_str=utils.date_to_tiktok_str_format(crawl_date_window.end_date),
+                db_file=db_file,
+                db_url=db_url,
+                crawl_tag=crawl_tag,
+                raw_responses_output_dir=raw_responses_output_dir,
+                query_file_json=query_file_json,
+                api_credentials_file=api_credentials_file,
+                rate_limit_wait_strategy=rate_limit_wait_strategy,
+                region=region,
+                include_any_hashtags=include_any_hashtags,
+                exclude_any_hashtags=exclude_any_hashtags,
+                include_all_hashtags=include_all_hashtags,
+                exclude_all_hashtags=exclude_all_hashtags,
+                include_any_keywords=include_any_keywords,
+                exclude_any_keywords=exclude_any_keywords,
+                include_all_keywords=include_all_keywords,
+                exclude_all_keywords=exclude_all_keywords,
+                only_from_usernames=only_from_usernames,
+                exclude_from_usernames=exclude_from_usernames,
+                fetch_user_info=fetch_user_info,
+                fetch_comments=fetch_comments,
+                max_api_requests=(DAILY_API_REQUEST_QUOTA * repeat_interval),
+                debug=debug,
+                # Do not setup logging again so that we keep the current log file.
+                init_logging=False,
+            )
+        except ApiServerError as e:
+            # TODO(macpd): add flag to keep going or stop on this error
+            logging.warning(
+                "Run for date window %s did not complete due to %s (likely too many 500 errors "
+                "from API even after many retries)",
+                crawl_date_window, e)
+
         # TODO(macpd): maybe 2 different loops, one of catchup with no sleep, and then this normal
         # loop.
-        next_execution = execution_start_time.add(days=crawl_interval)
-        logging.debug("next_execution: %s, %s", next_execution, next_execution.diff_for_humans())
-        if pendulum.now() < next_execution:
-            logging.info("Sleeping until %s", next_execution)
-            pause.until(next_execution)
-        else:
-            logging.warning(
-                "Previous crawl started at %s and took longer than crawl_interval %s. starting now",
-                execution_start_time,
-                crawl_interval,
+        if catch_up_from_start_date and not is_caught_up(crawl_date_window, crawl_lag):
+            new_crawl_date_window = make_crawl_date_window(
+                crawl_span=crawl_span, crawl_lag=crawl_lag, start_date=crawl_date_window.end_date
             )
-        # Assume we are caught up (if we were trying)
-        if (date.today() - crawl_date_window.end_date).days <= crawl_lag:
-            new_crawl_date_window = make_crawl_date_window(crawl_span=crawl_span,
-                                                           crawl_lag=crawl_lag)
         else:
-            new_crawl_date_window = make_crawl_date_window(crawl_span=crawl_span, crawl_lag=crawl_lag,
-                                                       use_start_date=crawl_date_window.end_date)
+            wait_until_next_repeat_interval_elapsed(execution_start_time, repeat_interval)
+            new_crawl_date_window = make_crawl_date_window(
+                crawl_span=crawl_span, crawl_lag=crawl_lag
+            )
         crawl_date_window = new_crawl_date_window
+
+
+def wait_until_next_repeat_interval_elapsed(
+    execution_start_time: datetime, repeat_interval: int
+) -> None:
+    next_execution = execution_start_time.add(days=repeat_interval)
+    logging.debug("next_execution: %s, %s", next_execution, next_execution.diff_for_humans())
+    if pendulum.now() >= next_execution:
+        logging.warning(
+            "Previous crawl started at %s and took longer than repeat_interval %s. starting now",
+            execution_start_time,
+            repeat_interval,
+        )
+        return
+
+    logging.info("Sleeping until %s", next_execution)
+    pause.until(next_execution)
 
 
 @APP.command()

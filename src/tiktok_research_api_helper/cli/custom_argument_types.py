@@ -229,9 +229,13 @@ MaxApiRequests = Annotated[
 EnableDebugLoggingFlag = Annotated[bool, typer.Option(help="Enable debug level logging")]
 
 CatchupFromStartDate = Annotated[
-    str, typer.Argument(help="Date from which to attempt to catch up from for run-repeated. IE start
-                        crawling at this date with the provided time window, and then crawl without
-                        delay (aside from waiting for API quota reset) run_repeated would operate as
-                        normal (ie crawl_lag days away from current date) date in the format %Y%m%d (e.g. 20210101)")
+    str,
+    typer.Option(
+        help=(
+            "Date from which to attempt to catch up from for run-repeated. IE start crawling at "
+            "this date with the provided time window, and then crawl without delay (aside from "
+            "waiting for API quota reset) run_repeated would operate as normal (ie crawl_lag days "
+            "away from current date) date in the format %Y%m%d (e.g. 20210101)"
+        )
+    ),
 ]
-
