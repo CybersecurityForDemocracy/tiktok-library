@@ -32,11 +32,12 @@ ALL_COMMENT_DATA_URL = "https://open.tiktokapis.com/v2/research/video/comment/li
 
 SEARCH_ID_INVALID_ERROR_MESSAGE_REGEX = re.compile(r"Search Id \d+ is invalid or expired")
 
-INVALID_SEARCH_ID_ERROR_RETRY_WAIT = 5
+INVALID_SEARCH_ID_ERROR_RETRY_WAIT_BASE = 5
 INVALID_SEARCH_ID_ERROR_MAX_NUM_RETRIES = 5
 # TikTok research API only allows fetching top 1000 comments. https://developers.tiktok.com/doc/research-api-specs-query-video-comments
 MAX_COMMENTS_CURSOR = 999
 API_ERROR_RETRY_LIMIT = 20
+API_ERROR_RETRY_MAX_WAIT = timedelta(minutes=1).total_seconds()
 
 DAILY_API_REQUEST_QUOTA = 1000
 
@@ -304,7 +305,7 @@ def search_id_invalid_error_wait(retry_state):
     exception = retry_state.outcome.exception()
     # Wait in case API needs a few seconds to consider search ID valid.
     if isinstance(exception, InvalidSearchIdError | InvalidCountOrCursorError):
-        return INVALID_SEARCH_ID_ERROR_RETRY_WAIT
+        return retry_state.attempt_number * INVALID_SEARCH_ID_ERROR_RETRY_WAIT_BASE
 
     return 0
 
@@ -492,6 +493,13 @@ class TikTokApiRequestClient:
             f.write(response.text)
 
     def _fetch_retryer(self) -> tenacity.Retrying:
+        """This retryer is for API level issues, ie Rate limit being hit, API bugs (like search ID
+        and cursor being rejected as valid that are in fact valid and will be accepted on a
+        subsequent request), responses which should be JSON but we cannot decode as JSON.
+
+        There is another retryer (currently a tenacity.retry decorator on _post) which handles
+        request level issues (like 500 errors, timeouts, etc).
+        """
         if self._max_api_rate_limit_retries is None:
             stop_strategy = tenacity.stop_never
         else:
@@ -510,6 +518,7 @@ class TikTokApiRequestClient:
                 ),
             ),
             stop=stop_strategy,
+            before_sleep=tenacity.before_sleep_log(logging.getLogger(), logging.DEBUG),
             reraise=True,
         )
 
@@ -546,9 +555,10 @@ class TikTokApiRequestClient:
     @tenacity.retry(
         stop=tenacity.stop_after_attempt(API_ERROR_RETRY_LIMIT),
         wait=tenacity.wait_exponential(
-            multiplier=2, min=3, max=timedelta(minutes=5).total_seconds()
+            multiplier=2, min=3, max=API_ERROR_RETRY_MAX_WAIT
         ),
         retry=tenacity.retry_if_exception_type((rq.RequestException, ApiServerError)),
+        before_sleep=tenacity.before_sleep_log(logging.getLogger(), logging.DEBUG),
         reraise=True,
     )
     def _post(self, request: TikTokVideoRequest, url: str) -> rq.Response | None:
@@ -818,7 +828,7 @@ class TikTokApiClient:
             except MaxApiRequestsReachedError as e:
                 logging.info("Stopping api_results_iter due to %r", e)
                 break
-            except ApiServerError as e:
+            except (ApiServerError, InvalidSearchIdError, InvalidCountOrCursorError) as e:
                 if self._config.raise_error_on_persistent_api_server_error:
                     raise e from None
 
