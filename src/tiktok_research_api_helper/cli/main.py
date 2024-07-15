@@ -390,7 +390,9 @@ def run_repeated(
             logging.warning(
                 "Run for date window %s did not complete due to %s (likely too many 500 errors "
                 "from API even after many retries)",
-                crawl_date_window, e)
+                crawl_date_window,
+                e,
+            )
 
         if catch_up_from_start_date and not is_caught_up(crawl_date_window, crawl_lag):
             new_crawl_date_window = make_crawl_date_window(
