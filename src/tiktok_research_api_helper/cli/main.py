@@ -276,9 +276,8 @@ def make_crawl_date_window(
     """
     assert crawl_span > 0 and crawl_lag > 0, "crawl_span and crawl_lag must be non-negative"
 
-    start_date = start_date or (
-        date.today() - (timedelta(days=crawl_lag) + timedelta(days=crawl_span))
-    )
+    if start_date is None:
+        start_date = date.today() - (timedelta(days=crawl_lag) + timedelta(days=crawl_span))
 
     end_date = start_date + timedelta(days=crawl_span)
     return CrawlDateWindow(start_date=start_date, end_date=end_date)
