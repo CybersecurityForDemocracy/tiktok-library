@@ -47,27 +47,21 @@ class ApiRateLimitError(Exception):
 
 
 class InvalidRequestError(Exception):
-    def __init__(self, message, response):
-        super().__init__(message)
-        self.response = response
+    def __init__(self, message, response, error_json=None):
+        super().__init__(message, response)
+        self.error_json = error_json
 
 
 class InvalidSearchIdError(InvalidRequestError):
-    def __init__(self, message, response, error_json):
-        super().__init__(message, response)
-        self.error_json = error_json
+    pass
 
 
 class InvalidCountOrCursorError(InvalidRequestError):
-    def __init__(self, message, response, error_json):
-        super().__init__(message, response)
-        self.error_json = error_json
+    pass
 
 
 class InvalidUsernameError(InvalidRequestError):
-    def __init__(self, message, response, error_json):
-        super().__init__(message, response)
-        self.error_json = error_json
+    pass
 
 
 class RefusedUsernameError(InvalidRequestError):
@@ -80,6 +74,7 @@ class RefusedUsernameError(InvalidRequestError):
 
 class ApiServerError(Exception):
     """Raised when API responds 500"""
+
     pass
 
 
@@ -554,9 +549,7 @@ class TikTokApiRequestClient:
 
     @tenacity.retry(
         stop=tenacity.stop_after_attempt(API_ERROR_RETRY_LIMIT),
-        wait=tenacity.wait_exponential(
-            multiplier=2, min=3, max=API_ERROR_RETRY_MAX_WAIT
-        ),
+        wait=tenacity.wait_exponential(multiplier=2, min=3, max=API_ERROR_RETRY_MAX_WAIT),
         retry=tenacity.retry_if_exception_type((rq.RequestException, ApiServerError)),
         before_sleep=tenacity.before_sleep_log(logging.getLogger(), logging.DEBUG),
         reraise=True,
