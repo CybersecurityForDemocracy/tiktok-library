@@ -32,11 +32,12 @@ ALL_COMMENT_DATA_URL = "https://open.tiktokapis.com/v2/research/video/comment/li
 
 SEARCH_ID_INVALID_ERROR_MESSAGE_REGEX = re.compile(r"Search Id \d+ is invalid or expired")
 
-INVALID_SEARCH_ID_ERROR_RETRY_WAIT = 5
+INVALID_SEARCH_ID_ERROR_RETRY_WAIT_BASE = 5
 INVALID_SEARCH_ID_ERROR_MAX_NUM_RETRIES = 5
 # TikTok research API only allows fetching top 1000 comments. https://developers.tiktok.com/doc/research-api-specs-query-video-comments
 MAX_COMMENTS_CURSOR = 999
-API_ERROR_RETRY_LIMIT = 20
+API_ERROR_RETRY_LIMIT = 10
+API_ERROR_RETRY_MAX_WAIT = timedelta(minutes=1).total_seconds()
 
 DAILY_API_REQUEST_QUOTA = 1000
 
@@ -46,21 +47,21 @@ class ApiRateLimitError(Exception):
 
 
 class InvalidRequestError(Exception):
-    def __init__(self, message, response):
-        super().__init__(message)
-        self.response = response
+    def __init__(self, message, response, error_json=None):
+        super().__init__(message, response)
+        self.error_json = error_json
 
 
 class InvalidSearchIdError(InvalidRequestError):
-    def __init__(self, message, response, error_json):
-        super().__init__(message, response)
-        self.error_json = error_json
+    pass
+
+
+class InvalidCountOrCursorError(InvalidRequestError):
+    pass
 
 
 class InvalidUsernameError(InvalidRequestError):
-    def __init__(self, message, response, error_json):
-        super().__init__(message, response)
-        self.error_json = error_json
+    pass
 
 
 class RefusedUsernameError(InvalidRequestError):
@@ -69,6 +70,12 @@ class RefusedUsernameError(InvalidRequestError):
     def __init__(self, message, response, error_json):
         super().__init__(message, response)
         self.error_json = error_json
+
+
+class ApiServerError(Exception):
+    """Raised when API responds 500"""
+
+    pass
 
 
 class MaxApiRequestsReachedError(Exception):
@@ -171,6 +178,10 @@ class ApiClientConfig:
     )
     # None indicates no limit (ie retry indefinitely)
     max_api_rate_limit_retries: int | None = None
+    # raise error when api responds with server error (ie 500) even after multiple retries. NOTE:
+    # If this is false, you can see if results are complete from lastest crawl.has_more (ie if True,
+    # results not fully delivered)
+    raise_error_on_persistent_api_server_error: bool = False
 
 
 @attrs.define
@@ -268,7 +279,7 @@ def retry_invalid_search_id_error(
 
     # Workaround API bug where valid search ID (ie the one the API just returned) is rejected as
     # invalid.
-    if isinstance(exception, InvalidSearchIdError):
+    if isinstance(exception, InvalidSearchIdError | InvalidCountOrCursorError):
         return retry_state.attempt_number <= INVALID_SEARCH_ID_ERROR_MAX_NUM_RETRIES
 
     return None
@@ -288,8 +299,8 @@ def retry_api_rate_limit_error_indefintely(
 def search_id_invalid_error_wait(retry_state):
     exception = retry_state.outcome.exception()
     # Wait in case API needs a few seconds to consider search ID valid.
-    if isinstance(exception, InvalidSearchIdError):
-        return INVALID_SEARCH_ID_ERROR_RETRY_WAIT
+    if isinstance(exception, InvalidSearchIdError | InvalidCountOrCursorError):
+        return retry_state.attempt_number * INVALID_SEARCH_ID_ERROR_RETRY_WAIT_BASE
 
     return 0
 
@@ -477,6 +488,13 @@ class TikTokApiRequestClient:
             f.write(response.text)
 
     def _fetch_retryer(self) -> tenacity.Retrying:
+        """This retryer is for API level issues, ie Rate limit being hit, API bugs (like search ID
+        and cursor being rejected as valid that are in fact valid and will be accepted on a
+        subsequent request), responses which should be JSON but we cannot decode as JSON.
+
+        There is another retryer (currently a tenacity.retry decorator on _post) which handles
+        request level issues (like 500 errors, timeouts, etc).
+        """
         if self._max_api_rate_limit_retries is None:
             stop_strategy = tenacity.stop_never
         else:
@@ -495,6 +513,7 @@ class TikTokApiRequestClient:
                 ),
             ),
             stop=stop_strategy,
+            before_sleep=tenacity.before_sleep_log(logging.getLogger(), logging.DEBUG),
             reraise=True,
         )
 
@@ -530,10 +549,9 @@ class TikTokApiRequestClient:
 
     @tenacity.retry(
         stop=tenacity.stop_after_attempt(API_ERROR_RETRY_LIMIT),
-        wait=tenacity.wait_exponential(
-            multiplier=1, min=3, max=timedelta(minutes=5).total_seconds()
-        ),
-        retry=tenacity.retry_if_exception_type(rq.RequestException),
+        wait=tenacity.wait_exponential(multiplier=2, min=3, max=API_ERROR_RETRY_MAX_WAIT),
+        retry=tenacity.retry_if_exception_type((rq.RequestException, ApiServerError)),
+        before_sleep=tenacity.before_sleep_log(logging.getLogger(), logging.DEBUG),
         reraise=True,
     )
     def _post(self, request: TikTokVideoRequest, url: str) -> rq.Response | None:
@@ -582,6 +600,13 @@ class TikTokApiRequestClient:
                         response=response,
                         error_json=response_json.get("error", {}),
                     )
+                if "Invalid count or cursor" in response_json_error_message:
+                    raise InvalidCountOrCursorError(
+                        f"{response!r} {response.text}",
+                        response=response,
+                        error_json=response_json.get("error", {}),
+                    )
+
             except json.JSONDecodeError:
                 logging.debug("Unable to JSON decode response data:\n%s", response.text)
 
@@ -589,11 +614,12 @@ class TikTokApiRequestClient:
 
         if response.status_code == 500:
             logging.info("API responded 500. This happens occasionally")
-        else:
-            logging.warning(
-                f"Request failed, status code {response.status_code} - text {response.text} - data "
-                "{data}",
-            )
+            raise ApiServerError(response.text)
+
+        logging.warning(
+            f"Request failed, status code {response.status_code} - text {response.text} - data "
+            "{data}",
+        )
         response.raise_for_status()
         # In case raise_for_status does not raise an exception we return None
         return None
@@ -795,6 +821,10 @@ class TikTokApiClient:
             except MaxApiRequestsReachedError as e:
                 logging.info("Stopping api_results_iter due to %r", e)
                 break
+            except (ApiServerError, InvalidSearchIdError, InvalidCountOrCursorError) as e:
+                if self._config.raise_error_on_persistent_api_server_error:
+                    raise e from None
+
             finally:
                 # TODO(macpd): test partial result yielding
                 # Yield results, including partial results that may exist due to exception
