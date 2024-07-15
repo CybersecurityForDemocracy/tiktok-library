@@ -17,7 +17,6 @@ from tiktok_research_api_helper.api_client import (
     DAILY_API_REQUEST_QUOTA,
     ApiClientConfig,
     ApiRateLimitWaitStrategy,
-    ApiServerError,
     TikTokApiClient,
     VideoQueryConfig,
 )
