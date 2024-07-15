@@ -356,42 +356,34 @@ def run_repeated(
             crawl_date_window.end_date,
         )
         execution_start_time = pendulum.now()
-        try:
-            run(
-                start_date_str=utils.date_to_tiktok_str_format(crawl_date_window.start_date),
-                end_date_str=utils.date_to_tiktok_str_format(crawl_date_window.end_date),
-                db_file=db_file,
-                db_url=db_url,
-                crawl_tag=crawl_tag,
-                raw_responses_output_dir=raw_responses_output_dir,
-                query_file_json=query_file_json,
-                api_credentials_file=api_credentials_file,
-                rate_limit_wait_strategy=rate_limit_wait_strategy,
-                region=region,
-                include_any_hashtags=include_any_hashtags,
-                exclude_any_hashtags=exclude_any_hashtags,
-                include_all_hashtags=include_all_hashtags,
-                exclude_all_hashtags=exclude_all_hashtags,
-                include_any_keywords=include_any_keywords,
-                exclude_any_keywords=exclude_any_keywords,
-                include_all_keywords=include_all_keywords,
-                exclude_all_keywords=exclude_all_keywords,
-                only_from_usernames=only_from_usernames,
-                exclude_from_usernames=exclude_from_usernames,
-                fetch_user_info=fetch_user_info,
-                fetch_comments=fetch_comments,
-                max_api_requests=(DAILY_API_REQUEST_QUOTA * repeat_interval),
-                debug=debug,
-                # Do not setup logging again so that we keep the current log file.
-                init_logging=False,
-            )
-        except ApiServerError as e:
-            logging.warning(
-                "Run for date window %s did not complete due to %s (likely too many 500 errors "
-                "from API even after many retries)",
-                crawl_date_window,
-                e,
-            )
+        run(
+            start_date_str=utils.date_to_tiktok_str_format(crawl_date_window.start_date),
+            end_date_str=utils.date_to_tiktok_str_format(crawl_date_window.end_date),
+            db_file=db_file,
+            db_url=db_url,
+            crawl_tag=crawl_tag,
+            raw_responses_output_dir=raw_responses_output_dir,
+            query_file_json=query_file_json,
+            api_credentials_file=api_credentials_file,
+            rate_limit_wait_strategy=rate_limit_wait_strategy,
+            region=region,
+            include_any_hashtags=include_any_hashtags,
+            exclude_any_hashtags=exclude_any_hashtags,
+            include_all_hashtags=include_all_hashtags,
+            exclude_all_hashtags=exclude_all_hashtags,
+            include_any_keywords=include_any_keywords,
+            exclude_any_keywords=exclude_any_keywords,
+            include_all_keywords=include_all_keywords,
+            exclude_all_keywords=exclude_all_keywords,
+            only_from_usernames=only_from_usernames,
+            exclude_from_usernames=exclude_from_usernames,
+            fetch_user_info=fetch_user_info,
+            fetch_comments=fetch_comments,
+            max_api_requests=(DAILY_API_REQUEST_QUOTA * repeat_interval),
+            debug=debug,
+            # Do not setup logging again so that we keep the current log file.
+            init_logging=False,
+        )
 
         if catch_up_from_start_date and not is_caught_up(crawl_date_window, crawl_lag):
             new_crawl_date_window = make_crawl_date_window(
