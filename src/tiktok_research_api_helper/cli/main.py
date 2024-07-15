@@ -400,14 +400,14 @@ def run_repeated(
             )
         else:
             # If we are not catching up we wait until repeat_interval elapsed
-            wait_until_next_repeat_interval_elapsed(execution_start_time, repeat_interval)
+            wait_until_repeat_interval_elapsed(execution_start_time, repeat_interval)
             new_crawl_date_window = make_crawl_date_window(
                 crawl_span=crawl_span, crawl_lag=crawl_lag
             )
         crawl_date_window = new_crawl_date_window
 
 
-def wait_until_next_repeat_interval_elapsed(
+def wait_until_repeat_interval_elapsed(
     execution_start_time: datetime, repeat_interval: int
 ) -> None:
     next_execution = execution_start_time.add(days=repeat_interval)
