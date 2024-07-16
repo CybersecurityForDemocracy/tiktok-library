@@ -66,8 +66,8 @@ class InvalidUsernameError(InvalidRequestError):
 
 class RefusedUsernameError(InvalidRequestError):
     """Raised when API says it 'cannot return this user's information'"""
-    pass
 
+    pass
 
 
 class ApiServerError(Exception):
