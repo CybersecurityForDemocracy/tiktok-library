@@ -279,7 +279,15 @@ def make_crawl_date_window(
         start_date = date.today() - (timedelta(days=crawl_lag) + timedelta(days=crawl_span))
 
     end_date = start_date + timedelta(days=crawl_span)
-    return CrawlDateWindow(start_date=start_date, end_date=end_date)
+    crawl_date_window = CrawlDateWindow(start_date=start_date, end_date=end_date)
+    logging.debug(
+        "crawl_span: %s, crawl_lag: %s, start_date: %s; %s",
+        crawl_span,
+        crawl_lag,
+        start_date,
+        crawl_date_window,
+    )
+    return crawl_date_window
 
 
 def is_caught_up(crawl_date_window: CrawlDateWindow, crawl_lag: int) -> bool:
@@ -387,6 +395,12 @@ def run_repeated(
         if catch_up_from_start_date and not is_caught_up(crawl_date_window, crawl_lag):
             new_crawl_date_window = make_crawl_date_window(
                 crawl_span=crawl_span, crawl_lag=crawl_lag, start_date=crawl_date_window.end_date
+            )
+            logging.info(
+                "Still have not caught up to %s (with %s crawl_lag), will begin next run "
+                "immediately.",
+                catch_up_from_start_date,
+                crawl_lag,
             )
         else:
             # If we are not catching up we wait until repeat_interval elapsed
