@@ -36,8 +36,8 @@ INVALID_SEARCH_ID_ERROR_RETRY_WAIT_BASE = 5
 INVALID_SEARCH_ID_ERROR_MAX_NUM_RETRIES = 5
 # TikTok research API only allows fetching top 1000 comments. https://developers.tiktok.com/doc/research-api-specs-query-video-comments
 MAX_COMMENTS_CURSOR = 999
-API_ERROR_RETRY_LIMIT = 10
-API_ERROR_RETRY_MAX_WAIT = timedelta(minutes=1).total_seconds()
+API_ERROR_RETRY_LIMIT = 5
+API_ERROR_RETRY_MAX_WAIT = timedelta(minutes=2).total_seconds()
 
 DAILY_API_REQUEST_QUOTA = 1000
 
