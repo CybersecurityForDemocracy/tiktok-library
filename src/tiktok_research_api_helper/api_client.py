@@ -66,10 +66,8 @@ class InvalidUsernameError(InvalidRequestError):
 
 class RefusedUsernameError(InvalidRequestError):
     """Raised when API says it 'cannot return this user's information'"""
+    pass
 
-    def __init__(self, message, response, error_json):
-        super().__init__(message, response)
-        self.error_json = error_json
 
 
 class ApiServerError(Exception):
