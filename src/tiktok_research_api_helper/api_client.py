@@ -739,6 +739,7 @@ class TikTokApiClient:
                 raw_responses_output_dir=config.raw_responses_output_dir,
                 max_api_rate_limit_retries=config.max_api_rate_limit_retries,
                 max_api_requests=config.max_api_requests,
+                api_rate_limit_wait_strategy=config.api_rate_limit_wait_strategy,
             ),
         )
 
