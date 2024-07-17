@@ -6,6 +6,16 @@ from rich.console import Console
 from rich.logging import RichHandler
 
 TIKTOK_DATE_FORMAT = "%Y%m%d"
+# time.strftime (which logging uses to format asctime) does not have a directive for microseconds,
+# so we use this date format and %(asctime)s,%(msecs)d to get the microseconds in the record
+DEFAULT_LOG_FORMAT = (
+    "%(asctime)s,%(msecs)d %(name)s %(filename)s:%(lineno)s %(levelname)s %(message)s"
+)
+# This format is similar to above with addition of function name
+DEBUG_LOG_FORMAT = (
+    "%(asctime)s,%(msecs)d %(name)s %(filename)s:%(lineno)s->%(funcName)s() %(levelname)s "
+    "%(message)s"
+)
 
 
 def int_to_days(x: int) -> datetime.timedelta:
@@ -43,16 +53,23 @@ def setup_logging(file_level=logging.INFO, rich_level=logging.INFO) -> None:
 
     file_logger.setLevel(file_level)
 
+    min_level = min(file_level, rich_level)
+
     # Make sure to setup logging before importing modules that may overide the basicConfig
     logging.basicConfig(
-        format="%(asctime)s,%(msecs)d %(name)s %(filename)s:%(lineno)s %(levelname)s %(message)s",
-        # time.strftime (which logging uses to format asctime) does not have a directive for
-        # microseconds, so we use this date format and %(asctime)s,%(msecs)d to get the microseconds
-        # in the record
+        format=DEBUG_LOG_FORMAT if min_level == logging.DEBUG else DEFAULT_LOG_FORMAT,
         datefmt="%Y-%m-%d %H:%M:%S",
-        level=min(file_level, rich_level),
+        level=min_level,
         handlers=[
-            RichHandler(rich_tracebacks=True, level=rich_level, console=Console(stderr=True)),
+            RichHandler(
+                rich_tracebacks=True,
+                level=rich_level,
+                console=Console(stderr=True),
+                # Omit rich's time and path features as we handle those in our own log
+                # format
+                show_time=False,
+                show_path=False,
+            ),
             file_logger,
         ],
         force=True,
