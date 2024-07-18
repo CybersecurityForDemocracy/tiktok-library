@@ -1,3 +1,7 @@
+"""NOTE: the pytest fixtures in this module should not be imported directly. they are registered as
+pytest plugins in conftest.py. If this module is moved conftest.py pytest_plugins will also need to
+be updated.
+"""
 import json
 
 import pytest
