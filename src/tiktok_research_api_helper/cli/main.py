@@ -326,11 +326,24 @@ def run_repeated(
     )
 
     while True:
-        logging.info(
-            "Starting scheduled run. start_date: %s, end_date: %s",
-            crawl_date_window.start_date,
-            crawl_date_window.end_date,
-        )
+        if catch_up_from_start_date and utils.crawl_date_window_is_behind_today(crawl_date_window, crawl_lag):
+            logging.info(
+                "Still catching up from %s (with %s crawl_lag), will begin next run immediately.",
+                catch_up_from_start_date,
+                crawl_lag,
+            )
+            # When trying to catch up we do not limit number of api requests
+            max_api_requests = None
+        else:
+            logging.info(
+                "Starting scheduled run. start_date: %s, end_date: %s",
+                crawl_date_window.start_date,
+                crawl_date_window.end_date,
+            )
+            # When repeating on intervals we limit requests to amount of API quota in that number of
+            # days
+            max_api_requests=(DAILY_API_REQUEST_QUOTA * repeat_interval),
+
         execution_start_time = pendulum.now()
         run(
             start_date_str=utils.date_to_tiktok_str_format(crawl_date_window.start_date),
@@ -355,15 +368,12 @@ def run_repeated(
             exclude_from_usernames=exclude_from_usernames,
             fetch_user_info=fetch_user_info,
             fetch_comments=fetch_comments,
-            max_api_requests=(DAILY_API_REQUEST_QUOTA * repeat_interval),
+            max_api_requests=max_api_requests,
             debug=debug,
             # Do not setup logging again so that we keep the current log file.
             init_logging=False,
         )
-
-        if catch_up_from_start_date and utils.crawl_date_window_is_behind_today(
-            crawl_date_window, crawl_lag
-        ):
+        if catch_up_from_start_date and utils.crawl_date_window_is_behind_today(crawl_date_window, crawl_lag):
             new_crawl_date_window = utils.make_crawl_date_window(
                 crawl_span=crawl_span, crawl_lag=crawl_lag, start_date=crawl_date_window.end_date
             )
@@ -379,6 +389,7 @@ def run_repeated(
             new_crawl_date_window = utils.make_crawl_date_window(
                 crawl_span=crawl_span, crawl_lag=crawl_lag
             )
+
         crawl_date_window = new_crawl_date_window
 
 
@@ -437,6 +448,9 @@ def run(
     """
     Queries TikTok API and stores the results in specified database.
     """
+    # TODO(macpd): DO NOT SUBMIT remove this
+    logging.info("run start_date_str: %s end_date_str: %s", start_date_str, end_date_str)
+    return
     if init_logging:
         if debug:
             utils.setup_logging_debug_level()
