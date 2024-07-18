@@ -361,7 +361,7 @@ def run_repeated(
             init_logging=False,
         )
 
-        if catch_up_from_start_date and not utils.crawl_date_window_is_behind_today(
+        if catch_up_from_start_date and utils.crawl_date_window_is_behind_today(
             crawl_date_window, crawl_lag
         ):
             new_crawl_date_window = utils.make_crawl_date_window(
