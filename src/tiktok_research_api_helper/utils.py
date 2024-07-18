@@ -68,7 +68,7 @@ def crawl_date_window_is_behind_today(crawl_date_window: CrawlDateWindow, crawl_
     today_minus_crawl_lag = today - datetime.timedelta(days=crawl_lag)
     is_behind = end_date < today_minus_crawl_lag
     logging.debug(
-        "end_date: %s, today - crawl_lag (%s): %s; is < today: %s",
+        "end_date: %s, today - crawl_lag (%s): %s; is behind today: %s",
         end_date,
         crawl_lag,
         today_minus_crawl_lag,
