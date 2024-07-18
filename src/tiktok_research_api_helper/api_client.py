@@ -565,12 +565,12 @@ class TikTokApiRequestClient:
 
         response = self._api_request_session.post(url=url, data=data)
         logging.debug("%s\n%s", response, response.text)
+        self._num_api_requests_sent += 1
 
         if self._raw_responses_output_dir is not None:
             self._store_response(response)
 
         if response.status_code == 200:
-            self._num_api_requests_sent += 1
             return response
 
         if response.status_code == 429:
