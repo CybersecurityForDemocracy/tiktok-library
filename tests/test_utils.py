@@ -1,40 +1,30 @@
-from datetime import date, datetime, timedelta
-import json
+from datetime import datetime, timedelta
 
 import pytest
 
 from tiktok_research_api_helper import utils
 
 
-@pytest.mark.parametrize(("end_date_offset", "is_caught_up"), [
+@pytest.mark.parametrize(
+    ("crawl_lag", "days_behind_today", "expected"),
+    [
         # end_date is exactly crawl_lag away from today, therefore we are caught up
-        (0, True),
+        (3, 3, False),
+        (4, 4, False),
         # end_date is more than crawl_lag away from today, so not caught up
-        (2, False),
+        (3, 5, True),
+        (4, 6, True),
         # end_date is more than crawl_lag away from today, so not caught up
-        (1, False),
+        (3, 4, True),
+        (4, 5, True),
         # end_date is less than crawl_lag away from today, therefore caught up
-        (-1, True)])
-def test_crawl_date_window_is_caught_up_to_today(end_date_offset, is_caught_up):
-    crawl_lag = 3
-    assert utils.crawl_date_window_is_caught_up_to_today( 
-        utils.CrawlDateWindow(start_date=None, end_date=(datetime.now() -
-                                                         timedelta(days=end_date_offset+crawl_lag))),
-        crawl_lag=crawl_lag) == is_caught_up
-    # end_date is exactly crawl_lag away from today, therefore we are caught up
-    assert utils.crawl_date_window_is_caught_up_to_today(utils.CrawlDateWindow(start_date=None, end_date=(datetime.now() -
-                                                                   timedelta(days=crawl_lag))),
-                                                                   crawl_lag=crawl_lag)
-
-    # end_date is more than crawl_lag away from today, so not caught up
-    assert not utils.crawl_date_window_is_caught_up_to_today(
-        utils.CrawlDateWindow(start_date=None, end_date=(datetime.now() - timedelta(days=2+crawl_lag))),
-        crawl_lag=crawl_lag)
-    assert not utils.crawl_date_window_is_caught_up_to_today(
-        utils.CrawlDateWindow(start_date=None, end_date=(datetime.now() - timedelta(days=1+crawl_lag))),
-        crawl_lag=crawl_lag)
-
-    # end_date is less than crawl_lag away from today, therefore caught up
-    assert utils.crawl_date_window_is_caught_up_to_today(
-        utils.CrawlDateWindow(start_date=None, end_date=(datetime.now() - timedelta(days=crawl_lag - 2))),
-        crawl_lag=crawl_lag)
+        (3, 2, False),
+        (4, 3, False),
+    ],
+)
+def test_crawl_date_window_is_behind_today(crawl_lag, days_behind_today, expected):
+    crawl_date_window = utils.CrawlDateWindow(
+        start_date=None,
+        end_date=(datetime.now() - timedelta(days=days_behind_today)),
+    )
+    assert (utils.crawl_date_window_is_behind_today(crawl_date_window, crawl_lag=crawl_lag,) == expected)

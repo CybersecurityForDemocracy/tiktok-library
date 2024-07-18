@@ -1,6 +1,6 @@
-from collections import namedtuple
 import datetime
 import logging
+from collections import namedtuple
 from pathlib import Path
 
 from rich.console import Console
@@ -19,6 +19,7 @@ DEBUG_LOG_FORMAT = (
 )
 
 CrawlDateWindow = namedtuple("CrawlDateWindow", ["start_date", "end_date"])
+
 
 def int_to_days(x: int) -> datetime.timedelta:
     return datetime.timedelta(days=x)
@@ -42,7 +43,9 @@ def make_crawl_date_window(
     assert crawl_span > 0 and crawl_lag > 0, "crawl_span and crawl_lag must be non-negative"
 
     if start_date is None:
-        start_date = datetime.date.today() - (datetime.timedelta(days=crawl_lag) + datetime.timedelta(days=crawl_span))
+        start_date = datetime.date.today() - (
+            datetime.timedelta(days=crawl_lag) + datetime.timedelta(days=crawl_span)
+        )
 
     end_date = start_date + datetime.timedelta(days=crawl_span)
     crawl_date_window = CrawlDateWindow(start_date=start_date, end_date=end_date)
@@ -56,9 +59,10 @@ def make_crawl_date_window(
     return crawl_date_window
 
 
-def crawl_date_window_is_caught_up_to_today(crawl_date_window: CrawlDateWindow, crawl_lag: int) -> bool:
-    """Returns true if the crawl date window end date, plus crawl_lag, is caught up"""
-    return (datetime.date.today() - datetime.timedelta(days=crawl_lag)) <= crawl_date_window.end_date.date()
+def crawl_date_window_is_behind_today(
+    crawl_date_window: CrawlDateWindow, crawl_lag: int
+) -> bool:
+    return crawl_date_window.end_date.date() + datetime.timedelta(days=crawl_lag) < datetime.date.today()
 
 
 def setup_logging_info_level() -> None:
