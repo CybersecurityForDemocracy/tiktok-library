@@ -3,6 +3,7 @@ import logging
 from collections.abc import Mapping, Sequence
 from copy import copy
 from datetime import datetime
+from functools import partial
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -317,80 +318,72 @@ def run_repeated(
     else:
         utils.setup_logging_info_level()
 
-    if catch_up_from_start_date:
-        start_date = utils.str_tiktok_date_format_to_datetime(catch_up_from_start_date)
-    else:
-        start_date = None
-    crawl_date_window = utils.make_crawl_date_window(
-        crawl_span=crawl_span, crawl_lag=crawl_lag, start_date=start_date
+    # partial function of run that has all the static args which can be used in both catch up to
+    # date, and repeat on interval mode.
+    crawl_func = partial(
+        run,
+        db_file=db_file,
+        db_url=db_url,
+        crawl_tag=crawl_tag,
+        raw_responses_output_dir=raw_responses_output_dir,
+        query_file_json=query_file_json,
+        api_credentials_file=api_credentials_file,
+        rate_limit_wait_strategy=rate_limit_wait_strategy,
+        region=region,
+        include_any_hashtags=include_any_hashtags,
+        exclude_any_hashtags=exclude_any_hashtags,
+        include_all_hashtags=include_all_hashtags,
+        exclude_all_hashtags=exclude_all_hashtags,
+        include_any_keywords=include_any_keywords,
+        exclude_any_keywords=exclude_any_keywords,
+        include_all_keywords=include_all_keywords,
+        exclude_all_keywords=exclude_all_keywords,
+        only_from_usernames=only_from_usernames,
+        exclude_from_usernames=exclude_from_usernames,
+        fetch_user_info=fetch_user_info,
+        fetch_comments=fetch_comments,
+        debug=debug,
+        # Do not setup logging again so that we keep the current log file.
+        init_logging=False,
     )
 
-    while True:
-        if catch_up_from_start_date and utils.crawl_date_window_is_behind_today(crawl_date_window, crawl_lag):
+    if catch_up_from_start_date:
+        start_date = utils.str_tiktok_date_format_to_datetime(catch_up_from_start_date)
+        crawl_date_window = utils.make_crawl_date_window(
+            crawl_span=crawl_span, crawl_lag=crawl_lag, start_date=start_date
+        )
+        while utils.crawl_date_window_is_behind_today(crawl_date_window, crawl_lag):
             logging.info(
                 "Still catching up from %s (with %s crawl_lag), will begin next run immediately.",
                 catch_up_from_start_date,
                 crawl_lag,
             )
-            # When trying to catch up we do not limit number of api requests
-            max_api_requests = None
-        else:
-            logging.info(
-                "Starting scheduled run. start_date: %s, end_date: %s",
-                crawl_date_window.start_date,
-                crawl_date_window.end_date,
+            crawl_func(
+                start_date_str=utils.date_to_tiktok_str_format(crawl_date_window.start_date),
+                end_date_str=utils.date_to_tiktok_str_format(crawl_date_window.end_date),
+                # When trying to catch up we do not limit number of api requests
+                max_api_requests=None,
             )
+
+            crawl_date_window = utils.make_crawl_date_window(
+                crawl_span=crawl_span, crawl_lag=crawl_lag, start_date=crawl_date_window.end_date
+            )
+        logging.info("We have caught up to today minus crawl lag")
+
+    # Repeat on interval
+    while True:
+        crawl_date_window = utils.make_crawl_date_window(crawl_span=crawl_span, crawl_lag=crawl_lag)
+
+        execution_start_time = pendulum.now()
+        crawl_func(
+            start_date_str=utils.date_to_tiktok_str_format(crawl_date_window.start_date),
+            end_date_str=utils.date_to_tiktok_str_format(crawl_date_window.end_date),
             # When repeating on intervals we limit requests to amount of API quota in that number of
             # days
             max_api_requests=(DAILY_API_REQUEST_QUOTA * repeat_interval),
-
-        execution_start_time = pendulum.now()
-        run(
-            start_date_str=utils.date_to_tiktok_str_format(crawl_date_window.start_date),
-            end_date_str=utils.date_to_tiktok_str_format(crawl_date_window.end_date),
-            db_file=db_file,
-            db_url=db_url,
-            crawl_tag=crawl_tag,
-            raw_responses_output_dir=raw_responses_output_dir,
-            query_file_json=query_file_json,
-            api_credentials_file=api_credentials_file,
-            rate_limit_wait_strategy=rate_limit_wait_strategy,
-            region=region,
-            include_any_hashtags=include_any_hashtags,
-            exclude_any_hashtags=exclude_any_hashtags,
-            include_all_hashtags=include_all_hashtags,
-            exclude_all_hashtags=exclude_all_hashtags,
-            include_any_keywords=include_any_keywords,
-            exclude_any_keywords=exclude_any_keywords,
-            include_all_keywords=include_all_keywords,
-            exclude_all_keywords=exclude_all_keywords,
-            only_from_usernames=only_from_usernames,
-            exclude_from_usernames=exclude_from_usernames,
-            fetch_user_info=fetch_user_info,
-            fetch_comments=fetch_comments,
-            max_api_requests=max_api_requests,
-            debug=debug,
-            # Do not setup logging again so that we keep the current log file.
-            init_logging=False,
         )
-        if catch_up_from_start_date and utils.crawl_date_window_is_behind_today(crawl_date_window, crawl_lag):
-            new_crawl_date_window = utils.make_crawl_date_window(
-                crawl_span=crawl_span, crawl_lag=crawl_lag, start_date=crawl_date_window.end_date
-            )
-            logging.info(
-                "Still have not caught up to %s (with %s crawl_lag), will begin next run "
-                "immediately.",
-                catch_up_from_start_date,
-                crawl_lag,
-            )
-        else:
-            # If we are not catching up we wait until repeat_interval elapsed
-            wait_until_repeat_interval_elapsed(execution_start_time, repeat_interval)
-            new_crawl_date_window = utils.make_crawl_date_window(
-                crawl_span=crawl_span, crawl_lag=crawl_lag
-            )
 
-        crawl_date_window = new_crawl_date_window
+        wait_until_repeat_interval_elapsed(execution_start_time, repeat_interval)
 
 
 def wait_until_repeat_interval_elapsed(
@@ -449,7 +442,7 @@ def run(
     Queries TikTok API and stores the results in specified database.
     """
     # TODO(macpd): DO NOT SUBMIT remove this
-    logging.info("run start_date_str: %s end_date_str: %s", start_date_str, end_date_str)
+    logging.info("run locals: %s", locals())
     return
     if init_logging:
         if debug:
