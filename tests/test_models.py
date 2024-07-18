@@ -7,7 +7,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Session
 
-from tests.test_utils import (
+from tests.common import (
     all_crawls,
     all_hashtag_names_sorted,
     all_hashtags,

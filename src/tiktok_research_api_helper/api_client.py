@@ -824,6 +824,8 @@ class TikTokApiClient:
                 if self._config.raise_error_on_persistent_api_server_error:
                     raise e from None
 
+                break
+
             finally:
                 # TODO(macpd): test partial result yielding
                 # Yield results, including partial results that may exist due to exception

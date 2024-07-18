@@ -2,62 +2,43 @@
 pytest plugins in conftest.py. If this module is moved conftest.py pytest_plugins will also need to
 be updated.
 """
-
+from datetime import date, datetime, timedelta
 import json
 
 import pytest
-from sqlalchemy import (
-    Engine,
-    select,
-)
 
-from tiktok_research_api_helper.models import (
-    Base,
-    Crawl,
-    Hashtag,
-    Video,
-    get_engine_and_create_tables,
-)
-
-_IN_MEMORY_SQLITE_DATABASE_URL = "sqlite://"
+from tiktok_research_api_helper import utils
 
 
-@pytest.fixture
-def test_database_engine(database_url_command_line_arg) -> Engine:
-    if database_url_command_line_arg:
-        database_url = database_url_command_line_arg
-    else:
-        database_url = _IN_MEMORY_SQLITE_DATABASE_URL
+@pytest.mark.parametrize(("end_date_offset", "is_caught_up"), [
+        # end_date is exactly crawl_lag away from today, therefore we are caught up
+        (0, True),
+        # end_date is more than crawl_lag away from today, so not caught up
+        (2, False),
+        # end_date is more than crawl_lag away from today, so not caught up
+        (1, False),
+        # end_date is less than crawl_lag away from today, therefore caught up
+        (-1, True)])
+def test_crawl_date_window_is_caught_up_to_today(end_date_offset, is_caught_up):
+    crawl_lag = 3
+    assert utils.crawl_date_window_is_caught_up_to_today( 
+        utils.CrawlDateWindow(start_date=None, end_date=(datetime.now() -
+                                                         timedelta(days=end_date_offset+crawl_lag))),
+        crawl_lag=crawl_lag) == is_caught_up
+    # end_date is exactly crawl_lag away from today, therefore we are caught up
+    assert utils.crawl_date_window_is_caught_up_to_today(utils.CrawlDateWindow(start_date=None, end_date=(datetime.now() -
+                                                                   timedelta(days=crawl_lag))),
+                                                                   crawl_lag=crawl_lag)
 
-    engine = get_engine_and_create_tables(database_url, echo=True)
-    yield engine
-    # Clear database after test runs and releases fixture
-    Base.metadata.drop_all(engine)
+    # end_date is more than crawl_lag away from today, so not caught up
+    assert not utils.crawl_date_window_is_caught_up_to_today(
+        utils.CrawlDateWindow(start_date=None, end_date=(datetime.now() - timedelta(days=2+crawl_lag))),
+        crawl_lag=crawl_lag)
+    assert not utils.crawl_date_window_is_caught_up_to_today(
+        utils.CrawlDateWindow(start_date=None, end_date=(datetime.now() - timedelta(days=1+crawl_lag))),
+        crawl_lag=crawl_lag)
 
-
-@pytest.fixture
-def testdata_api_videos_response_json():
-    with open("tests/testdata/api_videos_response.json") as f:
-        return json.load(f)
-
-
-@pytest.fixture
-def testdata_api_comments_response_json():
-    with open("tests/testdata/api_comments_response.json") as f:
-        return json.load(f)
-
-
-def all_hashtag_names_sorted(session):
-    return sorted(session.scalars(select(Hashtag.name)).all())
-
-
-def all_hashtags(session):
-    return session.scalars(select(Hashtag)).all()
-
-
-def all_videos(session):
-    return session.scalars(select(Video)).all()
-
-
-def all_crawls(session):
-    return session.scalars(select(Crawl)).all()
+    # end_date is less than crawl_lag away from today, therefore caught up
+    assert utils.crawl_date_window_is_caught_up_to_today(
+        utils.CrawlDateWindow(start_date=None, end_date=(datetime.now() - timedelta(days=crawl_lag - 2))),
+        crawl_lag=crawl_lag)

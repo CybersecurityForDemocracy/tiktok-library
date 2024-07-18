@@ -1,9 +1,8 @@
 import json
 import logging
-from collections import namedtuple
 from collections.abc import Mapping, Sequence
 from copy import copy
-from datetime import date, datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -66,7 +65,6 @@ APP = typer.Typer(rich_markup_mode="markdown")
 _DAYS_PER_ITER = 7
 _DEFAULT_CREDENTIALS_FILE_PATH = Path("./secrets.yaml")
 
-CrawlDateWindow = namedtuple("CrawlDateWindow", ["start_date", "end_date"])
 
 
 def driver_single_day(client_config: ApiClientConfig, query_config: VideoQueryConfig):
@@ -266,34 +264,6 @@ def print_query(
     print(json.dumps(query, cls=VideoQueryJSONEncoder, indent=2))
 
 
-def make_crawl_date_window(
-    crawl_span: int, crawl_lag: int, start_date: date = None
-) -> CrawlDateWindow:
-    """Returns a CrawlDateWindow with an end_date and start_date crawl_span days apart. If
-    start_date is specified it is used as the new window's start date, otherwise the window's start
-    will be today - (crawl_lag + crawl_span)
-    """
-    assert crawl_span > 0 and crawl_lag > 0, "crawl_span and crawl_lag must be non-negative"
-
-    if start_date is None:
-        start_date = date.today() - (timedelta(days=crawl_lag) + timedelta(days=crawl_span))
-
-    end_date = start_date + timedelta(days=crawl_span)
-    crawl_date_window = CrawlDateWindow(start_date=start_date, end_date=end_date)
-    logging.debug(
-        "crawl_span: %s, crawl_lag: %s, start_date: %s; %s",
-        crawl_span,
-        crawl_lag,
-        start_date,
-        crawl_date_window,
-    )
-    return crawl_date_window
-
-
-def is_caught_up(crawl_date_window: CrawlDateWindow, crawl_lag: int) -> bool:
-    return (date.today() - crawl_date_window.end_date.date()).days <= crawl_lag
-
-
 @APP.command()
 def run_repeated(
     crawl_span: Annotated[int, typer.Option(help="How many days between start and end dates")],
@@ -352,7 +322,7 @@ def run_repeated(
         start_date = utils.str_tiktok_date_format_to_datetime(catch_up_from_start_date)
     else:
         start_date = None
-    crawl_date_window = make_crawl_date_window(
+    crawl_date_window = utils.make_crawl_date_window(
         crawl_span=crawl_span, crawl_lag=crawl_lag, start_date=start_date
     )
 
@@ -392,8 +362,9 @@ def run_repeated(
             init_logging=False,
         )
 
-        if catch_up_from_start_date and not is_caught_up(crawl_date_window, crawl_lag):
-            new_crawl_date_window = make_crawl_date_window(
+        if (catch_up_from_start_date and not
+            utils.crawl_date_window_is_caught_up_to_today(crawl_date_window, crawl_lag)):
+            new_crawl_date_window = utils.make_crawl_date_window(
                 crawl_span=crawl_span, crawl_lag=crawl_lag, start_date=crawl_date_window.end_date
             )
             logging.info(
@@ -405,7 +376,7 @@ def run_repeated(
         else:
             # If we are not catching up we wait until repeat_interval elapsed
             wait_until_repeat_interval_elapsed(execution_start_time, repeat_interval)
-            new_crawl_date_window = make_crawl_date_window(
+            new_crawl_date_window = utils.make_crawl_date_window(
                 crawl_span=crawl_span, crawl_lag=crawl_lag
             )
         crawl_date_window = new_crawl_date_window
