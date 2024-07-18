@@ -66,22 +66,17 @@ class InvalidUsernameError(InvalidRequestError):
 
 class RefusedUsernameError(InvalidRequestError):
     """Raised when API says it 'cannot return this user's information'"""
-
-    def __init__(self, message, response, error_json):
-        super().__init__(message, response)
-        self.error_json = error_json
+    pass
 
 
 class ApiServerError(Exception):
     """Raised when API responds 500"""
-
     pass
 
 
 class MaxApiRequestsReachedError(Exception):
     """Raised when TikTokApiRequestClient attempts a request to the API that would exceed the
     configured maxmimum allowd api requests"""
-
     pass
 
 
