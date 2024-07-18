@@ -63,10 +63,18 @@ def make_crawl_date_window(
 
 
 def crawl_date_window_is_behind_today(crawl_date_window: CrawlDateWindow, crawl_lag: int) -> bool:
-    return (
-        crawl_date_window.end_date.date() + datetime.timedelta(days=crawl_lag)
-        < datetime.date.today()
+    end_date = crawl_date_window.end_date.date()
+    today = datetime.date.today()
+    today_minus_crawl_lag = today - datetime.timedelta(days=crawl_lag)
+    is_behind = end_date < today_minus_crawl_lag
+    logging.debug(
+        "end_date: %s, today - crawl_lag (%s): %s; is behind today: %s",
+        end_date,
+        crawl_lag,
+        today_minus_crawl_lag,
+        is_behind,
     )
+    return is_behind
 
 
 def setup_logging_info_level() -> None:
