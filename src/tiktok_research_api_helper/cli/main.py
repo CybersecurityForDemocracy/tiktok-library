@@ -1,9 +1,8 @@
 import json
 import logging
-from collections import namedtuple
 from collections.abc import Mapping, Sequence
 from copy import copy
-from datetime import date, timedelta
+from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -23,6 +22,7 @@ from tiktok_research_api_helper.api_client import (
 from tiktok_research_api_helper.cli.custom_argument_types import (
     ApiCredentialsFileType,
     ApiRateLimitWaitStrategyType,
+    CatchupFromStartDate,
     CrawlTagType,
     DBFileType,
     DBUrlType,
@@ -64,8 +64,6 @@ APP = typer.Typer(rich_markup_mode="markdown")
 
 _DAYS_PER_ITER = 7
 _DEFAULT_CREDENTIALS_FILE_PATH = Path("./secrets.yaml")
-
-CrawlDateWindow = namedtuple("CrawlDateWindow", ["start_date", "end_date"])
 
 
 def driver_single_day(client_config: ApiClientConfig, query_config: VideoQueryConfig):
@@ -265,16 +263,6 @@ def print_query(
     print(json.dumps(query, cls=VideoQueryJSONEncoder, indent=2))
 
 
-def make_crawl_date_window(crawl_span: int, crawl_lag: int) -> CrawlDateWindow:
-    """Returns a CrawlDateWindow with an end_date crawl_lag days before today, and start_date
-    crawl_span days before end_date.
-    """
-    assert crawl_span > 0 and crawl_lag > 0, "crawl_span and crawl_lag must be non-negative"
-    end_date = date.today() - timedelta(days=crawl_lag)
-    start_date = end_date - timedelta(days=crawl_span)
-    return CrawlDateWindow(start_date=start_date, end_date=end_date)
-
-
 @APP.command()
 def run_repeated(
     crawl_span: Annotated[int, typer.Option(help="How many days between start and end dates")],
@@ -287,7 +275,7 @@ def run_repeated(
             )
         ),
     ] = 1,
-    crawl_interval: Annotated[int, typer.Option(help="How many days between crawls.")] = 1,
+    repeat_interval: Annotated[int, typer.Option(help="How many days between crawls.")] = 1,
     db_file: DBFileType | None = None,
     db_url: DBUrlType | None = None,
     crawl_tag: CrawlTagType | None = None,
@@ -310,6 +298,7 @@ def run_repeated(
     exclude_from_usernames: ExcludeUsernamesListType | None = None,
     fetch_user_info: FetchUserInfoFlag | None = None,
     fetch_comments: FetchCommentsFlag | None = None,
+    catch_up_from_start_date: CatchupFromStartDate | None = None,
     debug: EnableDebugLoggingFlag = False,
 ) -> None:
     """
@@ -318,7 +307,7 @@ def run_repeated(
     """
     if crawl_span < 0:
         raise typer.BadParameter("Number of days for crawl span must be positive")
-    if crawl_interval < 0:
+    if repeat_interval < 0:
         raise typer.BadParameter("Crawl interval must be positive")
     if crawl_lag < 0:
         raise typer.BadParameter("Lag must be positive")
@@ -328,8 +317,15 @@ def run_repeated(
     else:
         utils.setup_logging_info_level()
 
+    if catch_up_from_start_date:
+        start_date = utils.str_tiktok_date_format_to_datetime(catch_up_from_start_date)
+    else:
+        start_date = None
+    crawl_date_window = utils.make_crawl_date_window(
+        crawl_span=crawl_span, crawl_lag=crawl_lag, start_date=start_date
+    )
+
     while True:
-        crawl_date_window = make_crawl_date_window(crawl_span=crawl_span, crawl_lag=crawl_lag)
         logging.info(
             "Starting scheduled run. start_date: %s, end_date: %s",
             crawl_date_window.start_date,
@@ -359,22 +355,48 @@ def run_repeated(
             exclude_from_usernames=exclude_from_usernames,
             fetch_user_info=fetch_user_info,
             fetch_comments=fetch_comments,
-            max_api_requests=(DAILY_API_REQUEST_QUOTA * crawl_interval),
+            max_api_requests=(DAILY_API_REQUEST_QUOTA * repeat_interval),
             debug=debug,
             # Do not setup logging again so that we keep the current log file.
             init_logging=False,
         )
-        next_execution = execution_start_time.add(days=crawl_interval)
-        logging.debug("next_execution: %s, %s", next_execution, next_execution.diff_for_humans())
-        if pendulum.now() < next_execution:
-            logging.info("Sleeping until %s", next_execution)
-            pause.until(next_execution)
-        else:
-            logging.warning(
-                "Previous crawl started at %s and took longer than crawl_interval %s. starting now",
-                execution_start_time,
-                crawl_interval,
+
+        if catch_up_from_start_date and not utils.crawl_date_window_is_behind_today(
+            crawl_date_window, crawl_lag
+        ):
+            new_crawl_date_window = utils.make_crawl_date_window(
+                crawl_span=crawl_span, crawl_lag=crawl_lag, start_date=crawl_date_window.end_date
             )
+            logging.info(
+                "Still have not caught up to %s (with %s crawl_lag), will begin next run "
+                "immediately.",
+                catch_up_from_start_date,
+                crawl_lag,
+            )
+        else:
+            # If we are not catching up we wait until repeat_interval elapsed
+            wait_until_repeat_interval_elapsed(execution_start_time, repeat_interval)
+            new_crawl_date_window = utils.make_crawl_date_window(
+                crawl_span=crawl_span, crawl_lag=crawl_lag
+            )
+        crawl_date_window = new_crawl_date_window
+
+
+def wait_until_repeat_interval_elapsed(
+    execution_start_time: datetime, repeat_interval: int
+) -> None:
+    next_execution = execution_start_time.add(days=repeat_interval)
+    logging.debug("next_execution: %s, %s", next_execution, next_execution.diff_for_humans())
+    if pendulum.now() >= next_execution:
+        logging.warning(
+            "Previous crawl started at %s and took longer than repeat_interval %s. starting now",
+            execution_start_time,
+            repeat_interval,
+        )
+        return
+
+    logging.info("Sleeping until %s", next_execution)
+    pause.until(next_execution)
 
 
 @APP.command()

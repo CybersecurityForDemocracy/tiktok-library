@@ -1,5 +1,6 @@
 import datetime
 import logging
+from collections import namedtuple
 from pathlib import Path
 
 from rich.console import Console
@@ -17,6 +18,8 @@ DEBUG_LOG_FORMAT = (
     "%(message)s"
 )
 
+CrawlDateWindow = namedtuple("CrawlDateWindow", ["start_date", "end_date"])
+
 
 def int_to_days(x: int) -> datetime.timedelta:
     return datetime.timedelta(days=x)
@@ -28,6 +31,42 @@ def str_tiktok_date_format_to_datetime(string: str) -> datetime.datetime:
 
 def date_to_tiktok_str_format(d: datetime.date | datetime.datetime) -> str:
     return d.strftime(TIKTOK_DATE_FORMAT)
+
+
+def make_crawl_date_window(
+    crawl_span: int, crawl_lag: int, start_date: datetime.date = None
+) -> CrawlDateWindow:
+    """Returns a CrawlDateWindow with an end_date and start_date crawl_span days apart. If
+    start_date is specified it is used as the new window's start date, otherwise the window's start
+    will be today - (crawl_lag + crawl_span)
+    """
+    if crawl_span <= 0:
+        raise ValueError("crawl_span must be non-negative")
+    if crawl_lag <= 0:
+        raise ValueError("crawl_lag must be non-negative")
+
+    if start_date is None:
+        start_date = datetime.date.today() - (
+            datetime.timedelta(days=crawl_lag) + datetime.timedelta(days=crawl_span)
+        )
+
+    end_date = start_date + datetime.timedelta(days=crawl_span)
+    crawl_date_window = CrawlDateWindow(start_date=start_date, end_date=end_date)
+    logging.debug(
+        "crawl_span: %s, crawl_lag: %s, start_date: %s; %s",
+        crawl_span,
+        crawl_lag,
+        start_date,
+        crawl_date_window,
+    )
+    return crawl_date_window
+
+
+def crawl_date_window_is_behind_today(crawl_date_window: CrawlDateWindow, crawl_lag: int) -> bool:
+    return (
+        crawl_date_window.end_date.date() + datetime.timedelta(days=crawl_lag)
+        < datetime.date.today()
+    )
 
 
 def setup_logging_info_level() -> None:
