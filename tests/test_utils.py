@@ -27,4 +27,10 @@ def test_crawl_date_window_is_behind_today(crawl_lag, days_behind_today, expecte
         start_date=None,
         end_date=(datetime.now() - timedelta(days=days_behind_today)),
     )
-    assert (utils.crawl_date_window_is_behind_today(crawl_date_window, crawl_lag=crawl_lag,) == expected)
+    assert (
+        utils.crawl_date_window_is_behind_today(
+            crawl_date_window,
+            crawl_lag=crawl_lag,
+        )
+        == expected
+    )

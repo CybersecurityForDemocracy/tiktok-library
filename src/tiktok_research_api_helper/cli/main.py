@@ -66,7 +66,6 @@ _DAYS_PER_ITER = 7
 _DEFAULT_CREDENTIALS_FILE_PATH = Path("./secrets.yaml")
 
 
-
 def driver_single_day(client_config: ApiClientConfig, query_config: VideoQueryConfig):
     """Simpler driver for a single day of query"""
     assert (
@@ -362,8 +361,9 @@ def run_repeated(
             init_logging=False,
         )
 
-        if (catch_up_from_start_date and not
-            utils.crawl_date_window_is_caught_up_to_today(crawl_date_window, crawl_lag)):
+        if catch_up_from_start_date and not utils.crawl_date_window_is_behind_today(
+            crawl_date_window, crawl_lag
+        ):
             new_crawl_date_window = utils.make_crawl_date_window(
                 crawl_span=crawl_span, crawl_lag=crawl_lag, start_date=crawl_date_window.end_date
             )

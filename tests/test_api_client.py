@@ -5,8 +5,6 @@ import re
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, Mock, PropertyMock, call
-from collections import namedtuple
-from datetime import date, timedelta, datetime
 
 import pendulum
 import pytest
@@ -824,4 +822,3 @@ def test_TikTokVideoRequest_as_json(basic_video_query_config):
         "search_id": None,
         "start_date": "20240601",
     }
-
