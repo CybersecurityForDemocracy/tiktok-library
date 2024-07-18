@@ -823,6 +823,7 @@ class TikTokApiClient:
             except (ApiServerError, InvalidSearchIdError, InvalidCountOrCursorError) as e:
                 if self._config.raise_error_on_persistent_api_server_error:
                     raise e from None
+                break
 
                 break
 
