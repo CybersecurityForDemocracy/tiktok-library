@@ -441,9 +441,6 @@ def run(
     """
     Queries TikTok API and stores the results in specified database.
     """
-    # TODO(macpd): DO NOT SUBMIT remove this
-    logging.info("run locals: %s", locals())
-    return
     if init_logging:
         if debug:
             utils.setup_logging_debug_level()
