@@ -11,7 +11,7 @@ import pytest
 import requests
 from sqlalchemy.orm import Session
 
-from tests.test_utils import (
+from tests.common import (
     all_crawls,
     all_videos,
 )
