@@ -40,7 +40,10 @@ def make_crawl_date_window(
     start_date is specified it is used as the new window's start date, otherwise the window's start
     will be today - (crawl_lag + crawl_span)
     """
-    assert crawl_span > 0 and crawl_lag > 0, "crawl_span and crawl_lag must be non-negative"
+    if crawl_span <= 0:
+        raise ValueError("crawl_span must be non-negative")
+    if crawl_lag <= 0:
+        raise ValueError("crawl_lag must be non-negative")
 
     if start_date is None:
         start_date = datetime.date.today() - (
