@@ -1,4 +1,24 @@
 services:
+  tiktok-crawler:
+    platform: "linux/amd64"
+    restart: unless-stopped
+    build:
+      context: ./
+      dockerfile: ./Dockerfile-pip
+      args:
+        VERSION: "v0.0.3-rc3"
+    # command: run-repeated --db-file test.db --raw-responses-output-dir tiktok_us_candidates_2024/ --crawl-tag docker-test --query-file-json tiktok_us_candidates_2024-query.json --repeat-interval 1 --crawl-span 1 --crawl-lag 3 --debug --rate-limit-wait-strategy wait_next_utc_midnight
+    command: run --db-file test.db --raw-responses-output-dir query-test/ --crawl-tag docker-test --query-file-json ai-gen-video-query.json --debug --rate-limit-wait-strategy wait_next_utc_midnight 20240101 20240108
+    volumes:
+      - /home/paul/tiktok-library/secrets.yaml:/app/secrets.yaml:ro
+      - /home/paul/tiktok-library/test.db:/app/test.db
+      - /home/paul/tiktok-library/tiktok_us_candidates_2024/:/app/tiktok_us_candidates_2024/
+      - /home/paul/tiktok-library/query-test/:/app/query-test/
+      - /home/paul/tiktok-library/tiktok_us_candidates_2024-query.json:/app/tiktok_us_candidates_2024-query.json:ro
+      - /home/paul/tiktok-library/ai-gen-video-query.json:/app/ai-gen-video-query.json:ro
+
+
+  # Services for testing
   integration-test-db:
     image: postgres:12
     restart: unless-stopped
