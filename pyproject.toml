@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "tiktok_research_api_helper"
-version = "0.0.3-rc3"
+version = "0.0.3-rc4"
 authors = [
   { name="Bruno Coelho", email="bruno.coelho+c4d@nyu.edu" },
 ]
@@ -60,9 +60,9 @@ extra-dependencies = [
 [tool.hatch.envs.test.scripts]
 run = "pytest tests/ -vv"
 postgres-integration-test-docker-as-sudo = [
-  "sudo docker compose build",
-  "sudo docker compose run postgres-integration-test",
-  "sudo docker compose down"
+  "sudo docker compose --file=docker-compose-postgres-integration-test.yml build",
+  "sudo docker compose --file=docker-compose-postgres-integration-test.yml run postgres-integration-test",
+  "sudo docker compose --file=docker-compose-postgres-integration-test.yml down --remove-orphans"
 ]
 
 [tool.hatch.envs.jupyter]

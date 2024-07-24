@@ -1,0 +1,25 @@
+services:
+  # Services for testing
+  integration-test-db:
+    image: postgres:12
+    restart: unless-stopped
+    container_name: integration-test-db
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=test-db
+    healthcheck:
+      test: ["CMD", "psql", "postgresql://postgres:postgres@localhost:5432/test-db", "-c", "\\d"]
+
+  postgres-integration-test:
+    platform: "linux/amd64"
+    attach: true
+    depends_on:
+      integration-test-db:
+        condition: service_healthy
+    build:
+      context: ./
+      dockerfile: ./Dockerfile-postgres-integration-test
+      args:
+        DATABASE_URL: "postgresql://postgres:postgres@integration-test-db:5432/test-db"
+
