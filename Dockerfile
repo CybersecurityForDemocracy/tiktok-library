@@ -3,11 +3,12 @@ FROM python:3.12-slim
 RUN apt-get update && apt-get upgrade --yes
 WORKDIR /app
 
-RUN pip3 install --upgrade pip hatch
+RUN pip3 install --upgrade pip
 
-COPY README.md pyproject.toml ./
-COPY ./src/ ./src/
+ARG VERSION
+ENV VERSION=${VERSION:-}
 
-RUN hatch env create
+# Install from pip for transparency and simplicity
+RUN pip3 install "tiktok_research_api_helper==${VERSION}"
 
-ENTRYPOINT ["hatch", "run", "tiktok-lib"]
+ENTRYPOINT ["tiktok-lib"]
