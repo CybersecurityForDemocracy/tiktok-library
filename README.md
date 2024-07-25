@@ -350,6 +350,19 @@ when there is a linter issue the formatter can fix).
 ## Running jupyter notebook via hatch
 `hatch run jupyter:notebook`
 
+## Docker image
+ghcr.io/cybersecurityfordemocracy/tiktok_research_api_helper is a very minimal
+wrapper to run `tiktok-lib` in a docker container. Currently the image is built
+by installing the specified version of this package from pypi (for simplicity
+and transparency).
+
+To build the image you can use the following command:
+```shell
+bash -c 'VERSION=<PIP VERSION SPECIFIER HERE>; docker build -t ghcr.io/cybersecurityfordemocracy/tiktok_research_api_helper:${VERSION} --build-arg VERSION=${VERSION} .'
+```
+This will make sure that the image is tagged with the same version specifier as
+is used to install from pypi.
+
 ## Alembic database schema migrations
 Alembic is a tool/framework for database schema migrations. For instructions on
 how to use and and create revisions see https://alembic.sqlalchemy.org/en/latest/tutorial.html
