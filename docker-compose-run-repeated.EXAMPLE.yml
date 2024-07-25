@@ -1,0 +1,12 @@
+services:
+  tiktok-crawler:
+    platform: "linux/amd64"
+    restart: unless-stopped
+    image: ghcr.io/cybersecurityfordemocracy/tiktok_research_api_helper:latest
+    command: run-repeated --db-file tiktok-cawler.db --raw-responses-output-dir tiktok-cawler-raw-response/ --crawl-tag tiktok-crawler --query-file-json tiktok-cawler-query.json --repeat-interval 1 --crawl-span 1 --crawl-lag 3 --rate-limit-wait-strategy wait_next_utc_midnight
+    volumes:
+      - ./tiktok-library/secrets.yaml:/app/secrets.yaml:ro
+      - ./tiktok-library/tiktok-cawler.db:/app/tiktok-cawler.db
+      - ./tiktok-library/tiktok-cawler-raw-response/:/app/tiktok-cawler-raw-response/
+      - ./tiktok-library/tiktok-cawler-query.json:/app/tiktok-cawler-query.json:ro
+
