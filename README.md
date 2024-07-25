@@ -351,7 +351,7 @@ when there is a linter issue the formatter can fix).
 `hatch run jupyter:notebook`
 
 ## Docker image
-ghcr.io/cybersecurityfordemocracy/tiktok_research_api_helper is a very minimal
+*ghcr.io/cybersecurityfordemocracy/tiktok_research_api_helper* is a very minimal
 wrapper to run `tiktok-lib` in a docker container. Currently the image is built
 by installing the specified version of this package from pypi (for simplicity
 and transparency).
