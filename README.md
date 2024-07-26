@@ -404,6 +404,6 @@ When we are ready to publish a new version of this pacakge we do the following:
 2. Create a release via github using the version with a preceeding `v` as the tag name (ie `v0.0.3-rc4`). If this is an alpha, release candidate, etc make sure to check "pre-release" when creating the release (see https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository)
 3. Open a shell in the root of this repo for the remaing steps.
 4. run `git checkout <version tag>` (this will put you in a detached HEAD state at the commit where you tagged the version in the previous step)
-5. build the wheel and sdist packages: `hatch clean && hatch build`
+5. build the wheel and sdist packages: `hatch build --clean`
 6. make sure the wheel and sdist files have the intended version. for example, for version `v0.0.3-rc4` the wheel file will be `dist/tiktok_research_api_helper-0.0.3rc4-py3-none-any.whl`
 7. publish the packages: `hatch publish` (see https://hatch.pypa.io/1.12/publish/ for more info on how to configure)
