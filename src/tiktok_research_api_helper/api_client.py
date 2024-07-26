@@ -636,6 +636,8 @@ def _parse_user_info_response(username: str, response: rq.Response) -> TikTokUse
     response_json = _extract_response_json_or_raise_error(response)
     error_data = response_json.get("error")
     response_data_section = response_json.get("data")
+    # API does not include username in response. for ease of use we add it.
+    response_data_section["username"] = username
 
     return TikTokUserInfoResponse(
         username=username,
