@@ -280,8 +280,8 @@ def mock_tiktok_comments_response(testdata_api_comments_response_json):
 
 
 @pytest.fixture
-def mock_user_info_ok_response_infinite_generator():
-    data = {
+def mock_user_info_response():
+    return {
         "data": {
             "bio_description": "my_bio",
             "is_verified": False,
@@ -298,9 +298,16 @@ def mock_user_info_ok_response_infinite_generator():
             "log_id": "XXXXXX",
         },
     }
+
+
+@pytest.fixture
+def mock_user_info_ok_response_infinite_generator(mock_user_info_response):
     return itertools.repeat(
         api_client.TikTokUserInfoResponse(
-            username="example", data=data, error=data["error"], user_info=data
+            username="example",
+            data=mock_user_info_response,
+            error=mock_user_info_response["error"],
+            user_info=mock_user_info_response,
         )
     )
 
@@ -393,6 +400,31 @@ def expected_fetch_video_calls(basic_video_query_config, mock_tiktok_video_respo
 
 def test_tiktok_user_info_response_as_json():
     assert api_client.TikTokUserInfoRequest("karl").as_json() == '{"username": "karl"}'
+
+
+@pytest.mark.parametrize("username", ["karl", "bernie"])
+def test_request_client_adds_username_to_user_info(
+    mock_user_info_response,
+    mock_access_token_fetcher_session,
+    mock_request_session,
+    monkeypatch,
+    username,
+):
+    request_client = api_client.TikTokApiRequestClient.from_credentials_file(
+        FAKE_SECRETS_YAML_FILE,
+        api_request_session=mock_request_session,
+        access_token_fetcher_session=mock_access_token_fetcher_session,
+    )
+    # Override function that extracts JSON, so insert our own mock responses
+    with monkeypatch.context() as m:
+        m.setattr(
+            api_client, "_extract_response_json_or_raise_error", lambda x: mock_user_info_response
+        )
+        user_info_response = request_client.fetch_user_info(
+            api_client.TikTokUserInfoRequest(username)
+        )
+        assert user_info_response.username == username
+        assert user_info_response.user_info["username"] == username
 
 
 def test_tiktok_api_client_api_results_iter(
