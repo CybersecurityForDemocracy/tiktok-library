@@ -407,3 +407,11 @@ When we are ready to publish a new version of this pacakge we do the following:
 5. build the wheel and sdist packages: `hatch build --clean`
 6. make sure the wheel and sdist files have the intended version. for example, for version `v0.0.3-rc4` the wheel file will be `dist/tiktok_research_api_helper-0.0.3rc4-py3-none-any.whl`
 7. publish the packages: `hatch publish` (see https://hatch.pypa.io/1.12/publish/ for more info on how to configure)
+8. build new version of docker image:
+    ```shell
+    bash -c 'VERSION=<PIP VERSION SPECIFIER HERE>; docker build -t ghcr.io/cybersecurityfordemocracy/tiktok_research_api_helper:${VERSION} --build-arg VERSION=${VERSION} .'
+    ```
+9. push docker image to container registery
+    ```shell
+    docker push ghcr.io/cybersecurityfordemocracy/tiktok_research_api_helper:${VERSION}
+    ```
