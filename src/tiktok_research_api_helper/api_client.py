@@ -575,8 +575,8 @@ class TikTokApiRequestClient:
 
         if response.status_code == 429:
             msg = (
-                f"Response indicates rate limit exceeded: {response!r}.\n"
-                "num_api_requests_sent: {self.num_api_requests_sent}"
+                f"Response indicates rate limit exceeded: {response!r}. "
+                f"num_api_requests_sent: {self.num_api_requests_sent}"
             )
             raise ApiRateLimitError(msg)
 
