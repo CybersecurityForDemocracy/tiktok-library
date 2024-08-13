@@ -1,5 +1,7 @@
 # tiktok_research_api_helper
 
+[![PyPI - Version](https://img.shields.io/pypi/v/tiktok_research_api_helper.svg)](https://pypi.org/project/tiktok_research_api_helper)
+
 This package provides both a CLI application and python library for querying
 video information from the TikTok Research API.
 
