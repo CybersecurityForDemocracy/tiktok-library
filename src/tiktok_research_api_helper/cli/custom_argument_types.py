@@ -181,6 +181,9 @@ ExcludeUsernamesListType = Annotated[
     ),
 ]
 
+VideoIdType = Annotated[int, typer.Option(help="ID of specific video to query for.")]
+
+
 CrawlTagType = Annotated[
     str,
     typer.Option(

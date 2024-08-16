@@ -9,6 +9,7 @@ from tiktok_research_api_helper.query import (
     VideoQuery,
     VideoQueryJSONEncoder,
     generate_query,
+    generate_video_id_query,
     get_normalized_hashtag_set,
     get_normalized_keyword_set,
     get_normalized_username_set,
@@ -322,6 +323,19 @@ def test_normalized_keyword_set(test_input, expected):
 )
 def test_normalized_username_set(test_input, expected):
     assert get_normalized_username_set(test_input) == expected
+
+def test_generate_query_video_id():
+    assert generate_video_id_query(1234567).as_dict() == {
+        "and": [
+            {
+                "field_name": "video_id",
+                "field_values": [
+                    "1234567",
+                ],
+                "operation": "EQ",
+            }
+        ]
+    }
 
 
 def test_generate_query_include_any_hashtags():

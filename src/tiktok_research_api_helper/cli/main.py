@@ -47,6 +47,7 @@ from tiktok_research_api_helper.cli.custom_argument_types import (
     StopAfterOneRequestFlag,
     TikTokEndDateFormat,
     TikTokStartDateFormat,
+    VideoIdType,
 )
 from tiktok_research_api_helper.models import (
     get_engine_and_create_tables,
@@ -59,6 +60,7 @@ from tiktok_research_api_helper.query import (
     VideoQuery,
     VideoQueryJSONEncoder,
     generate_query,
+    generate_video_id_query,
 )
 
 APP = typer.Typer(rich_markup_mode="markdown")
@@ -191,6 +193,7 @@ def print_query(
     exclude_all_keywords: ExcludeAllKeywordListType | None = None,
     only_from_usernames: OnlyUsernamesListType | None = None,
     exclude_from_usernames: ExcludeUsernamesListType | None = None,
+    video_id: VideoIdType | None = None,
 ) -> None:
     """Prints to stdout the query generated from flags. Useful for creating a base from which to
     build more complex custom JSON queries."""
@@ -206,6 +209,7 @@ def print_query(
             exclude_all_keywords,
             only_from_usernames,
             exclude_from_usernames,
+            video_id,
         ]
     ):
         raise typer.BadParameter(
@@ -213,53 +217,69 @@ def print_query(
             "--include-all-hashtags, --exclude-all-hashtags, --include-any-keywords, "
             "--include-all-keywords, --exclude-any-keywords, --exclude-all-keywords, "
             "--include-any-usernames, --include-all-usernames, --exclude-any-usernames, "
-            "--exclude-all-usernames]"
+            "--exclude-all-usernames, --video-id]"
         )
-    validate_mutually_exclusive_flags(
-        {
-            "--include-any-hashtags": include_any_hashtags,
-            "--include-all-hashtags": include_all_hashtags,
-        }
-    )
-    validate_mutually_exclusive_flags(
-        {
-            "--exclude-any-hashtags": exclude_any_hashtags,
-            "--exclude-all-hashtags": exclude_all_hashtags,
-        }
-    )
-    validate_mutually_exclusive_flags(
-        {
-            "--include-any-keywords": include_any_keywords,
-            "--include-all-keywords": include_all_keywords,
-        }
-    )
-    validate_mutually_exclusive_flags(
-        {
-            "--exclude-any-keywords": exclude_any_keywords,
-            "--exclude-all-keywords": exclude_all_keywords,
-        }
-    )
-    validate_mutually_exclusive_flags(
-        {
-            "--only-from-usernames": only_from_usernames,
-            "--exclude-from-usernames": exclude_from_usernames,
-        }
-    )
-    validate_region_code_flag_value(region)
+    if video_id:
+        if any([
+                include_any_hashtags,
+                exclude_any_hashtags,
+                include_all_hashtags,
+                exclude_all_hashtags,
+                include_any_keywords,
+                exclude_any_keywords,
+                include_all_keywords,
+                exclude_all_keywords,
+                only_from_usernames,
+                exclude_from_usernames,
+            ]):
+            raise typer.BadParameter("--video_id is mutually exclusisive with other flags")
+        query = generate_video_id_query(video_id)
+    else:
+        validate_mutually_exclusive_flags(
+            {
+                "--include-any-hashtags": include_any_hashtags,
+                "--include-all-hashtags": include_all_hashtags,
+            }
+        )
+        validate_mutually_exclusive_flags(
+            {
+                "--exclude-any-hashtags": exclude_any_hashtags,
+                "--exclude-all-hashtags": exclude_all_hashtags,
+            }
+        )
+        validate_mutually_exclusive_flags(
+            {
+                "--include-any-keywords": include_any_keywords,
+                "--include-all-keywords": include_all_keywords,
+            }
+        )
+        validate_mutually_exclusive_flags(
+            {
+                "--exclude-any-keywords": exclude_any_keywords,
+                "--exclude-all-keywords": exclude_all_keywords,
+            }
+        )
+        validate_mutually_exclusive_flags(
+            {
+                "--only-from-usernames": only_from_usernames,
+                "--exclude-from-usernames": exclude_from_usernames,
+            }
+        )
+        validate_region_code_flag_value(region)
 
-    query = generate_query(
-        region_codes=region,
-        include_any_hashtags=include_any_hashtags,
-        include_all_hashtags=include_all_hashtags,
-        exclude_any_hashtags=exclude_any_hashtags,
-        exclude_all_hashtags=exclude_all_hashtags,
-        include_any_keywords=include_any_keywords,
-        include_all_keywords=include_all_keywords,
-        exclude_any_keywords=exclude_any_keywords,
-        exclude_all_keywords=exclude_all_keywords,
-        only_from_usernames=only_from_usernames,
-        exclude_from_usernames=exclude_from_usernames,
-    )
+        query = generate_query(
+            region_codes=region,
+            include_any_hashtags=include_any_hashtags,
+            include_all_hashtags=include_all_hashtags,
+            exclude_any_hashtags=exclude_any_hashtags,
+            exclude_all_hashtags=exclude_all_hashtags,
+            include_any_keywords=include_any_keywords,
+            include_all_keywords=include_all_keywords,
+            exclude_any_keywords=exclude_any_keywords,
+            exclude_all_keywords=exclude_all_keywords,
+            only_from_usernames=only_from_usernames,
+            exclude_from_usernames=exclude_from_usernames,
+        )
 
     print(json.dumps(query, cls=VideoQueryJSONEncoder, indent=2))
 
@@ -431,6 +451,7 @@ def run(
     exclude_all_keywords: ExcludeAllKeywordListType | None = None,
     only_from_usernames: OnlyUsernamesListType | None = None,
     exclude_from_usernames: ExcludeUsernamesListType | None = None,
+    video_id: VideoIdType | None = None,
     fetch_user_info: FetchUserInfoFlag | None = None,
     fetch_comments: FetchCommentsFlag | None = None,
     debug: EnableDebugLoggingFlag = False,
@@ -481,6 +502,7 @@ def run(
                 only_from_usernames,
                 exclude_from_usernames,
                 region,
+                video_id,
             ]
         ):
             raise typer.BadParameter(
@@ -490,6 +512,21 @@ def run(
             )
 
         query = get_query_file_json(query_file_json)
+    elif video_id:
+        if any([
+                include_any_hashtags,
+                exclude_any_hashtags,
+                include_all_hashtags,
+                exclude_all_hashtags,
+                include_any_keywords,
+                exclude_any_keywords,
+                include_all_keywords,
+                exclude_all_keywords,
+                only_from_usernames,
+                exclude_from_usernames,
+            ]):
+            raise typer.BadParameter("--video_id is mutually exclusisive with other flags")
+        query = generate_video_id_query(video_id)
     else:
         validate_mutually_exclusive_flags(
             {
