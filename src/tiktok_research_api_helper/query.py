@@ -160,6 +160,7 @@ class VideoQueryJSONEncoder(json.JSONEncoder):
             return o.as_dict()
         return super().default(o)
 
+
 def generate_video_id_query(video_id: int) -> VideoQuery:
     return VideoQuery(**{_QUERY_AND_ARG_NAME: Cond(Fields.video_id, str(video_id), Op.EQ)})
 

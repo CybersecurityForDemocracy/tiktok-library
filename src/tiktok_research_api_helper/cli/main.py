@@ -220,7 +220,8 @@ def print_query(
             "--exclude-all-usernames, --video-id]"
         )
     if video_id:
-        if any([
+        if any(
+            [
                 include_any_hashtags,
                 exclude_any_hashtags,
                 include_all_hashtags,
@@ -231,7 +232,8 @@ def print_query(
                 exclude_all_keywords,
                 only_from_usernames,
                 exclude_from_usernames,
-            ]):
+            ]
+        ):
             raise typer.BadParameter("--video_id is mutually exclusisive with other flags")
         query = generate_video_id_query(video_id)
     else:
@@ -513,7 +515,8 @@ def run(
 
         query = get_query_file_json(query_file_json)
     elif video_id:
-        if any([
+        if any(
+            [
                 include_any_hashtags,
                 exclude_any_hashtags,
                 include_all_hashtags,
@@ -524,7 +527,8 @@ def run(
                 exclude_all_keywords,
                 only_from_usernames,
                 exclude_from_usernames,
-            ]):
+            ]
+        ):
             raise typer.BadParameter("--video_id is mutually exclusisive with other flags")
         query = generate_video_id_query(video_id)
     else:
