@@ -485,11 +485,12 @@ def run(
             "only one."
         )
 
-    if max_days_per_query > 30:
+    if max_days_per_query > 30 or max_days_per_query <= 0:
         raise typer.BadParameter(
-            "--max-days-per-query must be less than or equal to 30. This is a restriction of the "
-            "tiktok research API."
+            "--max-days-per-query must be a positive integer less than or equal to 30. This is a
+            restriction of the tiktok research API."
         )
+
 
     logging.log(logging.INFO, f"Arguments: {locals()}")
 
