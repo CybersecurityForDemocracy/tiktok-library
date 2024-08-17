@@ -183,7 +183,6 @@ ExcludeUsernamesListType = Annotated[
 
 VideoIdType = Annotated[int, typer.Option(help="ID of specific video to query for.")]
 
-
 CrawlTagType = Annotated[
     str,
     typer.Option(
@@ -239,6 +238,18 @@ CatchupFromStartDate = Annotated[
             "this date with the provided time window, and then crawl without delay (aside from "
             "waiting for API quota reset) run_repeated would operate as normal (ie crawl_lag days "
             "away from current date) date in the format %Y%m%d (e.g. 20210101)"
+        )
+    ),
+]
+
+MaxDaysPerQueryType = Annotated[
+    int,
+    typer.Option(
+        help=(
+            "Threshold for number of days between start and end dates at which a single query will "
+            "be split into multiple queries. IE if this is set to 3 and the start and end date are "
+            "7 days apart the query will be split in 3 queries with start and end dates: (start, "
+            "start + 3), (start + 3, start + 6), (start + 6, start + 7)"
         )
     ),
 ]

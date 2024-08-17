@@ -41,6 +41,7 @@ from tiktok_research_api_helper.cli.custom_argument_types import (
     IncludeAnyKeywordListType,
     JsonQueryFileType,
     MaxApiRequests,
+    MaxDaysPerQueryType,
     OnlyUsernamesListType,
     RawResponsesOutputDir,
     RegionCodeListType,
@@ -65,7 +66,7 @@ from tiktok_research_api_helper.query import (
 
 APP = typer.Typer(rich_markup_mode="markdown")
 
-_DAYS_PER_ITER = 7
+_DEFAULT_MAX_DAYS_PER_QUERY = 7
 _DEFAULT_CREDENTIALS_FILE_PATH = Path("./secrets.yaml")
 
 
@@ -79,16 +80,20 @@ def driver_single_day(client_config: ApiClientConfig, query_config: VideoQueryCo
     api_client.fetch_and_store_all(query_config)
 
 
-def main_driver(api_client_config: ApiClientConfig, query_config: VideoQueryConfig):
-    days_per_iter = utils.int_to_days(_DAYS_PER_ITER)
+def main_driver(
+    api_client_config: ApiClientConfig,
+    query_config: VideoQueryConfig,
+    max_days_per_query: int,
+):
+    # TODO(macpd): maybe move this logic int TikTokApiClient
+    max_days_per_query = utils.int_to_days(max_days_per_query)
 
     start_date = copy(query_config.start_date)
 
     api_client = TikTokApiClient.from_config(api_client_config)
 
     while start_date < query_config.end_date:
-        # API limit is 30, we maintain 28 to be safe
-        local_end_date = start_date + days_per_iter
+        local_end_date = start_date + max_days_per_query
         local_end_date = min(local_end_date, query_config.end_date)
         local_query_config = attrs.evolve(
             query_config, start_date=start_date, end_date=local_end_date
@@ -96,7 +101,7 @@ def main_driver(api_client_config: ApiClientConfig, query_config: VideoQueryConf
 
         api_client.fetch_and_store_all(local_query_config)
 
-        start_date += days_per_iter
+        start_date += max_days_per_query
 
 
 @APP.command()
@@ -435,6 +440,7 @@ def run(
     db_url: DBUrlType | None = None,
     stop_after_one_request: StopAfterOneRequestFlag = False,
     max_api_requests: MaxApiRequests | None = None,
+    max_days_per_query: MaxDaysPerQueryType = _DEFAULT_MAX_DAYS_PER_QUERY,
     crawl_tag: CrawlTagType | None = None,
     raw_responses_output_dir: RawResponsesOutputDir | None = None,
     query_file_json: JsonQueryFileType | None = None,
@@ -477,6 +483,12 @@ def run(
         raise typer.BadParameter(
             "--stop-after-one-request and --max-api-requests are mutually exclusive. Please use "
             "only one."
+        )
+
+    if max_days_per_query > 30:
+        raise typer.BadParameter(
+            "--max-days-per-query must be less than or equal to 30. This is a restriction of the "
+            "tiktok research API."
         )
 
     logging.log(logging.INFO, f"Arguments: {locals()}")
@@ -610,4 +622,4 @@ def run(
         driver_single_day(api_client_config, query_config)
     else:
         logging.info("Running main driver")
-        main_driver(api_client_config, query_config)
+        main_driver(api_client_config, query_config, max_days_per_query=max_days_per_query)
