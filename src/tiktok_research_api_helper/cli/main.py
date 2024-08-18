@@ -492,7 +492,6 @@ def run(
             f"{_API_ALLOWED_MAX_DAYS_PER_QUERY}. This is a restriction of the tiktok research API."
         )
 
-
     logging.log(logging.INFO, f"Arguments: {locals()}")
 
     # Using an actual datetime object instead of a string would not allows to
