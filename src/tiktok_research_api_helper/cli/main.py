@@ -66,8 +66,8 @@ from tiktok_research_api_helper.query import (
 
 APP = typer.Typer(rich_markup_mode="markdown")
 
-_DEFAULT_MAX_DAYS_PER_QUERY = 7
-_API_ALLOWED_MAX_DAYS_PER_QUERY = 30
+_MAX_DAYS_PER_QUERY_DEFAULT = 7
+_DAYS_PER_QUERY_MAX_API_ALLOWED = 30
 _DEFAULT_CREDENTIALS_FILE_PATH = Path("./secrets.yaml")
 
 
@@ -441,7 +441,7 @@ def run(
     db_url: DBUrlType | None = None,
     stop_after_one_request: StopAfterOneRequestFlag = False,
     max_api_requests: MaxApiRequests | None = None,
-    max_days_per_query: MaxDaysPerQueryType = _DEFAULT_MAX_DAYS_PER_QUERY,
+    max_days_per_query: MaxDaysPerQueryType = _MAX_DAYS_PER_QUERY_DEFAULT,
     crawl_tag: CrawlTagType | None = None,
     raw_responses_output_dir: RawResponsesOutputDir | None = None,
     query_file_json: JsonQueryFileType | None = None,
@@ -486,10 +486,10 @@ def run(
             "only one."
         )
 
-    if max_days_per_query > _API_ALLOWED_MAX_DAYS_PER_QUERY or max_days_per_query <= 0:
+    if max_days_per_query > _DAYS_PER_QUERY_MAX_API_ALLOWED or max_days_per_query <= 0:
         raise typer.BadParameter(
             "--max-days-per-query must be a positive integer less than or equal to "
-            f"{_API_ALLOWED_MAX_DAYS_PER_QUERY}. This is a restriction of the tiktok research API."
+            f"{_DAYS_PER_QUERY_MAX_API_ALLOWED}. This is a restriction of the tiktok research API."
         )
 
     logging.log(logging.INFO, f"Arguments: {locals()}")
@@ -546,7 +546,7 @@ def run(
         query = generate_video_id_query(video_id)
         # Since query for a specific video by ID should only return 1 video, we use the max allowed
         # date span for queries.
-        max_days_per_query = _API_ALLOWED_MAX_DAYS_PER_QUERY
+        max_days_per_query = _DAYS_PER_QUERY_MAX_API_ALLOWED
     else:
         validate_mutually_exclusive_flags(
             {
