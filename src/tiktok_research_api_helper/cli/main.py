@@ -240,7 +240,9 @@ def print_query(
                 exclude_from_usernames,
             ]
         ):
-            raise typer.BadParameter("--video_id is mutually exclusisive with other flags")
+            raise typer.BadParameter(
+                "--video-id is mutually exclusisive with other query specification flags"
+            )
         query = generate_video_id_query(video_id)
     else:
         validate_mutually_exclusive_flags(
