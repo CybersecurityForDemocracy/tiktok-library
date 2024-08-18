@@ -67,6 +67,7 @@ from tiktok_research_api_helper.query import (
 APP = typer.Typer(rich_markup_mode="markdown")
 
 _DEFAULT_MAX_DAYS_PER_QUERY = 7
+_API_ALLOWED_MAX_DAYS_PER_QUERY = 30
 _DEFAULT_CREDENTIALS_FILE_PATH = Path("./secrets.yaml")
 
 
@@ -485,10 +486,10 @@ def run(
             "only one."
         )
 
-    if max_days_per_query > 30 or max_days_per_query <= 0:
+    if max_days_per_query > _API_ALLOWED_MAX_DAYS_PER_QUERY or max_days_per_query <= 0:
         raise typer.BadParameter(
-            "--max-days-per-query must be a positive integer less than or equal to 30. This is a
-            restriction of the tiktok research API."
+            "--max-days-per-query must be a positive integer less than or equal to "
+            f"{_API_ALLOWED_MAX_DAYS_PER_QUERY}. This is a restriction of the tiktok research API."
         )
 
 
@@ -544,6 +545,9 @@ def run(
         ):
             raise typer.BadParameter("--video_id is mutually exclusisive with other flags")
         query = generate_video_id_query(video_id)
+        # Since query for a specific video by ID should only return 1 video, we use the max allowed
+        # date span for queries.
+        max_days_per_query = _API_ALLOWED_MAX_DAYS_PER_QUERY
     else:
         validate_mutually_exclusive_flags(
             {

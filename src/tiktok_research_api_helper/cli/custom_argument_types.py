@@ -247,9 +247,12 @@ MaxDaysPerQueryType = Annotated[
     typer.Option(
         help=(
             "Threshold for number of days between start and end dates at which a single query will "
-            "be split into multiple queries. IE if this is set to 3 and the start and end date are "
-            "7 days apart the query will be split in 3 queries with start and end dates: (start, "
-            "start + 3), (start + 3, start + 6), (start + 6, start + 7)"
+            "be split into multiple queries. Often the API gets overloaded and returns 500 (which "
+            "still consumes request quota) if the query returns lots of videos and the date range "
+            "is large. So reducing this can reduce 500 responses (and request quota consumption "
+            "from those) for queries that match lots of videos. IE if this is set to 3 and the "
+            "start and end date are 7 days apart the query will be split in 3 queries with start "
+            "and end dates: (start, start + 3), (start + 3, start + 6), (start + 6, start + 7)"
         )
     ),
 ]
