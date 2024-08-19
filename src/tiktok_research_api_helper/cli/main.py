@@ -149,7 +149,7 @@ def test(
         "API client config: %s\nVideo query config: %s", api_client_config, video_query_config
     )
 
-    driver_single_day(api_client_config, video_query_config)
+    main_driver(api_client_config, video_query_config)
 
 
 def get_query_file_json(query_file: Path):
@@ -189,17 +189,17 @@ def validate_region_code_flag_value(region_code_list: Sequence[str] | None):
 @APP.command()
 def print_query(
     region: RegionCodeListType = None,
-    include_any_hashtags: IncludeAnyHashtagListType | None = None,
-    exclude_any_hashtags: ExcludeAnyHashtagListType | None = None,
-    include_all_hashtags: IncludeAllHashtagListType | None = None,
-    exclude_all_hashtags: ExcludeAllHashtagListType | None = None,
-    include_any_keywords: IncludeAnyKeywordListType | None = None,
-    exclude_any_keywords: ExcludeAnyKeywordListType | None = None,
-    include_all_keywords: IncludeAllKeywordListType | None = None,
-    exclude_all_keywords: ExcludeAllKeywordListType | None = None,
-    only_from_usernames: OnlyUsernamesListType | None = None,
-    exclude_from_usernames: ExcludeUsernamesListType | None = None,
-    video_id: VideoIdType | None = None,
+    include_any_hashtags: IncludeAnyHashtagListType = None,
+    exclude_any_hashtags: ExcludeAnyHashtagListType = None,
+    include_all_hashtags: IncludeAllHashtagListType = None,
+    exclude_all_hashtags: ExcludeAllHashtagListType = None,
+    include_any_keywords: IncludeAnyKeywordListType = None,
+    exclude_any_keywords: ExcludeAnyKeywordListType = None,
+    include_all_keywords: IncludeAllKeywordListType = None,
+    exclude_all_keywords: ExcludeAllKeywordListType = None,
+    only_from_usernames: OnlyUsernamesListType = None,
+    exclude_from_usernames: ExcludeUsernamesListType = None,
+    video_id: VideoIdType = None,
 ) -> None:
     """Prints to stdout the query generated from flags. Useful for creating a base from which to
     build more complex custom JSON queries."""
@@ -307,29 +307,29 @@ def run_repeated(
         ),
     ] = 1,
     repeat_interval: Annotated[int, typer.Option(help="How many days between crawls.")] = 1,
-    db_file: DBFileType | None = None,
-    db_url: DBUrlType | None = None,
-    crawl_tag: CrawlTagType | None = None,
-    raw_responses_output_dir: RawResponsesOutputDir | None = None,
-    query_file_json: JsonQueryFileType | None = None,
+    db_file: DBFileType = None,
+    db_url: DBUrlType = None,
+    crawl_tag: CrawlTagType = None,
+    raw_responses_output_dir: RawResponsesOutputDir = None,
+    query_file_json: JsonQueryFileType = None,
     api_credentials_file: ApiCredentialsFileType = _DEFAULT_CREDENTIALS_FILE_PATH,
     rate_limit_wait_strategy: ApiRateLimitWaitStrategyType = (
         ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS
     ),
     region: RegionCodeListType = None,
-    include_any_hashtags: IncludeAnyHashtagListType | None = None,
-    exclude_any_hashtags: ExcludeAnyHashtagListType | None = None,
-    include_all_hashtags: IncludeAllHashtagListType | None = None,
-    exclude_all_hashtags: ExcludeAllHashtagListType | None = None,
-    include_any_keywords: IncludeAnyKeywordListType | None = None,
-    exclude_any_keywords: ExcludeAnyKeywordListType | None = None,
-    include_all_keywords: IncludeAllKeywordListType | None = None,
-    exclude_all_keywords: ExcludeAllKeywordListType | None = None,
-    only_from_usernames: OnlyUsernamesListType | None = None,
-    exclude_from_usernames: ExcludeUsernamesListType | None = None,
-    fetch_user_info: FetchUserInfoFlag | None = None,
-    fetch_comments: FetchCommentsFlag | None = None,
-    catch_up_from_start_date: CatchupFromStartDate | None = None,
+    include_any_hashtags: IncludeAnyHashtagListType = None,
+    exclude_any_hashtags: ExcludeAnyHashtagListType = None,
+    include_all_hashtags: IncludeAllHashtagListType = None,
+    exclude_all_hashtags: ExcludeAllHashtagListType = None,
+    include_any_keywords: IncludeAnyKeywordListType = None,
+    exclude_any_keywords: ExcludeAnyKeywordListType = None,
+    include_all_keywords: IncludeAllKeywordListType = None,
+    exclude_all_keywords: ExcludeAllKeywordListType = None,
+    only_from_usernames: OnlyUsernamesListType = None,
+    exclude_from_usernames: ExcludeUsernamesListType = None,
+    fetch_user_info: FetchUserInfoFlag = False,
+    fetch_comments: FetchCommentsFlag = False,
+    catch_up_from_start_date: CatchupFromStartDate = None,
     debug: EnableDebugLoggingFlag = False,
 ) -> None:
     """
@@ -439,32 +439,32 @@ def run(
     # breaks the documentation of CLI Arguments for some reason
     start_date_str: TikTokStartDateFormat,
     end_date_str: TikTokEndDateFormat,
-    db_file: DBFileType | None = None,
-    db_url: DBUrlType | None = None,
+    db_file: DBFileType = None,
+    db_url: DBUrlType = None,
     stop_after_one_request: StopAfterOneRequestFlag = False,
-    max_api_requests: MaxApiRequests | None = None,
+    max_api_requests: MaxApiRequests = None,
     max_days_per_query: MaxDaysPerQueryType = _MAX_DAYS_PER_QUERY_DEFAULT,
-    crawl_tag: CrawlTagType | None = None,
-    raw_responses_output_dir: RawResponsesOutputDir | None = None,
-    query_file_json: JsonQueryFileType | None = None,
+    crawl_tag: CrawlTagType = None,
+    raw_responses_output_dir: RawResponsesOutputDir = None,
+    query_file_json: JsonQueryFileType = None,
     api_credentials_file: ApiCredentialsFileType = _DEFAULT_CREDENTIALS_FILE_PATH,
     rate_limit_wait_strategy: ApiRateLimitWaitStrategyType = (
         ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS
     ),
-    region: RegionCodeListType | None = None,
-    include_any_hashtags: IncludeAnyHashtagListType | None = None,
-    exclude_any_hashtags: ExcludeAnyHashtagListType | None = None,
-    include_all_hashtags: IncludeAllHashtagListType | None = None,
-    exclude_all_hashtags: ExcludeAllHashtagListType | None = None,
-    include_any_keywords: IncludeAnyKeywordListType | None = None,
-    exclude_any_keywords: ExcludeAnyKeywordListType | None = None,
-    include_all_keywords: IncludeAllKeywordListType | None = None,
-    exclude_all_keywords: ExcludeAllKeywordListType | None = None,
-    only_from_usernames: OnlyUsernamesListType | None = None,
-    exclude_from_usernames: ExcludeUsernamesListType | None = None,
-    video_id: VideoIdType | None = None,
-    fetch_user_info: FetchUserInfoFlag | None = None,
-    fetch_comments: FetchCommentsFlag | None = None,
+    region: RegionCodeListType = None,
+    include_any_hashtags: IncludeAnyHashtagListType = None,
+    exclude_any_hashtags: ExcludeAnyHashtagListType = None,
+    include_all_hashtags: IncludeAllHashtagListType = None,
+    exclude_all_hashtags: ExcludeAllHashtagListType = None,
+    include_any_keywords: IncludeAnyKeywordListType = None,
+    exclude_any_keywords: ExcludeAnyKeywordListType = None,
+    include_all_keywords: IncludeAllKeywordListType = None,
+    exclude_all_keywords: ExcludeAllKeywordListType = None,
+    only_from_usernames: OnlyUsernamesListType = None,
+    exclude_from_usernames: ExcludeUsernamesListType = None,
+    video_id: VideoIdType = None,
+    fetch_user_info: FetchUserInfoFlag = False,
+    fetch_comments: FetchCommentsFlag = False,
     debug: EnableDebugLoggingFlag = False,
     # Skips logging init/setup. Hidden because this is intended for other commands that setup
     # logging and then call this as a function.
@@ -596,8 +596,6 @@ def run(
             only_from_usernames=only_from_usernames,
             exclude_from_usernames=exclude_from_usernames,
         )
-
-    logging.log(logging.INFO, f"VideoQuery: {query}")
 
     if db_url:
         engine = get_engine_and_create_tables(db_url)
