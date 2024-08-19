@@ -779,7 +779,7 @@ class TikTokApiClient:
         )
         logging.debug("Crawl: %s", crawl)
 
-        logging.info("Beginning API results fetch.")
+        logging.info("Beginning API results fetch VideoQueryConfig: %s.", query_config)
         while crawl.has_more:
             request = TikTokVideoRequest.from_config(
                 config=query_config,
