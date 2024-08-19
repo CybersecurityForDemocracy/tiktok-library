@@ -96,6 +96,8 @@ select = [
 ignore=[
   # Do not suggest ternary operator
   "SIM108",
+  # Allow use of Optional[...] style type annotation, since Typer relies on it
+  "UP007",
 ]
 
 [tool.hatch.build.targets.sdist]
