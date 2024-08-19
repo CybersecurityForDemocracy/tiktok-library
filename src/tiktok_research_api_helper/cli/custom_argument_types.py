@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Optional
 
 import typer
 
@@ -21,7 +21,7 @@ TikTokEndDateFormat = Annotated[
 ]
 
 DBFileType = Annotated[
-    Path | None,
+    Optional[Path],
     typer.Option(
         exists=False,
         file_okay=True,
@@ -30,10 +30,10 @@ DBFileType = Annotated[
     ),
 ]
 
-DBUrlType = Annotated[str | None, typer.Option(help="database URL for storing API results")]
+DBUrlType = Annotated[Optional[str], typer.Option(help="database URL for storing API results")]
 
 JsonQueryFileType = Annotated[
-    Path | None,
+    Optional[Path],
     typer.Option(
         exists=True,
         file_okay=True,
@@ -80,10 +80,10 @@ ApiRateLimitWaitStrategyType = Annotated[
     ),
 ]
 
-RegionCodeListType = Annotated[list[SupportedRegions] | None, typer.Option()]
+RegionCodeListType = Annotated[Optional[list[SupportedRegions]], typer.Option()]
 
 IncludeAnyHashtagListType = Annotated[
-    str | None,
+    Optional[str],
     typer.Option(
         help=(
             "A comma separated list of hashtag names. Will query API for videos that have "
@@ -93,7 +93,7 @@ IncludeAnyHashtagListType = Annotated[
 ]
 
 ExcludeAnyHashtagListType = Annotated[
-    str | None,
+    Optional[str],
     typer.Option(
         help=(
             "A comma separated list of hashtag names. Will query API for videos that DO NOT "
@@ -103,7 +103,7 @@ ExcludeAnyHashtagListType = Annotated[
 ]
 
 IncludeAllHashtagListType = Annotated[
-    str | None,
+    Optional[str],
     typer.Option(
         help=(
             "A comma separated list of hashtag names. Will query API for videos that have "
@@ -113,7 +113,7 @@ IncludeAllHashtagListType = Annotated[
 ]
 
 ExcludeAllHashtagListType = Annotated[
-    str | None,
+    Optional[str],
     typer.Option(
         help=(
             "A comma separated list of hashtag names. Will query API for videos that DO NOT "
@@ -123,7 +123,7 @@ ExcludeAllHashtagListType = Annotated[
 ]
 
 IncludeAnyKeywordListType = Annotated[
-    str | None,
+    Optional[str],
     typer.Option(
         help=(
             "A comma separated list of keywords. Will query API for videos that have "
@@ -133,7 +133,7 @@ IncludeAnyKeywordListType = Annotated[
 ]
 
 ExcludeAnyKeywordListType = Annotated[
-    str | None,
+    Optional[str],
     typer.Option(
         help=(
             "A comma separated list of keywords. Will query API for videos that DO NOT "
@@ -143,7 +143,7 @@ ExcludeAnyKeywordListType = Annotated[
 ]
 
 IncludeAllKeywordListType = Annotated[
-    str | None,
+    Optional[str],
     typer.Option(
         help=(
             "A comma separated list of keywords. Will query API for videos that have "
@@ -153,7 +153,7 @@ IncludeAllKeywordListType = Annotated[
 ]
 
 ExcludeAllKeywordListType = Annotated[
-    str | None,
+    Optional[str],
     typer.Option(
         help=(
             "A comma separated list of keywords. Will query API for videos that DO NOT "
@@ -163,7 +163,7 @@ ExcludeAllKeywordListType = Annotated[
 ]
 
 OnlyUsernamesListType = Annotated[
-    str | None,
+    Optional[str],
     typer.Option(
         help=(
             "A comma separated list of usernames. Will query API for videos that have "
@@ -173,7 +173,7 @@ OnlyUsernamesListType = Annotated[
 ]
 
 ExcludeUsernamesListType = Annotated[
-    str | None,
+    Optional[str],
     typer.Option(
         help=(
             "A comma separated list of usernames. Will query API for videos that DO NOT "
@@ -182,10 +182,10 @@ ExcludeUsernamesListType = Annotated[
     ),
 ]
 
-VideoIdType = Annotated[int | None, typer.Option(help="ID of specific video to query for.")]
+VideoIdType = Annotated[Optional[int], typer.Option(help="ID of specific video to query for.")]
 
 CrawlTagType = Annotated[
-    str | None,
+    Optional[str],
     typer.Option(
         help=(
             "Extra metadata for tagging the crawl of the data with a name (e.g. "
@@ -219,7 +219,7 @@ FetchCommentsFlag = Annotated[
 ]
 
 MaxApiRequests = Annotated[
-    int | None,
+    Optional[int],
     typer.Option(
         help=(
             "maximum number of requests to send to the API. If this limit is reached crawl/fetch "
@@ -232,7 +232,7 @@ MaxApiRequests = Annotated[
 EnableDebugLoggingFlag = Annotated[bool, typer.Option(help="Enable debug level logging")]
 
 CatchupFromStartDate = Annotated[
-    str | None,
+    Optional[str],
     typer.Option(
         help=(
             "Date from which to attempt to catch up from for run-repeated. IE start crawling at "
