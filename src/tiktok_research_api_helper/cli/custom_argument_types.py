@@ -32,16 +32,16 @@ DBFileType = Annotated[
 
 DBUrlType = Annotated[Optional[str], typer.Option(help="database URL for storing API results")]
 
-JsonQueryFileType = Annotated[
-    Optional[Path],
+JsonQueryFileListType = Annotated[
+    Optional[list[Path]],
     typer.Option(
+        "--query-file-json",
         exists=True,
         file_okay=True,
         dir_okay=False,
         help=(
             "Path to file query as JSON. File contents will be parsed as JSON and used directly "
-            "in query of API requests. Can be used multiple times to run multiple queries (in "
-            "serial)"
+            "in query of API requests. Can be used multiple times to run multiple queries serially."
         ),
     ),
 ]
