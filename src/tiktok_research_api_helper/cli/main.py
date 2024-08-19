@@ -597,6 +597,8 @@ def run(
             exclude_from_usernames=exclude_from_usernames,
         )
 
+    logging.log(logging.INFO, f"VideoQuery: {query}")
+
     if db_url:
         engine = get_engine_and_create_tables(db_url)
     elif db_file:
