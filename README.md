@@ -191,7 +191,7 @@ flags are mutually exclusive:
 
 ### regions
 You can also limit the videos by the region in which the use registered their
-account with `--region` (this flag can be provided multiple times include
+account with `--region` (this flag can be provided multiple times to include
 multiple regions). See tiktok API documentation for more info about this field
 https://developers.tiktok.com/doc/research-api-specs-query-videos/
 
