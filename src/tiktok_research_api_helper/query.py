@@ -161,8 +161,10 @@ class VideoQueryJSONEncoder(json.JSONEncoder):
         return super().default(o)
 
 
-def generate_video_id_query(video_id: int) -> VideoQuery:
-    return VideoQuery(**{_QUERY_AND_ARG_NAME: Cond(Fields.video_id, str(video_id), Op.EQ)})
+def generate_video_id_query(video_id_list: Sequence[int]) -> VideoQuery:
+    return VideoQuery(
+        and_=Cond(Fields.video_id, [str(video_id) for video_id in video_id_list], Op.IN)
+    )
 
 
 def get_normalized_hashtag_set(comma_separated_hashtags: str) -> set[str]:

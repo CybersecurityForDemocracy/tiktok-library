@@ -196,9 +196,10 @@ multiple regions). See tiktok API documentation for more info about this field
 https://developers.tiktok.com/doc/research-api-specs-query-videos/
 
 ### Video ID
-If you know the ID of the video you want, you can query for it directly with
-`--video-id`. NOTE: you will still have to provide start and end dates (due to
-TikTok Research API design).
+If you know the ID(s) of the video(s) you want, you can query for it directly
+with `--video-id`. This can be used multiple times to query for multiple video
+IDs. NOTE: you will still have to provide start and end dates (due to TikTok
+Research API design).
 
 ### fetching user info
 `--fetch-user-info` For each video the API returns user info is fetched for the video's creator.  (for more about what TikTok research API provides and how it is structured see https://developers.tiktok.com/doc/research-api-specs-query-user-info)
