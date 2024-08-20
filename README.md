@@ -195,6 +195,11 @@ account with `--region` (this flag can be provided multiple times include
 multiple regions). See tiktok API documentation for more info about this field
 https://developers.tiktok.com/doc/research-api-specs-query-videos/
 
+### Video ID
+If you know the ID of the video you want, you can query for it directly with
+`--video-id`. NOTE: you will still have to provide start and end dates (due to
+TikTok Research API design).
+
 ### fetching user info
 `--fetch-user-info` For each video the API returns user info is fetched for the video's creator.  (for more about what TikTok research API provides and how it is structured see https://developers.tiktok.com/doc/research-api-specs-query-user-info)
 
@@ -223,7 +228,8 @@ This prints the JSON query to stdout.
 ## Advanced queries
 If the provided querying functionality does not meet your needs or you want to
 provide your own query use the `--query-file-json` flag. This takes a path to a
-JSON file that will be used as the query for requests to the API. NOTE: the
+JSON file that will be used as the query for requests to the API, and can be
+used multiple times in the same command to run those queries serially. NOTE: the
 provided file is NOT checked for validity.
 See tiktok documentation for more info about crafting queries https://developers.tiktok.com/doc/research-api-get-started/
 
