@@ -48,7 +48,7 @@ from tiktok_research_api_helper.cli.custom_argument_types import (
     StopAfterOneRequestFlag,
     TikTokEndDateFormat,
     TikTokStartDateFormat,
-    VideoIdType,
+    VideoIdListType,
 )
 from tiktok_research_api_helper.models import (
     get_engine_and_create_tables,
@@ -189,7 +189,7 @@ def print_query(
     exclude_all_keywords: ExcludeAllKeywordListType = None,
     only_from_usernames: OnlyUsernamesListType = None,
     exclude_from_usernames: ExcludeUsernamesListType = None,
-    video_id: VideoIdType = None,
+    video_id_list: VideoIdListType = None,
 ) -> None:
     """Prints to stdout the query generated from flags. Useful for creating a base from which to
     build more complex custom JSON queries."""
@@ -205,7 +205,7 @@ def print_query(
             exclude_all_keywords,
             only_from_usernames,
             exclude_from_usernames,
-            video_id,
+            video_id_list,
         ]
     ):
         raise typer.BadParameter(
@@ -215,7 +215,7 @@ def print_query(
             "--include-any-usernames, --include-all-usernames, --exclude-any-usernames, "
             "--exclude-all-usernames, --video-id]"
         )
-    if video_id:
+    if video_id_list:
         if any(
             [
                 include_any_hashtags,
@@ -233,7 +233,7 @@ def print_query(
             raise typer.BadParameter(
                 "--video-id is mutually exclusisive with other query specification flags"
             )
-        query = generate_video_id_query(video_id)
+        query = generate_video_id_query(video_id_list)
     else:
         validate_mutually_exclusive_flags(
             {
@@ -452,7 +452,7 @@ def run(
     exclude_all_keywords: ExcludeAllKeywordListType = None,
     only_from_usernames: OnlyUsernamesListType = None,
     exclude_from_usernames: ExcludeUsernamesListType = None,
-    video_id: VideoIdType = None,
+    video_id_list: VideoIdListType = None,
     fetch_user_info: FetchUserInfoFlag = False,
     fetch_comments: FetchCommentsFlag = False,
     debug: EnableDebugLoggingFlag = False,
@@ -509,7 +509,7 @@ def run(
                 only_from_usernames,
                 exclude_from_usernames,
                 region,
-                video_id,
+                video_id_list,
             ]
         ):
             raise typer.BadParameter(
@@ -519,7 +519,7 @@ def run(
             )
 
         query_list = [get_query_file_json(query_file) for query_file in query_file_json_list]
-    elif video_id:
+    elif video_id_list:
         if any(
             [
                 include_any_hashtags,
@@ -534,8 +534,8 @@ def run(
                 exclude_from_usernames,
             ]
         ):
-            raise typer.BadParameter("--video_id is mutually exclusisive with other flags")
-        query_list = [generate_video_id_query(video_id)]
+            raise typer.BadParameter("--video-id is mutually exclusisive with other flags")
+        query_list = [generate_video_id_query(video_id_list)]
         # Since query for a specific video by ID should only return 1 video, we use the max allowed
         # date span for queries.
         max_days_per_query = _DAYS_PER_QUERY_MAX_API_ALLOWED

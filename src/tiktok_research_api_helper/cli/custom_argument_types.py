@@ -182,7 +182,16 @@ ExcludeUsernamesListType = Annotated[
     ),
 ]
 
-VideoIdType = Annotated[Optional[int], typer.Option(help="ID of specific video to query for.")]
+VideoIdListType = Annotated[
+    Optional[list[int]],
+    typer.Option(
+        "--video-id",
+        help=(
+            "ID of specific video to query for. Can be used multiple times to query for multiple "
+            "videos."
+        ),
+    ),
+]
 
 CrawlTagType = Annotated[
     Optional[str],

@@ -326,14 +326,16 @@ def test_normalized_username_set(test_input, expected):
 
 
 def test_generate_query_video_id():
-    assert generate_video_id_query(1234567).as_dict() == {
+    assert generate_video_id_query([123, 456, 789]).as_dict() == {
         "and": [
             {
                 "field_name": "video_id",
                 "field_values": [
-                    "1234567",
+                    "123",
+                    "456",
+                    "789",
                 ],
-                "operation": "EQ",
+                "operation": "IN",
             }
         ]
     }
