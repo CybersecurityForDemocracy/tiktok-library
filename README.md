@@ -195,7 +195,7 @@ account with `--region` (this flag can be provided multiple times include
 multiple regions). See tiktok API documentation for more info about this field
 https://developers.tiktok.com/doc/research-api-specs-query-videos/
 
-### Video by ID
+### Video ID
 If you know the ID of the video you want, you can query for it directly with
 `--video-id`. NOTE: you will still have to provide start and end dates (due to
 TikTok Research API design).
