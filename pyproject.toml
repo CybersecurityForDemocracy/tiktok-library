@@ -113,7 +113,9 @@ packages = ["src/tiktok_research_api_helper"]
 [tool.hatch.envs.types]
 extra-dependencies = [
   "mypy>=1.0.0",
+  "pytest",
 ]
+
 [tool.hatch.envs.types.scripts]
 check = "mypy --install-types --non-interactive {args:src/tiktok_research_api_helper tests}"
 
@@ -126,8 +128,8 @@ omit = [
 ]
 
 [tool.coverage.paths]
-tiktok_research_api_helper = ["src/tiktok_research_api_helper", "*/tiktok-data-donation/src/tiktok_research_api_helper"]
-tests = ["tests", "*/tiktok-data-donation/tests"]
+tiktok_research_api_helper = ["src/tiktok_research_api_helper"]
+tests = ["tests"]
 
 [tool.coverage.report]
 exclude_lines = [
