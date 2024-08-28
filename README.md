@@ -419,7 +419,11 @@ When we are ready to publish a new version of this pacakge we do the following:
 8. build new version of docker image (NOTE: omit the leading "v" as pip does not
    accept that in a version specifier):
     ```shell
-    bash -c 'VERSION=<PIP VERSION SPECIFIER HERE>; docker build -t ghcr.io/cybersecurityfordemocracy/tiktok_research_api_helper:${VERSION} --build-arg VERSION=${VERSION} .'
+    bash -c 'VERSION=<PIP VERSION SPECIFIER HERE>; docker build -t ghcr.io/cybersecurityfordemocracy/tiktok_research_api_helper:${VERSION} -t ghcr.io/cybersecurityfordemocracy/tiktok_research_api_helper:v${VERSION} --build-arg VERSION=${VERSION} .'
+    ```
+    if this is the latest release (ie not an alpha, beta, or release candidate) also tag it as latest:
+    ```shell
+     bash -c 'VERSION=<PIP VERSION SPECIFIER HERE>; docker tag ghcr.io/cybersecurityfordemocracy/tiktok_research_api_helper:${VERSION} ghcr.io/cybersecurityfordemocracy/tiktok_research_api_helper:latest'
     ```
 9. push docker image to container registery
     ```shell
