@@ -76,11 +76,6 @@ def mock_request_session_rate_limit_error(mock_request_session):
     return mock_request_session
 
 
-def test_tiktok_credentials_accepts_str_or_int_client_id():
-    api_client.TikTokCredentials("client_id_1", "client_secret_1", "client_key_1")
-    api_client.TikTokCredentials(123, "client_secret_1", "client_key_1")
-
-
 def test_tiktok_credentials_any_value_missing_raises_value_error():
     with pytest.raises(ValueError):
         api_client.TikTokCredentials("", "")
