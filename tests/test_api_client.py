@@ -83,19 +83,13 @@ def test_tiktok_credentials_accepts_str_or_int_client_id():
 
 def test_tiktok_credentials_any_value_missing_raises_value_error():
     with pytest.raises(ValueError):
-        api_client.TikTokCredentials("", "", "")
+        api_client.TikTokCredentials("", "")
 
     with pytest.raises(ValueError):
-        api_client.TikTokCredentials("client_id_1", "client_secret_1", "")
+        api_client.TikTokCredentials("client_secret_1", "")
 
     with pytest.raises(ValueError):
-        api_client.TikTokCredentials("client_id_1", "", "client_key_1")
-
-    with pytest.raises(ValueError):
-        api_client.TikTokCredentials("", "client_secret_1", "client_key_1")
-
-    with pytest.raises(ValueError):
-        api_client.TikTokCredentials("", "", "")
+        api_client.TikTokCredentials("", "client_key_1")
 
 
 def test_tiktok_api_request_client_empty_credentials_raises_value_error():
@@ -121,7 +115,6 @@ def test_tiktok_api_request_client_from_credentials_file_factory(
         access_token_fetcher_session=mock_access_token_fetcher_session,
     )
     assert request._credentials == api_client.TikTokCredentials(
-        client_id="client_id_1",
         client_secret="client_secret_1",
         client_key="client_key_1",
     )

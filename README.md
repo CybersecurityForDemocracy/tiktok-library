@@ -17,7 +17,6 @@ Python3.11+ is **required**. Some newer features are directly used and earlier v
 You need to put your API credentials in yaml file which the client code will use for authentication.
 Expected fields (no quotes):
 ```yaml
-client_id: 123
 client_secret: abc
 client_key: abc
 ```
@@ -148,7 +147,7 @@ print(username, " user info: ", result.user_info[username])
 # Basic CLI usage
 
 1. This library requires TikTok Research API access. It does not provide any access by itself.
-2. Create a new file `secrets.yaml` in the root folder you are running code from (you can specify a different file with `--api-credentials-file`). View the `sample_secrets.yaml` file for formatting. The client_id, client_secret and client_key are required. The library automatically manages the access token and refreshes it when needed.
+2. Create a new file `secrets.yaml` in the root folder you are running code from (you can specify a different file with `--api-credentials-file`). View the `sample_secrets.yaml` file for formatting. The client_secret and client_key are required. The library automatically manages the access token and refreshes it when needed.
 3. View the `ExampleInterface.ipynb` for a quick example of interfacing with it for small queries.
 
 ## Querying

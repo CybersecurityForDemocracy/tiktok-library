@@ -95,9 +95,6 @@ class ApiRateLimitWaitStrategy(enum.StrEnum):
 
 @attrs.define
 class TikTokCredentials:
-    client_id: str = attrs.field(
-        validator=[attrs.validators.instance_of((str, int)), field_is_not_empty]
-    )
     client_secret: str = attrs.field(
         validator=[attrs.validators.instance_of(str), field_is_not_empty]
     )
