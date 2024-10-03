@@ -120,7 +120,7 @@ class TikTokUserInfoResponse(TikTokResponse):
 
 @attrs.define
 class TikTokCommentsResponse(TikTokResponse):
-    comments: Sequence[any]
+    comments: Sequence[Any]
 
 
 @attrs.define
