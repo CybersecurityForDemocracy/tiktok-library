@@ -130,7 +130,7 @@ def test(
         api_credentials_file=api_credentials_file,
     )
     video_query_config = VideoQueryConfig(
-        video_query=test_query,
+        query=test_query,
         start_date=start_date_datetime,
         end_date=end_date_datetime,
         crawl_tags=["Testing"],
@@ -139,7 +139,7 @@ def test(
         "API client config: %s\nVideo query config: %s", api_client_config, video_query_config
     )
 
-    main_driver(api_client_config, video_query_config)
+    main_driver(api_client_config, video_query_config, max_days_per_query=1)
 
 
 def get_query_file_json(query_file: Path):
