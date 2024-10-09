@@ -57,7 +57,7 @@ ApiCredentialsFileType = Annotated[
 ]
 
 RawResponsesOutputDir = Annotated[
-    Path,
+    Optional[Path],
     typer.Option(
         exists=True,
         file_okay=False,
