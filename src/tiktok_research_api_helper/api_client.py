@@ -661,7 +661,7 @@ def strip_null_chars_from_json_keys_and_values(
     json_response: Mapping[str, Any],
 ) -> Mapping[str, Any]:
     return {
-        k.strip("\x00\u0000").strip if isinstance(k, str) else k: v.strip("\x00\u0000") if isinstance(v, str) else v
+        k.strip("\x00\u0000") if isinstance(k, str) else k: v.strip("\x00\u0000") if isinstance(v, str) else v
         for k, v in json_response.items()
     }
 

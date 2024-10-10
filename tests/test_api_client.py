@@ -871,8 +871,15 @@ def test_TikTokVideoRequest_as_json(basic_video_query_config):
 )
 def test_strip_null_chars_from_json_keys_and_values(input_json):
     result = api_client.strip_null_chars_from_json_keys_and_values(input_json)
+    assert len(result.keys()) == len(input_json.keys())
     for k, v in result.items():
         if isinstance(k, str):
             assert "\x00" not in k
+            assert "\u0000" not in k
+        else:
+            assert k in input_json.keys()
         if isinstance(v, str):
             assert "\x00" not in v
+            assert "\u0000" not in v
+        else:
+            assert v in input_json.values()
