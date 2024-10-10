@@ -842,3 +842,29 @@ def test_TikTokVideoRequest_as_json(basic_video_query_config):
         "search_id": None,
         "start_date": "20240601",
     }
+
+
+@pytest.mark.parametrize(
+    "input_json",
+    [
+        {"a": "a"},
+        {"a": 1},
+        {1: "a"},
+        {1: 1},
+        {"a\x00": "a"},
+        {"a": "a\x00"},
+        {"a\x00": "a\x00"},
+        {"a\x00": 1},
+        {1: "a\x00"},
+        {"\x00a": "a"},
+        {"a": "\x00a"},
+        {"\x00a": "\x00a"},
+    ],
+)
+def test_strip_null_chars_from_json_keys_and_values(input_json):
+    result = api_client.strip_null_chars_from_json_keys_and_values(input_json)
+    for k, v in result.items():
+        if isinstance(k, str):
+            assert "\x00" not in k
+        if isinstance(v, str):
+            assert "\x00" not in v

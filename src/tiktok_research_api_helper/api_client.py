@@ -657,12 +657,21 @@ def _parse_comments_response(response: rq.Response) -> TikTokCommentsResponse:
     return TikTokCommentsResponse(comments=comments, data=response_data_section, error=error_data)
 
 
+def strip_null_chars_from_json_keys_and_values(
+    json_response: Mapping[str, Any],
+) -> Mapping[str, Any]:
+    return {
+        k.strip("\x00") if isinstance(k, str) else k: v.strip("\x00") if isinstance(v, str) else v
+        for k, v in json_response.items()
+    }
+
+
 def _extract_response_json_or_raise_error(response: rq.Response | None) -> Mapping[str, Any]:
     if response is None:
         raise ValueError("Response is None")
 
     try:
-        return response.json()
+        return strip_null_chars_from_json_keys_and_values(response.json())
     except rq.exceptions.JSONDecodeError:
         logging.info(
             "Error parsing JSON response:\n%s\n%s\n%s\n%s",
