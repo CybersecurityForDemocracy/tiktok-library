@@ -40,7 +40,7 @@ API_ERROR_RETRY_LIMIT = 5
 API_ERROR_RETRY_MAX_WAIT = timedelta(minutes=2).total_seconds()
 
 DAILY_API_REQUEST_QUOTA = 1000
-NULL_CHARACTERS_TO_STRIP = '\x00\u0000'
+NULL_CHARACTERS_TO_STRIP = "\x00\u0000"
 
 
 class ApiRateLimitError(Exception):
@@ -668,8 +668,10 @@ def strip_null_chars_from_json_values(json_response: Mapping[str, Any]):
             json_response[key] = json_response[key].strip(NULL_CHARACTERS_TO_STRIP)
         # Could do this recursively, but don't want a infinite recursion bug
         elif isinstance(json_response[key], list):
-            json_response[key] = [v.strip(NULL_CHARACTERS_TO_STRIP) if isinstance(v, str) else v
-                                  for v in json_response[key]]
+            json_response[key] = [
+                v.strip(NULL_CHARACTERS_TO_STRIP) if isinstance(v, str) else v
+                for v in json_response[key]
+            ]
 
 
 def _extract_response_json_or_raise_error(response: rq.Response | None) -> Mapping[str, Any]:
