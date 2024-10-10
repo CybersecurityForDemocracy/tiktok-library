@@ -630,7 +630,8 @@ def _parse_video_response(response: rq.Response) -> TikTokVideoResponse:
     error_data = response_json.get("error")
     response_data_section = response_json.get("data", {})
     videos = response_data_section.get("videos", [])
-    map(strip_null_chars_from_json_values, videos)
+    for video in videos:
+        strip_null_chars_from_json_values(video)
 
     return TikTokVideoResponse(data=response_data_section, videos=videos, error=error_data)
 
