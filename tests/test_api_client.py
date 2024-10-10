@@ -859,6 +859,14 @@ def test_TikTokVideoRequest_as_json(basic_video_query_config):
         {"\x00a": "a"},
         {"a": "\x00a"},
         {"\x00a": "\x00a"},
+        {"a\u0000": "a"},
+        {"a": "a\u0000"},
+        {"a\u0000": "a\u0000"},
+        {"a\u0000": 1},
+        {1: "a\u0000"},
+        {"\u0000a": "a"},
+        {"a": "\u0000a"},
+        {"\u0000a": "\u0000a"},
     ],
 )
 def test_strip_null_chars_from_json_keys_and_values(input_json):
