@@ -843,9 +843,11 @@ def test_TikTokVideoRequest_as_json(basic_video_query_config):
         "start_date": "20240601",
     }
 
+
 def assert_value_does_not_have_null_character(val):
     if isinstance(val, str):
         assert "\x00" not in val and "\u0000" not in val, "\\x00 found in value"
+
 
 @pytest.mark.parametrize(
     "input_json",
