@@ -842,3 +842,44 @@ def test_TikTokVideoRequest_as_json(basic_video_query_config):
         "search_id": None,
         "start_date": "20240601",
     }
+
+
+def assert_value_does_not_have_null_character(val):
+    if isinstance(val, str):
+        assert "\x00" not in val and "\u0000" not in val, "\\x00 found in value"
+
+
+@pytest.mark.parametrize(
+    "input_json",
+    [
+        {"a": "a"},
+        {"a": 1},
+        {1: "a"},
+        {1: 1},
+        {"a": "a\x00"},
+        {1: "a\x00"},
+        {"a": "\x00a"},
+        {"a": "a\u0000"},
+        {1: "a\u0000"},
+        {"a": "\u0000a"},
+        {"a": ["a", 1]},
+        {"a": [1, 2]},
+        {1: ["a", "b"]},
+        {1: [1, 2]},
+        {"a": ["a\x00", "b"]},
+        {1: ["a\x00", "b\x00"]},
+        {"a": ["\x00a", "b"]},
+        {"a": ["a\u0000", "b\u0000"]},
+    ],
+)
+def test_strip_null_chars_from_json_keys_and_values(input_json):
+    result = copy.deepcopy(input_json)
+    api_client.strip_null_chars_from_json_values(result)
+    for v in result.values():
+        if isinstance(v, str):
+            assert_value_does_not_have_null_character(v)
+        elif isinstance(v, list):
+            for elem in v:
+                assert_value_does_not_have_null_character(elem)
+        else:
+            assert v in input_json.values()
