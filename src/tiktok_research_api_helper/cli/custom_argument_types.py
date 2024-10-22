@@ -238,6 +238,16 @@ MaxApiRequests = Annotated[
     ),
 ]
 
+MaxConsecutiveRequestErrorRetries = Annotated[
+    int,
+    typer.Option(
+        help=(
+            "Max number of time to retry requests that receive consecutive api errors (such 500 "
+            "errors)"
+        )
+    ),
+]
+
 EnableDebugLoggingFlag = Annotated[bool, typer.Option(help="Enable debug level logging")]
 
 CatchupFromStartDate = Annotated[

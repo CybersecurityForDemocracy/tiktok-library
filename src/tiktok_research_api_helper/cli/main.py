@@ -14,6 +14,7 @@ import typer
 
 from tiktok_research_api_helper import region_codes, utils
 from tiktok_research_api_helper.api_client import (
+    CONSECUTIVE_REQUEST_ERROR_RETRY_LIMIT_DEFAULT,
     DAILY_API_REQUEST_QUOTA,
     ApiClientConfig,
     ApiRateLimitWaitStrategy,
@@ -41,6 +42,7 @@ from tiktok_research_api_helper.cli.custom_argument_types import (
     IncludeAnyKeywordListType,
     JsonQueryFileListType,
     MaxApiRequests,
+    MaxConsecutiveRequestErrorRetries,
     MaxDaysPerQueryType,
     OnlyUsernamesListType,
     RawResponsesOutputDir,
@@ -306,6 +308,9 @@ def run_repeated(
     rate_limit_wait_strategy: ApiRateLimitWaitStrategyType = (
         ApiRateLimitWaitStrategy.WAIT_FOUR_HOURS
     ),
+    max_consecutive_request_error_retries: MaxConsecutiveRequestErrorRetries = (
+        CONSECUTIVE_REQUEST_ERROR_RETRY_LIMIT_DEFAULT
+    ),
     region: RegionCodeListType = None,
     include_any_hashtags: IncludeAnyHashtagListType = None,
     exclude_any_hashtags: ExcludeAnyHashtagListType = None,
@@ -349,6 +354,7 @@ def run_repeated(
         query_file_json_list=query_file_json_list,
         api_credentials_file=api_credentials_file,
         rate_limit_wait_strategy=rate_limit_wait_strategy,
+        max_consecutive_request_error_retries=max_consecutive_request_error_retries,
         region=region,
         include_any_hashtags=include_any_hashtags,
         exclude_any_hashtags=exclude_any_hashtags,
@@ -433,6 +439,9 @@ def run(
     db_url: DBUrlType = None,
     stop_after_one_request: StopAfterOneRequestFlag = False,
     max_api_requests: MaxApiRequests = None,
+    max_consecutive_request_error_retries: MaxConsecutiveRequestErrorRetries = (
+        CONSECUTIVE_REQUEST_ERROR_RETRY_LIMIT_DEFAULT
+    ),
     max_days_per_query: MaxDaysPerQueryType = _MAX_DAYS_PER_QUERY_DEFAULT,
     crawl_tag: CrawlTagType = None,
     raw_responses_output_dir: RawResponsesOutputDir = None,
@@ -600,6 +609,7 @@ def run(
         raw_responses_output_dir=raw_responses_output_dir,
         api_credentials_file=api_credentials_file,
         api_rate_limit_wait_strategy=rate_limit_wait_strategy,
+        max_consecutive_request_error_retries=max_consecutive_request_error_retries,
     )
     query_configs = [
         VideoQueryConfig(

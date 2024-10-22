@@ -36,8 +36,8 @@ INVALID_SEARCH_ID_ERROR_RETRY_WAIT_BASE = 5
 INVALID_SEARCH_ID_ERROR_MAX_NUM_RETRIES = 5
 # TikTok research API only allows fetching top 1000 comments. https://developers.tiktok.com/doc/research-api-specs-query-video-comments
 MAX_COMMENTS_CURSOR = 999
-API_ERROR_RETRY_LIMIT = 5
-API_ERROR_RETRY_MAX_WAIT = timedelta(minutes=2).total_seconds()
+CONSECUTIVE_REQUEST_ERROR_RETRY_LIMIT_DEFAULT = 5
+CONSECUTIVE_REQUEST_ERROR_RETRY_MAX_WAIT = timedelta(minutes=2).total_seconds()
 
 DAILY_API_REQUEST_QUOTA = 1000
 NULL_CHARACTERS_TO_STRIP = "\x00\u0000"
@@ -178,6 +178,9 @@ class ApiClientConfig:
     # If this is false, you can see if results are complete from lastest crawl.has_more (ie if True,
     # results not fully delivered)
     raise_error_on_persistent_api_server_error: bool = False
+    # Max number of time to retry requests that receive consecutive api errors (500, invalid
+    # cursor/search id bug)
+    max_consecutive_request_error_retries: int = CONSECUTIVE_REQUEST_ERROR_RETRY_LIMIT_DEFAULT
 
 
 @attrs.define
@@ -379,6 +382,11 @@ class TikTokApiRequestClient:
     _max_api_requests: int | None = attrs.field(
         default=None, validator=attrs.validators.optional(attrs.validators.instance_of(int))
     )
+    _max_consecutive_request_error_retries: int = attrs.field(
+        default=None,
+        validator=attrs.validators.instance_of(int),
+        converter=attrs.converters.default_if_none(CONSECUTIVE_REQUEST_ERROR_RETRY_LIMIT_DEFAULT),
+    )
 
     @classmethod
     def from_credentials_file(cls, credentials_file: Path, **kwargs) -> TikTokApiRequestClient:
@@ -488,8 +496,8 @@ class TikTokApiRequestClient:
         and cursor being rejected as valid that are in fact valid and will be accepted on a
         subsequent request), responses which should be JSON but we cannot decode as JSON.
 
-        There is another retryer (currently a tenacity.retry decorator on _post) which handles
-        request level issues (like 500 errors, timeouts, etc).
+        There is another retryer no _post which handles request level issues (like 500 errors,
+        timeouts, etc).
         """
         if self._max_api_rate_limit_retries is None:
             stop_strategy = tenacity.stop_never
@@ -543,14 +551,25 @@ class TikTokApiRequestClient:
             return False
         return self._num_api_requests_sent >= self._max_api_requests
 
-    @tenacity.retry(
-        stop=tenacity.stop_after_attempt(API_ERROR_RETRY_LIMIT),
-        wait=tenacity.wait_exponential(multiplier=2, min=3, max=API_ERROR_RETRY_MAX_WAIT),
-        retry=tenacity.retry_if_exception_type((rq.RequestException, ApiServerError)),
-        before_sleep=tenacity.before_sleep_log(logging.getLogger(), logging.DEBUG),
-        reraise=True,
-    )
+    def _post_retryer(self) -> tenacity.Retrying:
+        """This retryer is for request level issues, ie 500 errors, timeouts, etc
+
+        There is another retryer on _fetch* which handle API level issues (rate limit, etc)
+        """
+        return tenacity.Retrying(
+            stop=tenacity.stop_after_attempt(self._max_consecutive_request_error_retries),
+            wait=tenacity.wait_exponential(
+                multiplier=2, min=30, max=CONSECUTIVE_REQUEST_ERROR_RETRY_MAX_WAIT
+            ),
+            retry=tenacity.retry_if_exception_type((rq.RequestException, ApiServerError)),
+            before_sleep=tenacity.before_sleep_log(logging.getLogger(), logging.DEBUG),
+            reraise=True,
+        )
+
     def _post(self, request: TikTokVideoRequest, url: str) -> rq.Response | None:
+        return self._post_retryer()(self._actually_post, request, url)
+
+    def _actually_post(self, request: TikTokVideoRequest, url: str) -> rq.Response | None:
         if self.max_api_requests_reached():
             msg = (
                 f"Refusing to send API request because it would exceed max requests limit: "
@@ -759,6 +778,7 @@ class TikTokApiClient:
                 max_api_rate_limit_retries=config.max_api_rate_limit_retries,
                 max_api_requests=config.max_api_requests,
                 api_rate_limit_wait_strategy=config.api_rate_limit_wait_strategy,
+                max_consecutive_request_error_retries=config.max_consecutive_request_error_retries,
             ),
         )
 
