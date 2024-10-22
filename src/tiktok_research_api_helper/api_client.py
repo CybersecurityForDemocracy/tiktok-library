@@ -178,8 +178,8 @@ class ApiClientConfig:
     # If this is false, you can see if results are complete from lastest crawl.has_more (ie if True,
     # results not fully delivered)
     raise_error_on_persistent_api_server_error: bool = False
-    # Max number of time to retry requests that receive consecutive api errors (500, invalid
-    # cursor/search id bug)
+    # Max number of times to retry requests that receive consecutive request errors (500 server
+    # error, timeouts, etc)
     max_consecutive_request_error_retries: int = CONSECUTIVE_REQUEST_ERROR_RETRY_LIMIT_DEFAULT
 
 
