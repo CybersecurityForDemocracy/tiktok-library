@@ -862,6 +862,7 @@ class TikTokApiClient:
                 logging.info("Stopping api_results_iter due to %r", e)
                 break
             except (ApiServerError, InvalidSearchIdError, InvalidCountOrCursorError) as e:
+                logging.warning("Crawl failed due to API server error: %s", e)
                 if self._config.raise_error_on_persistent_api_server_error:
                     raise e from None
                 break
@@ -878,8 +879,8 @@ class TikTokApiClient:
                     )
 
         logging.info(
-            "Crawl completed (or reached configured max_api_requests: %s). Num api requests: %s. "
-            "Expected remaining API request quota: %s",
+            "Crawl completed, reached configured max_api_requests: %s, or stopped due to an error. "
+            "Num api requests: %s. Expected remaining API request quota: %s",
             self._config.max_api_requests,
             self.num_api_requests_sent,
             self.expected_remaining_api_request_quota,
