@@ -120,8 +120,8 @@ def test(
 
     logging.log(logging.INFO, f"VideoQuery: {test_query}")
 
-    start_date_datetime = utils.str_tiktok_date_format_to_datetime("20220101")
-    end_date_datetime = utils.str_tiktok_date_format_to_datetime("20220101")
+    start_date_datetime = utils.str_tiktok_date_format_to_datetime("20241031")
+    end_date_datetime = utils.str_tiktok_date_format_to_datetime("20241031")
 
     engine = get_sqlite_engine_and_create_tables(db_file)
 
