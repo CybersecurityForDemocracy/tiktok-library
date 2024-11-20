@@ -95,12 +95,12 @@ class ApiRateLimitWaitStrategy(enum.StrEnum):
 
 
 class NullByteRemovingJSONDencoder(json.JSONDecoder):
-    def __init__(self, *args, **kwargs):
-        super().__init__(
-            *args, **kwargs, object_hook=self.remove_null_byte_json_decoder_object_hook
-        )
+    """Deocdes JSON with all null byte (ie '\x00') removed from string fields."""
 
-    def remove_null_byte_json_decoder_object_hook(self, d: dict) -> dict:
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs, object_hook=self.remove_null_byte_from_stings_object_hook)
+
+    def remove_null_byte_from_stings_object_hook(self, d: dict) -> dict:
         for k, v in d.items():
             if isinstance(v, str):
                 d[k] = v.replace("\x00", "")

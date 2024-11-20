@@ -849,13 +849,17 @@ def test_TikTokVideoRequest_as_json(basic_video_query_config):
     }
 
 
-def test_NullByteRemovingJSONDencoder():
-    with open("tests/testdata/api_videos_response_unicode.json") as f:
-        null_byte_json_file_contents = f.read()
-    assert "\x00" in json.loads(null_byte_json_file_contents)["data"]["videos"][0]["username"]
+def test_NullByteRemovingJSONDencoder(testdata_api_videos_response_unicode_file_contents):
+    assert (
+        "\x00"
+        in json.loads(testdata_api_videos_response_unicode_file_contents)["data"]["videos"][0][
+            "username"
+        ]
+    )
     assert (
         "\x00"
         not in json.loads(
-            null_byte_json_file_contents, cls=api_client.NullByteRemovingJSONDencoder
+            testdata_api_videos_response_unicode_file_contents,
+            cls=api_client.NullByteRemovingJSONDencoder,
         )["data"]["videos"][0]["username"]
     )
