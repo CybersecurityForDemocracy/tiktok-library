@@ -19,6 +19,11 @@ from tiktok_research_api_helper import api_client, query, utils
 
 FAKE_SECRETS_YAML_FILE = Path("tests/testdata/fake_secrets.yaml")
 
+# TODO(macpd): use response library to mock out requests to API such that they return contents of
+# "tests/testdata/api_videos_response_unicode.json"
+# (testdata_api_videos_response_unicode_file_contents pytest fixture) and confirm that null bytes
+# are no present in api_client return value.
+
 
 @pytest.fixture
 def mock_request_session():
@@ -844,42 +849,13 @@ def test_TikTokVideoRequest_as_json(basic_video_query_config):
     }
 
 
-def assert_value_does_not_have_null_character(val):
-    if isinstance(val, str):
-        assert "\x00" not in val and "\u0000" not in val, "\\x00 found in value"
-
-
-@pytest.mark.parametrize(
-    "input_json",
-    [
-        {"a": "a"},
-        {"a": 1},
-        {1: "a"},
-        {1: 1},
-        {"a": "a\x00"},
-        {1: "a\x00"},
-        {"a": "\x00a"},
-        {"a": "a\u0000"},
-        {1: "a\u0000"},
-        {"a": "\u0000a"},
-        {"a": ["a", 1]},
-        {"a": [1, 2]},
-        {1: ["a", "b"]},
-        {1: [1, 2]},
-        {"a": ["a\x00", "b"]},
-        {1: ["a\x00", "b\x00"]},
-        {"a": ["\x00a", "b"]},
-        {"a": ["a\u0000", "b\u0000"]},
-    ],
-)
-def test_strip_null_chars_from_json_keys_and_values(input_json):
-    result = copy.deepcopy(input_json)
-    api_client.strip_null_chars_from_json_values(result)
-    for v in result.values():
-        if isinstance(v, str):
-            assert_value_does_not_have_null_character(v)
-        elif isinstance(v, list):
-            for elem in v:
-                assert_value_does_not_have_null_character(elem)
-        else:
-            assert v in input_json.values()
+def test_NullByteRemovingJSONDencoder():
+    with open("tests/testdata/api_videos_response_unicode.json") as f:
+        null_byte_json_file_contents = f.read()
+    assert "\x00" in json.loads(null_byte_json_file_contents)["data"]["videos"][0]["username"]
+    assert (
+        "\x00"
+        not in json.loads(
+            null_byte_json_file_contents, cls=api_client.NullByteRemovingJSONDencoder
+        )["data"]["videos"][0]["username"]
+    )
