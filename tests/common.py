@@ -35,16 +35,39 @@ def test_database_engine(database_url_command_line_arg) -> Engine:
     Base.metadata.drop_all(engine)
 
 
-@pytest.fixture
-def testdata_api_videos_response_json():
-    with open("tests/testdata/api_videos_response.json") as f:
-        return json.load(f)
+def file_contents(filename):
+    with open(filename) as f:
+        return f.read()
 
 
 @pytest.fixture
-def testdata_api_comments_response_json():
-    with open("tests/testdata/api_comments_response.json") as f:
-        return json.load(f)
+def testdata_api_videos_response_file_contents():
+    return file_contents("tests/testdata/api_videos_response.json")
+
+
+@pytest.fixture
+def testdata_api_videos_response_json(testdata_api_videos_response_file_contents):
+    return json.loads(testdata_api_videos_response_file_contents)
+
+
+@pytest.fixture
+def testdata_api_videos_response_unicode_file_contents():
+    return file_contents("tests/testdata/api_videos_response_unicode.json")
+
+
+@pytest.fixture
+def testdata_api_videos_response_unicode_json(testdata_api_videos_response_unicode_file_contents):
+    return json.loads(testdata_api_videos_response_unicode_file_contents)
+
+
+@pytest.fixture
+def testdata_api_comments_response_file_contents():
+    return file_contents("tests/testdata/api_comments_response.json")
+
+
+@pytest.fixture
+def testdata_api_comments_response_json(testdata_api_comments_response_file_contents):
+    return json.loads(testdata_api_comments_response_file_contents)
 
 
 def all_hashtag_names_sorted(session):
