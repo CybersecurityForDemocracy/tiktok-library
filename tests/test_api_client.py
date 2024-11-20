@@ -8,16 +8,17 @@ from unittest.mock import MagicMock, Mock, PropertyMock, call
 
 import pendulum
 import pytest
+import responses
 import requests
 from sqlalchemy.orm import Session
 
 from tests.common import (
     all_crawls,
     all_videos,
+    FAKE_SECRETS_YAML_FILE,
 )
 from tiktok_research_api_helper import api_client, query, utils
 
-FAKE_SECRETS_YAML_FILE = Path("tests/testdata/fake_secrets.yaml")
 
 # TODO(macpd): use response library to mock out requests to API such that they return contents of
 # "tests/testdata/api_videos_response_unicode.json"
@@ -331,28 +332,6 @@ def mock_tiktok_request_client(
 
 
 @pytest.fixture
-def basic_acquisition_config():
-    return api_client.ApiClientConfig(
-        engine=None,
-        api_credentials_file=None,
-    )
-
-
-@pytest.fixture
-def basic_video_query():
-    return query.generate_query(include_any_hashtags="test1,test2")
-
-
-@pytest.fixture
-def basic_video_query_config(basic_video_query):
-    return api_client.VideoQueryConfig(
-        query=basic_video_query,
-        start_date=pendulum.parse("20240601"),
-        end_date=pendulum.parse("20240601"),
-    )
-
-
-@pytest.fixture
 def expected_fetch_video_calls(basic_video_query_config, mock_tiktok_video_responses):
     return [
         call(
@@ -437,6 +416,24 @@ def test_tiktok_api_client_api_results_iter(
 
     assert mock_tiktok_request_client.fetch_videos.call_count == len(mock_tiktok_video_responses)
     assert mock_tiktok_request_client.fetch_videos.mock_calls == expected_fetch_video_calls
+
+@responses.activate
+def test_tiktok_request_client_removes_null_chars(
+    basic_video_query,
+    mock_access_token_fetcher_session,
+    testdata_api_videos_response_unicode_json,
+):
+    responses.post(re.compile('https://open.tiktokapis.com/v2/*'),
+                   json=testdata_api_videos_response_unicode_json)
+    request_client = api_client.TikTokApiRequestClient.from_credentials_file(
+        FAKE_SECRETS_YAML_FILE,
+        api_request_session=requests.Session(),
+        access_token_fetcher_session=mock_access_token_fetcher_session,
+    )
+    response = request_client.fetch_videos(
+        api_client.TikTokVideoRequest(query=basic_video_query, start_date=None, end_date=None))
+    assert response.videos
+    assert "\x00" not in response.videos[0]['username']
 
 
 @pytest.fixture

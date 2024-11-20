@@ -4,7 +4,9 @@ be updated.
 """
 
 import json
+from pathlib import Path
 
+import pendulum
 import pytest
 from sqlalchemy import (
     Engine,
@@ -14,13 +16,17 @@ from sqlalchemy import (
 from tiktok_research_api_helper.models import (
     Base,
     Crawl,
+    CrawlTag,
     Hashtag,
     Video,
     get_engine_and_create_tables,
 )
+from tiktok_research_api_helper.api_client import (ApiClientConfig, VideoQueryConfig)
+from tiktok_research_api_helper import query 
 
 _IN_MEMORY_SQLITE_DATABASE_URL = "sqlite://"
 
+FAKE_SECRETS_YAML_FILE = Path("tests/testdata/fake_secrets.yaml")
 
 @pytest.fixture
 def test_database_engine(database_url_command_line_arg) -> Engine:
@@ -84,3 +90,40 @@ def all_videos(session):
 
 def all_crawls(session):
     return session.scalars(select(Crawl)).all()
+
+@pytest.fixture
+def basic_acquisition_config():
+    return ApiClientConfig(
+        engine=None,
+        api_credentials_file=None,
+    )
+
+
+@pytest.fixture
+def basic_video_query():
+    return query.generate_query(include_any_hashtags="test1,test2")
+
+
+@pytest.fixture
+def basic_video_query_config(basic_video_query):
+    return VideoQueryConfig(
+        query=basic_video_query,
+        start_date=pendulum.parse("20240601"),
+        end_date=pendulum.parse("20240601"),
+    )
+
+
+@pytest.fixture
+def mock_crawl_tags():
+    return {CrawlTag(name="testing")}
+
+
+@pytest.fixture
+def mock_crawl(mock_crawl_tags):
+    return Crawl(
+        cursor=1,
+        has_more=False,
+        search_id="test",
+        query="test",
+        crawl_tags=mock_crawl_tags,
+    )
