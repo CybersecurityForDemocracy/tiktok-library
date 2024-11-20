@@ -16,6 +16,8 @@ from sqlalchemy import (
     MetaData,
     String,
     Table,
+    Unicode,
+    UnicodeText,
     UniqueConstraint,
     create_engine,
     func,
@@ -75,7 +77,7 @@ class Hashtag(Base):
     __tablename__ = "hashtag"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(String)
+    name: Mapped[str] = mapped_column(UnicodeText)
 
     __table_args__ = (UniqueConstraint("name"),)
 
@@ -103,7 +105,7 @@ class CrawlTag(Base):
     __tablename__ = "crawl_tag"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(String)
+    name: Mapped[str] = mapped_column(UnicodeText)
 
     __table_args__ = (UniqueConstraint("name"),)
 
@@ -123,7 +125,7 @@ class Effect(Base):
     __tablename__ = "effect"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    effect_id: Mapped[str] = mapped_column(String)
+    effect_id: Mapped[str] = mapped_column(UnicodeText)
 
     __table_args__ = (UniqueConstraint("effect_id"),)
 
@@ -151,9 +153,9 @@ class Video(Base):
 
     create_time: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=False))
 
-    username: Mapped[str]
-    region_code: Mapped[str] = mapped_column(String(2))
-    video_description: Mapped[str | None]
+    username: Mapped[str] = mapped_column(UnicodeText)
+    region_code: Mapped[str] = mapped_column(Unicode(2))
+    video_description: Mapped[str | None] = mapped_column(UnicodeText, nullable=True)
     music_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
 
     like_count: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
@@ -165,7 +167,7 @@ class Video(Base):
     hashtags: Mapped[set[Hashtag]] = relationship(secondary=videos_to_hashtags_association_table)
 
     playlist_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
-    voice_to_text: Mapped[str | None]
+    voice_to_text: Mapped[str | None] = mapped_column(UnicodeText, nullable=True)
 
     # Columns here are not returned by the API, but are added by us
     crawled_at: Mapped[datetime.datetime] = mapped_column(
@@ -207,10 +209,10 @@ class UserInfo(Base):
     __tablename__ = "user_info"
 
     # TODO(macpd): maybe declare relationship to video.username
-    username: Mapped[str] = mapped_column(primary_key=True)
-    display_name: Mapped[str]
-    bio_description: Mapped[str]
-    avatar_url: Mapped[str]
+    username: Mapped[str] = mapped_column(UnicodeText, primary_key=True)
+    display_name: Mapped[str] = mapped_column(UnicodeText)
+    bio_description: Mapped[str] = mapped_column(UnicodeText)
+    avatar_url: Mapped[str] = mapped_column(UnicodeText)
     is_verified: Mapped[bool]
     likes_count: Mapped[int]
     video_count: Mapped[int]
@@ -225,7 +227,7 @@ class Comment(Base):
     id: Mapped[int] = mapped_column(
         BigIntegerForPrimaryKeyType, autoincrement=False, primary_key=True
     )
-    text: Mapped[str]
+    text: Mapped[str] = mapped_column(UnicodeText)
     # TODO(macpd): maybe declare relationship to video.id
     video_id: Mapped[int]
     parent_comment_id: Mapped[int]
@@ -412,8 +414,8 @@ class Crawl(Base):
 
     cursor: Mapped[int] = mapped_column(BigInteger)
     has_more: Mapped[bool]
-    search_id: Mapped[str]
-    query: Mapped[str]
+    search_id: Mapped[str] = mapped_column(UnicodeText)
+    query: Mapped[str] = mapped_column(UnicodeText)
 
     updated_at: Mapped[datetime.datetime | None] = mapped_column(
         DateTime(timezone=True), onupdate=func.now(), server_default=func.now()
