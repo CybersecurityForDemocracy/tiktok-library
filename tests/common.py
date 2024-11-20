@@ -13,6 +13,8 @@ from sqlalchemy import (
     select,
 )
 
+from tiktok_research_api_helper import query
+from tiktok_research_api_helper.api_client import ApiClientConfig, VideoQueryConfig
 from tiktok_research_api_helper.models import (
     Base,
     Crawl,
@@ -21,12 +23,11 @@ from tiktok_research_api_helper.models import (
     Video,
     get_engine_and_create_tables,
 )
-from tiktok_research_api_helper.api_client import (ApiClientConfig, VideoQueryConfig)
-from tiktok_research_api_helper import query 
 
 _IN_MEMORY_SQLITE_DATABASE_URL = "sqlite://"
 
 FAKE_SECRETS_YAML_FILE = Path("tests/testdata/fake_secrets.yaml")
+
 
 @pytest.fixture
 def test_database_engine(database_url_command_line_arg) -> Engine:
@@ -90,6 +91,7 @@ def all_videos(session):
 
 def all_crawls(session):
     return session.scalars(select(Crawl)).all()
+
 
 @pytest.fixture
 def basic_acquisition_config():
