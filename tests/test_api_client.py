@@ -414,7 +414,7 @@ def test_tiktok_request_client_removes_null_chars(
     basic_video_query,
     mocked_access_token_fetch,
     mocked_video_responses,
-    testdata_api_videos_response_unicode_json,
+    testdata_api_videos_response_unicode_with_null_bytes_json,
 ):
     request_client = api_client.TikTokApiRequestClient.from_credentials_file(
         FAKE_SECRETS_YAML_FILE,
@@ -848,17 +848,19 @@ def test_TikTokVideoRequest_as_json(basic_video_query_config):
     }
 
 
-def test_NullByteRemovingJSONDencoder(testdata_api_videos_response_unicode_file_contents):
+def test_NullByteRemovingJSONDencoder(
+    testdata_api_videos_response_unicode_with_null_bytes_file_contents,
+):
     assert (
         "\x00"
-        in json.loads(testdata_api_videos_response_unicode_file_contents)["data"]["videos"][0][
-            "username"
-        ]
+        in json.loads(testdata_api_videos_response_unicode_with_null_bytes_file_contents)["data"][
+            "videos"
+        ][0]["username"]
     )
     assert (
         "\x00"
         not in json.loads(
-            testdata_api_videos_response_unicode_file_contents,
+            testdata_api_videos_response_unicode_with_null_bytes_file_contents,
             cls=api_client.NullByteRemovingJSONDencoder,
         )["data"]["videos"][0]["username"]
     )

@@ -48,23 +48,39 @@ def file_contents(filename):
 
 
 @pytest.fixture
-def testdata_api_videos_response_file_contents():
-    return file_contents("tests/testdata/api_videos_response.json")
+def testdata_api_videos_response_page_1_of_2_file_contents():
+    return file_contents("tests/testdata/api_videos_response_page_1_of_2.json")
 
 
 @pytest.fixture
-def testdata_api_videos_response_json(testdata_api_videos_response_file_contents):
-    return json.loads(testdata_api_videos_response_file_contents)
+def testdata_api_videos_response_page_1_of_2_json(
+    testdata_api_videos_response_page_1_of_2_file_contents,
+):
+    return json.loads(testdata_api_videos_response_page_1_of_2_file_contents)
 
 
 @pytest.fixture
-def testdata_api_videos_response_unicode_file_contents():
-    return file_contents("tests/testdata/api_videos_response_unicode.json")
+def testdata_api_videos_response_page_2_of_2_file_contents():
+    return file_contents("tests/testdata/api_videos_response_page_2_of_2.json")
 
 
 @pytest.fixture
-def testdata_api_videos_response_unicode_json(testdata_api_videos_response_unicode_file_contents):
-    return json.loads(testdata_api_videos_response_unicode_file_contents)
+def testdata_api_videos_response_page_2_of_2_json(
+    testdata_api_videos_response_page_2_of_2_file_contents,
+):
+    return json.loads(testdata_api_videos_response_page_2_of_2_file_contents)
+
+
+@pytest.fixture
+def testdata_api_videos_response_unicode_with_null_bytes_file_contents():
+    return file_contents("tests/testdata/api_videos_response_unicode_with_null_bytes.json")
+
+
+@pytest.fixture
+def testdata_api_videos_response_unicode_with_null_bytes_json(
+    testdata_api_videos_response_unicode_with_null_bytes_file_contents,
+):
+    return json.loads(testdata_api_videos_response_unicode_with_null_bytes_file_contents)
 
 
 @pytest.fixture

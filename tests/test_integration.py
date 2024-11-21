@@ -38,10 +38,12 @@ def mocked_access_token_responses(responses_mock):
 
 
 @pytest.fixture
-def mocked_video_responses(responses_mock, testdata_api_videos_response_unicode_json):
+def mocked_video_responses(
+    responses_mock, testdata_api_videos_response_unicode_with_null_bytes_json
+):
     return responses_mock.post(
         re.compile("https://open.tiktokapis.com/v2/*"),
-        json=testdata_api_videos_response_unicode_json,
+        json=testdata_api_videos_response_unicode_with_null_bytes_json,
     )
 
 
@@ -49,7 +51,7 @@ def test_tiktok_request_client_removes_null_chars(
     basic_video_query,
     basic_video_query_config,
     basic_acquisition_config,
-    testdata_api_videos_response_unicode_json,
+    testdata_api_videos_response_unicode_with_null_bytes_json,
     test_database_engine,
     mocked_access_token_responses,
     mocked_video_responses,
@@ -66,5 +68,5 @@ def test_tiktok_request_client_removes_null_chars(
     client.fetch_and_store_all(basic_video_query_config)
     with Session(test_database_engine) as session:
         assert session.scalars(select(Video.id).order_by(Video.id)).all() == [
-            testdata_api_videos_response_unicode_json["data"]["videos"][0]["id"]
+            testdata_api_videos_response_unicode_with_null_bytes_json["data"]["videos"][0]["id"]
         ]
