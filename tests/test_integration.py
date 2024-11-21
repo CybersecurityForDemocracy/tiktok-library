@@ -3,6 +3,7 @@
 import re
 
 import attrs
+import pytest
 import responses
 from sqlalchemy import (
     select,
@@ -18,15 +19,15 @@ from tiktok_research_api_helper.models import (
 )
 
 
-@responses.activate
-def test_tiktok_request_client_removes_null_chars(
-    basic_video_query,
-    basic_video_query_config,
-    basic_acquisition_config,
-    testdata_api_videos_response_unicode_json,
-    test_database_engine,
-):
-    responses.post(
+@pytest.fixture
+def responses_mock():
+    with responses.RequestsMock() as rsps:
+        yield rsps
+
+
+@pytest.fixture
+def mocked_access_token_responses(responses_mock):
+    return responses_mock.post(
         "https://open.tiktokapis.com/v2/oauth/token/",
         json={
             "access_token": "mock_access_token_1",
@@ -34,10 +35,25 @@ def test_tiktok_request_client_removes_null_chars(
             "token_type": "Bearer",
         },
     )
-    responses.post(
+
+
+@pytest.fixture
+def mocked_video_responses(responses_mock, testdata_api_videos_response_unicode_json):
+    return responses_mock.post(
         re.compile("https://open.tiktokapis.com/v2/*"),
         json=testdata_api_videos_response_unicode_json,
     )
+
+
+def test_tiktok_request_client_removes_null_chars(
+    basic_video_query,
+    basic_video_query_config,
+    basic_acquisition_config,
+    testdata_api_videos_response_unicode_json,
+    test_database_engine,
+    mocked_access_token_responses,
+    mocked_video_responses,
+):
     request_client = api_client.TikTokApiRequestClient.from_credentials_file(
         FAKE_SECRETS_YAML_FILE,
         api_request_session=None,
