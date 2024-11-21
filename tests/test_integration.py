@@ -1,4 +1,5 @@
-"""Tests integration of database storage of api client retrun values (using mocked http responses)
+"""
+Tests integration of database storage of api client retrun values (using mocked http responses)
 """
 
 import re
