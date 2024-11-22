@@ -61,7 +61,7 @@ extra-dependencies = [
 run = "pytest tests/ -vv"
 postgres-integration-test-docker-as-sudo = [
   "sudo docker compose --file=docker-compose-postgres-integration-test.yml build",
-  "sudo docker compose --file=docker-compose-postgres-integration-test.yml run postgres-integration-test",
+  "- sudo docker compose --file=docker-compose-postgres-integration-test.yml run postgres-integration-test",
   "sudo docker compose --file=docker-compose-postgres-integration-test.yml down --remove-orphans"
 ]
 
