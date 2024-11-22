@@ -95,7 +95,7 @@ class ApiRateLimitWaitStrategy(enum.StrEnum):
 
 
 class NullByteRemovingJSONDencoder(json.JSONDecoder):
-    """Deocdes JSON with all null byte (ie '\x00') removed from string fields."""
+    r"""Deocdes JSON with all null byte (ie '\x00') removed from string fields."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs, object_hook=self.remove_null_byte_from_stings_object_hook)
