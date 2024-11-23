@@ -750,9 +750,15 @@ class TikTokApiClient:
     .clear_cache()
     """
 
-    _request_client: TikTokApiRequestClient = attrs.field(kw_only=True)
+    _request_client: TikTokApiRequestClient = attrs.field(
+        kw_only=True,
+        # Attrs removes underscores from field names but the static type checker doesn't know that
+        alias="request_client",
+    )
     _config: ApiClientConfig = attrs.field(
-        validator=[attrs.validators.instance_of(ApiClientConfig), field_is_not_empty]
+        validator=[attrs.validators.instance_of(ApiClientConfig), field_is_not_empty],
+        # Attrs removes underscores from field names but the static type checker doesn't know that
+        alias="config",
     )
     # Rudimentary cache of username -> user_info
     _user_info_cache: Mapping[str, TikTokUserInfoResponse] = attrs.field(
