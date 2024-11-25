@@ -40,7 +40,6 @@ CONSECUTIVE_REQUEST_ERROR_RETRY_LIMIT_DEFAULT = 5
 CONSECUTIVE_REQUEST_ERROR_RETRY_MAX_WAIT = timedelta(minutes=2).total_seconds()
 
 DAILY_API_REQUEST_QUOTA = 1000
-NULL_CHARACTERS_TO_STRIP = "\x00\u0000"
 
 
 class ApiRateLimitError(Exception):
@@ -92,6 +91,19 @@ def field_is_not_empty(instance, attribute, value):
 class ApiRateLimitWaitStrategy(enum.StrEnum):
     WAIT_FOUR_HOURS = enum.auto()
     WAIT_NEXT_UTC_MIDNIGHT = enum.auto()
+
+
+class NullByteRemovingJSONDencoder(json.JSONDecoder):
+    r"""Deocdes JSON with all null byte (ie '\x00') removed from string fields."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs, object_hook=self.remove_null_byte_from_stings_object_hook)
+
+    def remove_null_byte_from_stings_object_hook(self, d: dict) -> dict:
+        for k, v in d.items():
+            if isinstance(v, str):
+                d[k] = v.replace("\x00", "")
+        return d
 
 
 @attrs.define
@@ -649,8 +661,6 @@ def _parse_video_response(response: rq.Response) -> TikTokVideoResponse:
     error_data = response_json.get("error")
     response_data_section = response_json.get("data", {})
     videos = response_data_section.get("videos", [])
-    for video in videos:
-        strip_null_chars_from_json_values(video)
 
     return TikTokVideoResponse(data=response_data_section, videos=videos, error=error_data)
 
@@ -659,7 +669,6 @@ def _parse_user_info_response(username: str, response: rq.Response) -> TikTokUse
     response_json = _extract_response_json_or_raise_error(response)
     error_data = response_json.get("error")
     response_data_section = response_json.get("data")
-    strip_null_chars_from_json_values(response_data_section)
     # API does not include username in response. for ease of use we add it.
     response_data_section["username"] = username
 
@@ -677,21 +686,8 @@ def _parse_comments_response(response: rq.Response) -> TikTokCommentsResponse:
     response_data_section = response_json.get("data", {})
     # TODO(macpd): this might have an issue with null characters in usernames
     comments = response_data_section.get("comments")
-    strip_null_chars_from_json_values(comments)
 
     return TikTokCommentsResponse(comments=comments, data=response_data_section, error=error_data)
-
-
-def strip_null_chars_from_json_values(json_response: Mapping[str, Any]):
-    for key in json_response:
-        if isinstance(json_response[key], str):
-            json_response[key] = json_response[key].strip(NULL_CHARACTERS_TO_STRIP)
-        # Could do this recursively, but don't want a infinite recursion bug
-        elif isinstance(json_response[key], list):
-            json_response[key] = [
-                v.strip(NULL_CHARACTERS_TO_STRIP) if isinstance(v, str) else v
-                for v in json_response[key]
-            ]
 
 
 def _extract_response_json_or_raise_error(response: rq.Response | None) -> Mapping[str, Any]:
@@ -699,7 +695,7 @@ def _extract_response_json_or_raise_error(response: rq.Response | None) -> Mappi
         raise ValueError("Response is None")
 
     try:
-        return response.json()
+        return response.json(cls=NullByteRemovingJSONDencoder)
     except rq.exceptions.JSONDecodeError:
         logging.info(
             "Error parsing JSON response:\n%s\n%s\n%s\n%s",
@@ -754,9 +750,15 @@ class TikTokApiClient:
     .clear_cache()
     """
 
-    _request_client: TikTokApiRequestClient = attrs.field(kw_only=True)
+    _request_client: TikTokApiRequestClient = attrs.field(
+        kw_only=True,
+        # Attrs removes underscores from field names but the static type checker doesn't know that
+        alias="request_client",
+    )
     _config: ApiClientConfig = attrs.field(
-        validator=[attrs.validators.instance_of(ApiClientConfig), field_is_not_empty]
+        validator=[attrs.validators.instance_of(ApiClientConfig), field_is_not_empty],
+        # Attrs removes underscores from field names but the static type checker doesn't know that
+        alias="config",
     )
     # Rudimentary cache of username -> user_info
     _user_info_cache: Mapping[str, TikTokUserInfoResponse] = attrs.field(
