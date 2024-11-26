@@ -38,6 +38,8 @@ INVALID_SEARCH_ID_ERROR_MAX_NUM_RETRIES = 5
 MAX_COMMENTS_CURSOR = 999
 CONSECUTIVE_REQUEST_ERROR_RETRY_LIMIT_DEFAULT = 5
 CONSECUTIVE_REQUEST_ERROR_RETRY_MAX_WAIT = timedelta(minutes=2).total_seconds()
+ACCESS_TOKEN_FETCH_ERROR_RETRY_LIMIT = 10
+ACCESS_TOKEN_FETCH_ERROR_RETRY_MAX_WAIT = timedelta(minutes=10).total_seconds()
 
 DAILY_API_REQUEST_QUOTA = 1000
 
@@ -82,6 +84,11 @@ class MaxApiRequestsReachedError(Exception):
 
     pass
 
+
+class ApiRejectedCredentialsError(Exception):
+    """Raised when API rejects API credentials."""
+
+    pass
 
 class AccessTokenFetchFailure(Exception):
     """Raised when fetching/refreshing API access token fails."""
@@ -459,6 +466,8 @@ class TikTokApiRequestClient:
             raise e
         if "access_token" not in access_data:
             logging.info("Access token retrieval failed. response: %s", access_data)
+            if access_data.get('error') == 'invalid_client':
+                raise ApiRejectedCredentialsError(repr(access_data))
             raise AccessTokenFetchFailure(repr(access_data))
 
         logging.info("Access token retrieval succeeded")
