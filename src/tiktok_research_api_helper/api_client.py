@@ -90,6 +90,7 @@ class ApiRejectedCredentialsError(Exception):
 
     pass
 
+
 class AccessTokenFetchFailure(Exception):
     """Raised when fetching/refreshing API access token fails."""
 
@@ -475,7 +476,7 @@ class TikTokApiRequestClient:
             raise e
         if "access_token" not in access_data:
             logging.info("Access token retrieval failed. response: %s", access_data)
-            if access_data.get('error') == 'invalid_client':
+            if access_data.get("error") == "invalid_client":
                 raise ApiRejectedCredentialsError(repr(access_data))
             raise AccessTokenFetchFailure(repr(access_data))
 
