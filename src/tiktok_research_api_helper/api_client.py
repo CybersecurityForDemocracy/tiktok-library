@@ -83,6 +83,12 @@ class MaxApiRequestsReachedError(Exception):
     pass
 
 
+class AccessTokenFetchFailure(Exception):
+    """Raised when fetching/refreshing API access token fails."""
+
+    pass
+
+
 def field_is_not_empty(instance, attribute, value):
     if not value:
         raise ValueError(f"{instance.__class__.__name__}: {attribute.name} cannot be empty")
@@ -451,6 +457,10 @@ class TikTokApiRequestClient:
                 response.text,
             )
             raise e
+        if "access_token" not in access_data:
+            logging.info("Access token retrieval failed. response: %s", access_data)
+            raise AccessTokenFetchFailure(repr(access_data))
+
         logging.info("Access token retrieval succeeded")
         logging.debug("Access token response: %s", access_data)
 
