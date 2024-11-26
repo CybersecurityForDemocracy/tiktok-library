@@ -433,6 +433,15 @@ class TikTokApiRequestClient:
     def __attrs_post_init__(self):
         self._configure_request_sessions()
 
+    @tenacity.retry(
+        stop=tenacity.stop_after_attempt(ACCESS_TOKEN_FETCH_ERROR_RETRY_LIMIT),
+        wait=tenacity.wait_exponential(
+            multiplier=2, min=1, max=ACCESS_TOKEN_FETCH_ERROR_RETRY_MAX_WAIT
+        ),
+        retry=tenacity.retry_if_exception_type(AccessTokenFetchFailure),
+        before_sleep=tenacity.before_sleep_log(logging.getLogger(), logging.INFO),
+        reraise=True,
+    )
     def _get_client_access_token(
         self,
         grant_type: str = "client_credentials",
