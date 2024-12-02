@@ -53,6 +53,12 @@ extra-dependencies = [
   "responses",
 ]
 
+# This is the default env for command 'hatch test'
+[tool.hatch.envs.hatch-test]
+extra-dependencies = [
+  "responses",
+]
+
 [tool.hatch.envs.alembic]
 extra-dependencies = [
   "alembic"
