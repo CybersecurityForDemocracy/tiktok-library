@@ -38,6 +38,8 @@ INVALID_SEARCH_ID_ERROR_MAX_NUM_RETRIES = 5
 MAX_COMMENTS_CURSOR = 999
 CONSECUTIVE_REQUEST_ERROR_RETRY_LIMIT_DEFAULT = 5
 CONSECUTIVE_REQUEST_ERROR_RETRY_MAX_WAIT = timedelta(minutes=2).total_seconds()
+ACCESS_TOKEN_FETCH_ERROR_RETRY_LIMIT = 10
+ACCESS_TOKEN_FETCH_ERROR_RETRY_MAX_WAIT = timedelta(minutes=10).total_seconds()
 
 DAILY_API_REQUEST_QUOTA = 1000
 
@@ -79,6 +81,18 @@ class ApiServerError(Exception):
 class MaxApiRequestsReachedError(Exception):
     """Raised when TikTokApiRequestClient attempts a request to the API that would exceed the
     configured maxmimum allowd api requests"""
+
+    pass
+
+
+class ApiRejectedCredentialsError(Exception):
+    """Raised when API rejects API credentials."""
+
+    pass
+
+
+class AccessTokenFetchFailure(Exception):
+    """Raised when fetching/refreshing API access token fails."""
 
     pass
 
@@ -420,6 +434,15 @@ class TikTokApiRequestClient:
     def __attrs_post_init__(self):
         self._configure_request_sessions()
 
+    @tenacity.retry(
+        stop=tenacity.stop_after_attempt(ACCESS_TOKEN_FETCH_ERROR_RETRY_LIMIT),
+        wait=tenacity.wait_exponential(
+            multiplier=2, min=1, max=ACCESS_TOKEN_FETCH_ERROR_RETRY_MAX_WAIT
+        ),
+        retry=tenacity.retry_if_exception_type(AccessTokenFetchFailure),
+        before_sleep=tenacity.before_sleep_log(logging.getLogger(), logging.INFO),
+        reraise=True,
+    )
     def _get_client_access_token(
         self,
         grant_type: str = "client_credentials",
@@ -451,6 +474,12 @@ class TikTokApiRequestClient:
                 response.text,
             )
             raise e
+        if "access_token" not in access_data:
+            logging.info("Access token retrieval failed. response: %s", access_data)
+            if access_data.get("error") == "invalid_client":
+                raise ApiRejectedCredentialsError(repr(access_data))
+            raise AccessTokenFetchFailure(repr(access_data))
+
         logging.info("Access token retrieval succeeded")
         logging.debug("Access token response: %s", access_data)
 
