@@ -212,10 +212,10 @@ class UserInfo(Base):
     bio_description: Mapped[str]
     avatar_url: Mapped[str]
     is_verified: Mapped[bool]
-    likes_count: Mapped[int]
-    video_count: Mapped[int]
-    follower_count: Mapped[int]
-    following_count: Mapped[int]
+    likes_count: Mapped[int] = mapped_column(BigInteger)
+    video_count: Mapped[int] = mapped_column(BigInteger)
+    follower_count: Mapped[int] = mapped_column(BigInteger)
+    following_count: Mapped[int] = mapped_column(BigInteger)
 
 
 # TODO(macpd): should we track crawl_id <-> Comment many-to-many relationship?
@@ -227,10 +227,10 @@ class Comment(Base):
     )
     text: Mapped[str]
     # TODO(macpd): maybe declare relationship to video.id
-    video_id: Mapped[int]
-    parent_comment_id: Mapped[int]
-    like_count: Mapped[int] = mapped_column(nullable=True)
-    reply_count: Mapped[int] = mapped_column(nullable=True)
+    video_id: Mapped[int] = mapped_column(BigInteger)
+    parent_comment_id: Mapped[int] = mapped_column(BigInteger)
+    like_count: Mapped[int] = mapped_column(BigInteger, nullable=True)
+    reply_count: Mapped[int] = mapped_column(BigInteger, nullable=True)
     create_time: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=False))
 
 
