@@ -5,7 +5,7 @@ from sqlalchemy import pool
 
 from alembic import context
 
-from src.tiktok_research_api_lib import models
+from src.tiktok_research_api_helper import models
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
