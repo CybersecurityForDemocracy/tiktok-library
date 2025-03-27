@@ -61,7 +61,8 @@ extra-dependencies = [
 
 [tool.hatch.envs.alembic]
 extra-dependencies = [
-  "alembic"
+  "alembic",
+  "black",
 ]
 
 [tool.hatch.envs.test.scripts]
