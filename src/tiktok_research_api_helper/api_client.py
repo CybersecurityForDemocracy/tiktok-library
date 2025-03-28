@@ -975,7 +975,7 @@ class TikTokApiClient:
 
             has_more = response.data.get("has_more", False)
             cursor = response.data.get("cursor")
-            
+
             if cursor is None:
                 logging.debug(
                     "Stopping comments fetch for video ID %s because cursor is empty.", video_id
